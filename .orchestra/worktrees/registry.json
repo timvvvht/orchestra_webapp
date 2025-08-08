@@ -1,1 +1,9 @@
-{}
+{
+  "9197701a-bfc0-405d-8a20-8f1f31c294cb": {
+    "session_id": "9197701a-bfc0-405d-8a20-8f1f31c294cb",
+    "branch": "mc/9197701a-bfc0-405d-8a20-8f1f31c294cb",
+    "path": "/Users/tim/Code/orchestra_website/.orchestra/worktrees/9197701a-bfc0-405d-8a20-8f1f31c294cb",
+    "base_commit": "2b049d942d2ac49d220fdf8ce001b2f2e10e2c81",
+    "created_at": "2025-08-08T21:50:28.196667Z"
+  }
+}
