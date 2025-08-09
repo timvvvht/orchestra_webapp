@@ -8,9 +8,6 @@
   "main": "workers/app.ts",
   // Upload static assets from the Vite client build
   "assets": { "directory": "build/client" },
-  "kv_namespaces": [
-    { "binding": "DOWNLOAD_TOKENS", "id": "REPLACE_WITH_PAGES_KV_ID" }
-  ],
   "vars": {
     "ACCESS_CODE_SHA256": "<hex>",
     "ACCESS_CODE_PEPPER": "<secret>",
