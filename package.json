@@ -24,7 +24,6 @@
     "test:seo": "vitest run tests/seo.test.ts -r"
   },
   "dependencies": {
-    "aws4fetch": "^1.0.20",
     "isbot": "^5.1.27",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
