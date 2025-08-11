@@ -13,11 +13,13 @@
     "ACCESS_CODE_PEPPER": "<secret>",
     "RATE_LIMIT_WINDOW_SEC": "600",
     "RATE_LIMIT_MAX_ATTEMPTS": "5",
-    "AWS_ACCESS_KEY_ID": "<set-in-dashboard>",
-    "AWS_SECRET_ACCESS_KEY": "<set-in-dashboard>",
-    "AWS_REGION": "us-east-1",
-    "S3_BUCKET": "your-bucket",
-    "S3_OBJECT_KEY": "releases/Orchestra.dmg",
+    "R2_OBJECT_KEY": "releases/Orchestra.dmg",
     "MASTER_ACCESS_CODE": "orchestra-dev-master"
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "DOWNLOADS_BUCKET",
+      "bucket_name": "orchestra-downloads"
+    }
+  ]
 }
