@@ -26,3 +26,7 @@ export function getClientIp(request: Request): string {
     "0.0.0.0";
   return ip.split(",")[0].trim();
 }
+
+// [SYMBOL-TEST] single insert after getClientIp
+
+// [SYMBOL-TEST] single insert after getClientIp
