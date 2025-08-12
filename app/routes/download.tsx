@@ -3,7 +3,7 @@ import { validateAndConsumeToken } from "../utils/tokens.server";
 import { fetchR2Object } from "../utils/r2.server";
 import { getClientIp } from "../utils/security.server";
 
-export async function loader({ request, context }: Route.LoaderArgs) {
+/* [SYMBOL-TEST] replace_symbol_body no-op */
   const url = new URL(request.url);
   const token = url.searchParams.get("token") ?? "";
   const ip = getClientIp(request);
@@ -14,6 +14,5 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     return new Response(status === 410 ? "Gone" : "Forbidden", { status });
   }
   return fetchR2Object(context.cloudflare.env as any);
-}
 
 export default function Download() { return null; }
