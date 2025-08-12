@@ -1,7 +1,3 @@
-// [SYMBOL-TEST] Inserted by symbol tool: before Button
-
-// [SYMBOL-TEST] Inserted by symbol tool: before Button
-
 export function Button({ className = "", children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button {...rest} className={`btn-primary ${className}`}>

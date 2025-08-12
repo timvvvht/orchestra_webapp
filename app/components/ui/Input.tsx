@@ -2,8 +2,4 @@ type Props = React.InputHTMLAttributes<HTMLInputElement> & { variant?: "default"
 export function Input({ className = "", variant = "default", ...rest }: Props) {
   const variantCls = variant === "code" ? " font-mono tracking-wider" : "";
   return <input {...rest} className={`input${variantCls} ${className}`} />;
-
-export const __SYMBOL_TOOL_TEST__Input = true;
-
-export const __SYMBOL_TOOL_TEST__Input = true;
 }
