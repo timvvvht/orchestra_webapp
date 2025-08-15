@@ -235,7 +235,3 @@ export interface Settings {
    */
   version: number;
 }
-
-// TypeScript type-only exports vanish at runtime.
-// Add a dummy export to keep the module "alive" for ESM importers.
-export const __KEEP_MODULE__ = true;

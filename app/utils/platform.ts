@@ -1,5 +1,5 @@
 import { platform } from '@tauri-apps/plugin-os';
-import { Settings } from '@/types/settings';
+import type { Settings } from '@/types/settings';
 
 /**
  * Platform type

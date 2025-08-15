@@ -5,8 +5,8 @@
  * in the notification settings.
  */
 
-import { Settings } from '@/types/settings';
-import { SettingsMigration } from '../types';
+import type { Settings } from '@/types/settings';
+import type { SettingsMigration } from '../types';
 
 /**
  * Migration from version 2 to version 3

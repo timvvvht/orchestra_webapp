@@ -6,8 +6,8 @@
  * settings to the latest version.
  */
 
-import { Settings } from '@/types/settings';
-import { SettingsMigration, MigrationRunner } from './types';
+import type { Settings } from '@/types/settings';
+import type { SettingsMigration, MigrationRunner } from './types';
 import { getPreference, setPreference } from '@/api/settingsApi';
 
 /**

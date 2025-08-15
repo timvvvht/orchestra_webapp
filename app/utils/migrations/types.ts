@@ -2,7 +2,7 @@
  * Types for the settings migration system
  */
 
-import { Settings } from '@/types/settings';
+import type { Settings } from '@/types/settings';
 
 /**
  * Interface for a settings migration
