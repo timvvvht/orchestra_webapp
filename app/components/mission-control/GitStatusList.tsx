@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ChevronsDownUp } from "lucide-react";
-import { RepoStatusEntry } from "@/utils/gitStatus";
+import { type RepoStatusEntry } from "@/utils/gitStatus";
 
 const statusColour: Record<string, string> = {
   M: "text-yellow-400",
