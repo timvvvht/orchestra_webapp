@@ -17,7 +17,6 @@ import AgentCard from "./AgentCard";
 import CwdFilterDropdown from "./CwdFilterDropdown";
 import { motion } from "framer-motion";
 import { isTauri } from "@/utils/environment";
-import { recentProjectsManager } from "@/utils/projectStorage";
 import { useAuth } from "@/auth/AuthContext";
 import { toast } from "sonner";
 import { ProjectSelectionModal } from "@/components/modals/ProjectSelectionModal";
