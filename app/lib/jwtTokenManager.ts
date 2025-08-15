@@ -1,7 +1,21 @@
 // JWT Token Manager
 // Comprehensive JWT token handling for ACS authentication
 
-import { jwtDecode } from 'jwt-decode';
+// Simple JWT decode implementation for webapp
+function jwtDecode<T = any>(token: string): T {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Invalid JWT token format');
+    }
+    const payload = parts[1];
+    const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);
+    const decodedPayload = atob(paddedPayload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decodedPayload) as T;
+  } catch (error) {
+    throw new Error(`Failed to decode JWT: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
 
 interface JWTPayload {
   sub: string; // Subject (user ID)
