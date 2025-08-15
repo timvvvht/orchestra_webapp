@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { classifyGitStatuses } from '../gitHelpers';
-import { RepoStatusEntry } from '../gitTypes';
+import type { RepoStatusEntry } from '../gitTypes';
 
 describe('classifyGitStatuses', () => {
   it('should correctly classify git status entries', () => {

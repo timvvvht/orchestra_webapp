@@ -2,7 +2,7 @@
  * Git repository helper functions
  */
 import { invoke } from '@tauri-apps/api/core';
-import { RepoStatusEntry } from './gitTypes';
+import type { RepoStatusEntry } from './gitTypes';
 
 /**
  * Check if a directory is a Git repository by looking for .git folder

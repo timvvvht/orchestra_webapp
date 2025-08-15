@@ -1,9 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-
-export interface RepoStatusEntry {
-    status: string;
-    path: string;
-}
+import type { RepoStatusEntry } from './gitTypes';
 
 /**
  * Call rust tauri command `git_repo_status_porcelain` and return list of entries.

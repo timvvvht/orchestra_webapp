@@ -59,4 +59,4 @@ export async function sendInitialTaskMessage(options: SendChatMessageOptions & {
 
 // Export git status utilities for easy access
 export { getRepoPorcelainStatus } from './gitStatus';
-export type { RepoStatusEntry } from './gitStatus';
+export type { RepoStatusEntry } from './gitTypes';
