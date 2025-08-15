@@ -1,3 +1,4 @@
+import React from 'react';
 import { createBrowserRouter, RouteObject } from 'react-router-dom';
 import { lazy } from 'react';
 import AppShell from './shell/AppShell';
