@@ -16,17 +16,15 @@ const AmbientIndicators: React.FC = () => {
 
   // Listen for checkpoint events
   useEffect(() => {
-    const unsubscribe = useMissionControlStore.subscribe(
-      (state) => state.lastCheckpointSaved,
-      (timestamp) => {
-        if (timestamp) {
-          setShowSaveIndicator(true);
-          setLastCheckpointTime(new Date(timestamp));
-          // Hide after 2 seconds
-          setTimeout(() => setShowSaveIndicator(false), 2000);
-        }
+    const unsubscribe = useMissionControlStore.subscribe((state) => {
+      const timestamp = state.lastCheckpointSaved;
+      if (timestamp) {
+        setShowSaveIndicator(true);
+        setLastCheckpointTime(new Date(timestamp));
+        // Hide after 2 seconds
+        setTimeout(() => setShowSaveIndicator(false), 2000);
       }
-    );
+    });
     return unsubscribe;
   }, []);
 

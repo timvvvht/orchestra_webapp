@@ -9,7 +9,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { motion } from "framer-motion";
 import {
   useMissionControlStore,
-  MissionControlAgent,
+  type MissionControlAgent,
 } from "@/stores/missionControlStore";
 import { useSessionsSnapshot } from "@/hooks/useSessionsSnapshot";
 import { usePlansSnapshot } from "@/hooks/usePlansSnapshot";

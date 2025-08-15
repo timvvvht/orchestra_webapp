@@ -1,7 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { StatusOrb } from "./StatusOrb";
-import { MissionControlAgent } from "@/stores/missionControlStore";
+import { type MissionControlAgent } from "@/stores/missionControlStore";
 
 interface DynamicStatusProps {
   processingTasks: MissionControlAgent[];

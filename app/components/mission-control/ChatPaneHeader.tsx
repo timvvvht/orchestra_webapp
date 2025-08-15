@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { getDiffStatsFromUnifiedDiff } from "@/utils/gitDiffStats";
 import { DiffStats } from "@/types/gitTypes";
-import { MissionControlAgent } from "@/stores/missionControlStore";
+import { type MissionControlAgent } from "@/stores/missionControlStore";
 import { supabase } from "@/auth/SupabaseClient";
 import { SCMManager } from "@/services/scm/SCMManager";
 import { getDefaultACSClient } from "@/services/acs";

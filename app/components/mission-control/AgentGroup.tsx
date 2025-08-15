@@ -2,7 +2,7 @@ import React from "react";
 import { ChevronDown } from "lucide-react";
 import {
   useMissionControlStore,
-  CollapsedGroups,
+  type CollapsedGroups,
 } from "@/stores/missionControlStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { StatusOrb } from "./StatusOrb";

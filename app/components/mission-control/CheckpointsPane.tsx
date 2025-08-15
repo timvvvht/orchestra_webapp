@@ -19,7 +19,7 @@ import { supabase } from "@/auth/SupabaseClient";
 import { SCMManager } from "@/services/scm/SCMManager";
 import { getDiffStatsFromUnifiedDiff } from "@/utils/gitDiffStats";
 import { DiffStats } from "@/types/gitTypes";
-import { MissionControlAgent } from "@/stores/missionControlStore";
+import { type MissionControlAgent } from "@/stores/missionControlStore";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { MergeWorktreeButton } from "./MergeWorktreeButton";
