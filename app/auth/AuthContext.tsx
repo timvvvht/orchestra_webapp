@@ -334,49 +334,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [exchangeSupabaseSessionForACSCookies]);
 
   const loginGoogle = async () => {
-    /*const isDesktop = isTauri();
-    const ORCHESTRA_DEEP_LINK = 'orchestra://auth-callback';
-    const WEB_REDIRECT = `${window.location.origin}/auth/callback`;
 
-    console.log('🔐 [AuthContext] Starting Google OAuth login', { 
-      isDesktop,
-      redirectTo: isDesktop ? ORCHESTRA_DEEP_LINK : WEB_REDIRECT,
-      skipBrowserRedirect: isDesktop
-    });
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: isDesktop ? ORCHESTRA_DEEP_LINK : WEB_REDIRECT,
-        skipBrowserRedirect: isDesktop,              // only desktop
-        queryParams: { access_type: 'offline', prompt: 'consent' }
-      }
-    });
-
-    console.log('🔐 [AuthContext] OAuth response:', { 
-      hasData: !!data, 
-      hasError: !!error, 
-      url: data?.url,
-      error: error?.message 
-    });
-
-    if (error) {
-      // console.error('❌ [AuthContext] Google OAuth error:', error);
-      return;
-    }
-
-    // Desktop → open system browser
-    if (isDesktop && data?.url) {
-      // console.log('🌐 [AuthContext] Opening external browser for desktop OAuth');
-      await open(data.url);
-    } else if (!isDesktop) {
-      // console.log('🔄 [AuthContext] Web OAuth redirect will happen automatically');
-    }*/
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { access_type: "offline", prompt: "consent" },
         },
       });
 
@@ -391,6 +355,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
   };
+
+  async function signInWithGithub() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  }
 
   const loginEmailPassword = async (email: string, password: string) => {
     console.log("🔐 [AuthContext] Starting email/password login", { email });
