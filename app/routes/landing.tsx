@@ -15,7 +15,7 @@ import { Button } from "../components/ui/Button";
 import MissionControl from "@/components/mission-control/MissionControl";
 
 
-export default function Landing({}: Route.ComponentProps) {
+export default function Landing({}: any) {
 
   return (
     <main className="min-h-screen relative orchestra-page">
