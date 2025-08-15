@@ -7,15 +7,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { DiffEditor } from "@monaco-editor/react";
-import { useGitStatus } from "../../hooks/useGitStatus";
-import { useGitDiffFile } from "../../hooks/useGitDiffFile";
+import { useGitStatus } from "@/hooks/useGitStatus";
+import { useGitDiffFile } from "@/hooks/useGitDiffFile";
 import {
   useGitStage,
   useGitCommit,
   useGitStash,
   useGitDiscard,
 } from "../../hooks/useGitMutations";
-import { GitFileStatus, StageResult } from "../../types/gitTypes";
+import { type GitFileStatus, type StageResult } from "@/types/gitTypes";
 import { cn } from "cn-utility";
 
 interface DirtyRepoDialogProps {

@@ -7,8 +7,7 @@
  * - File operations can be scoped to complete responses
  */
 
-import type { ChatMessage } from "@/types/chatTypes";
-import { ChatRole } from "@/types/chatTypes";
+import { ChatRole, type ChatMessage } from "@/types/chatTypes";
 import type {
   FileOperation,
   UnifiedTimelineEvent,

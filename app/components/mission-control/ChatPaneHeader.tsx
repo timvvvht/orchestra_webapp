@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { getDiffStatsFromUnifiedDiff } from "@/utils/gitDiffStats";
-import { DiffStats } from "@/types/gitTypes";
+import { type DiffStats } from "@/types/gitTypes";
 import { type MissionControlAgent } from "@/stores/missionControlStore";
 import { supabase } from "@/auth/SupabaseClient";
 import { SCMManager } from "@/services/scm/SCMManager";

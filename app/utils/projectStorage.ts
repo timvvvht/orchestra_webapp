@@ -1,7 +1,7 @@
 import {
-  ProjectContext,
+  type ProjectContext,
   STORAGE_KEYS,
-  StoredRecentProjects,
+  type StoredRecentProjects,
 } from "@/types/landingTypes";
 
 export const recentProjectsManager = {
