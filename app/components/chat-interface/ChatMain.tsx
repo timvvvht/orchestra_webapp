@@ -248,7 +248,7 @@ import {
 } from "@/utils/registerSessionTools";
 
 // Canonical store imports
-import { useEventStore } from "@/stores/eventStore";
+import { useEventStore } from "@/stores/eventStores";
 import { useSessionStatusStore } from "@/stores/sessionStatusStore";
 import { clearDuplicateCache } from "@/stores/eventReducer";
 import { hydrateSession } from "@/stores/eventBridges/historyBridge";
