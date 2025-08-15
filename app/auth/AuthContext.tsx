@@ -89,26 +89,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 start: accessToken.substring(0, 50) + "...",
               });
               acsClient.setAuthToken(accessToken);
-<<<<<<< HEAD
               
               // ✅ CRITICAL: Establish firehose connection
               // This must happen at app level to persist across navigation
               try {
                 acsClient.streaming.connectPrivate(data.session.user.id, accessToken);
                 console.log('🔥 [AuthContext] Initial firehose connection established');
-=======
-
-              // ✅ CRITICAL: Establish firehose connection for LocalToolOrchestrator
-              // This must happen at app level to persist across navigation
-              try {
-                acsClient.streaming.connectPrivate(
-                  data.session.user.id,
-                  accessToken
-                );
-                console.log(
-                  "🔥 [AuthContext] Initial firehose connection established for LocalToolOrchestrator"
-                );
->>>>>>> 1e42e989eee4b598241b93fc0fb4fe1fe859d3f2
               } catch (error) {
                 console.error(
                   "❌ [AuthContext] Failed to establish initial firehose connection:",
