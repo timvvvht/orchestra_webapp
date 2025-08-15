@@ -18,7 +18,8 @@ export default async function handleRequest(
   </head>
   <body>
     <div id="root"></div>
-    <!-- React Router dev will inject client scripts -->
+    <script type="module" src="/@vite/client"></script>
+    <script type="module" src="/app/entry.client.tsx"></script>
   </body>
 </html>`;
 
