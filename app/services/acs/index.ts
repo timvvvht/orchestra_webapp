@@ -141,7 +141,6 @@ export class OrchestACSClient {
     public readonly agentConfigs: ACSAgentConfigService;
     public readonly infrastructure: ACSInfrastructureService;
     public readonly github: ACSGitHubService;
-    public readonly github: ACSGitHubService;
 
     // Fire-hose service and orchestrators
     private firehose?: any;
