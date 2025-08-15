@@ -1,6 +1,6 @@
 import React, { useCallback } from "react";
 import { X } from "lucide-react";
-import { DraftIssue, useDraftStore } from "@/stores/draftStore";
+import { type DraftIssue, useDraftStore } from "@/stores/draftStore";
 import { startNewChatForDraft } from "@/lib/chat/newChatHelper";
 import { useAuth } from "@/auth/AuthContext";
 import { getDefaultACSClient } from "@/services/acs";
