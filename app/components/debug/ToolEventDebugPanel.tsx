@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ChatMessage } from '@/types/chatTypes';
-import { useEventStore } from '@/stores/eventStore';
+import { useEventStore } from '@/stores/eventStores';
 
 interface Props {
   open: boolean;

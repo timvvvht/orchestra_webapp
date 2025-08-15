@@ -8,7 +8,7 @@
 
 import { eventBus } from '@/services/acs/eventBus';
 import { supabase } from '@/auth/SupabaseClient';
-import { useEventStore } from '@/stores/eventStore';
+import { useEventStore } from '@/stores/eventStores';
 import { makeCheckpointEvent } from '@/stores/eventReducer';
 import { SCMManager } from '@/services/scm/SCMManager';
 import { getDefaultACSClient } from '@/services/acs';

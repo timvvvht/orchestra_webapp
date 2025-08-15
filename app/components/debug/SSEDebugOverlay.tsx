@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useEventStore } from '@/stores/eventStore';
+import { useEventStore } from '@/stores/eventStores';
 import { eventBus } from '@/services/acs/eventBus';
 import type { SSEEvent } from '@/types/events';
 

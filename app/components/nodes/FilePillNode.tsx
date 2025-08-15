@@ -17,7 +17,7 @@ import {
   DOMConversionOutput,
   DOMExportOutput,
 } from 'lexical';
-import { FilePill } from '../components/FilePill';
+import { FilePill } from '../ui/FilePill';
 
 export interface FilePillNodeData {
   fileName: string;

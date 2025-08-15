@@ -11,7 +11,7 @@
 import type { FirehoseMux, ACSRawEvent } from '../acs/streaming/FirehoseMux';
 import type { SSEEvent } from '../acs';
 import { toUnifiedEvents } from '@/utils/toUnifiedEvent';
-import { useEventStore } from '@/stores/eventStore';
+import { useEventStore } from '@/stores/eventStores';
 import { useSessionStatusStore } from '@/stores/sessionStatusStore';
 import { DedupeCache } from '@/utils/DedupeCache';
 import { logDebug } from '@/utils/sseDebug';
