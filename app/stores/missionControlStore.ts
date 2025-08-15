@@ -5,7 +5,7 @@ import { analyzePlanProgressDetailed } from "@/utils/planProgress";
 import { type ParsedPlanResult } from "@/utils/plan";
 import { baseDirFromCwd } from "@/utils/pathHelpers";
 import { type GitStatusCounts } from "@/utils/gitHelpers";
-import { supabase } from "@/auth/SupabaseClient";
+// import { supabase } from "@/auth/SupabaseClient";
 
 // LocalStorage key for read state persistence
 const LS_KEY = "mc_read_state_v1";

@@ -11,9 +11,9 @@ import {
   useMissionControlStore,
   type MissionControlAgent,
 } from "@/stores/missionControlStore";
-import { useSessionsSnapshot } from "@/hooks/useSessionsSnapshot";
+// import { useSessionsSnapshot } from "@/hooks/useSessionsSnapshot";
 // import { usePlansSnapshot } from "@/hooks/usePlansSnapshot";
-import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
+// import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
 // import { useMissionControlHotkeys } from "@/hooks/useMissionControlHotkeys";
 import { getDefaultACSClient } from "@/services/acs";
 import { InfrastructureUtils } from "@/services/acs/infrastructure";
@@ -75,12 +75,16 @@ const MissionControlV2: React.FC = () => {
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
   // Fetch sessions data
-  const {
-    sessions,
-    isLoading,
-    error,
-    refetch: refetchSessions,
-  } = useSessionsSnapshot(viewMode);
+  // const {
+  //   sessions,
+  //   isLoading,
+  //   error,
+  //   refetch: refetchSessions,
+  // } = useSessionsSnapshot(viewMode);
+  const sessions: any[] = [];
+  const isLoading = false;
+  const error = null;
+  const refetchSessions = () => {};
 
   // Get session IDs for plans fetching
   const sessionIds = useMemo(() => {
@@ -96,7 +100,7 @@ const MissionControlV2: React.FC = () => {
   const refetch: any = () => {};
 
   // Set up real-time updates and hotkeys
-  useMissionControlFirehose();
+  // useMissionControlFirehose();
   // useMissionControlHotkeys();
 
   // Update store when sessions change
