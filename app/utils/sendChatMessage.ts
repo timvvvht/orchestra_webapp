@@ -257,6 +257,8 @@ function buildAcsPayload(params: SendChatMessageParams, effectiveAgentCwd?: stri
     return payload;
 }
 
+// new api: httpApi.
+
 /**
  * Canonical message sending function that handles:
  * - Session status updates (mark as awaiting)
