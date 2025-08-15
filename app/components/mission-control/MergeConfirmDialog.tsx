@@ -10,38 +10,87 @@
 import React from 'react';
 
 interface MergeConfirmDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  sourceBranch?: string;
-  targetBranch?: string;
-  conflictCount?: number;
-  className?: string;
+  open: boolean;
+  onConfirm: (opts?: { keepWorktree?: boolean }) => Promise<any>;
+  onCancel: () => void;
+  preview?: any;
+  previewError?: string | null;
+  previewLoading?: boolean;
+  projectRoot: string;
+  sessionId: string;
+  autoCloseAfterMs?: number;
+  onMerged?: (result: { ok: boolean; result?: any; error?: string }) => void;
 }
 
-const MergeConfirmDialog: React.FC<MergeConfirmDialogProps> = ({ 
-  isOpen,
-  onClose,
+export const MergeConfirmDialog: React.FC<MergeConfirmDialogProps> = ({ 
+  open,
   onConfirm,
-  sourceBranch = 'feature-branch',
-  targetBranch = 'main',
-  conflictCount = 0,
-  className = ''
+  onCancel,
+  preview,
+  previewError,
+  previewLoading = false,
+  projectRoot,
+  sessionId,
+  autoCloseAfterMs,
+  onMerged
 }) => {
-  if (!isOpen) return null;
+  if (!open) return null;
 
-  const handleConfirm = () => {
-    console.log('🔀 [MergeConfirmDialog] STUB: Would confirm merge:', { sourceBranch, targetBranch });
-    onConfirm();
+  const handleConfirm = async (keepWorktree = false) => {
+    console.log('🔀 [MergeConfirmDialog] STUB: Would confirm merge:', { 
+      sessionId: sessionId.slice(0, 8) + '...', 
+      projectRoot,
+      keepWorktree 
+    });
+    
+    try {
+      const result = await onConfirm({ keepWorktree });
+      
+      // Simulate successful merge result
+      const mockResult = {
+        ok: true,
+        result: {
+          sessionId,
+          projectRoot,
+          keepWorktree
+        }
+      };
+      
+      if (onMerged) {
+        onMerged(mockResult);
+      }
+      
+      // Auto-close if specified
+      if (autoCloseAfterMs && autoCloseAfterMs > 0) {
+        setTimeout(() => {
+          onCancel();
+        }, autoCloseAfterMs);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[MergeConfirmDialog] STUB: Merge error:', error);
+      
+      const errorResult = {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+      
+      if (onMerged) {
+        onMerged(errorResult);
+      }
+      
+      throw error;
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className={`bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 ${className}`}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Confirm Merge</h2>
           <button
-            onClick={onClose}
+            onClick={onCancel}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
             ✕
@@ -55,21 +104,42 @@ const MergeConfirmDialog: React.FC<MergeConfirmDialogProps> = ({
               <span className="font-medium">Merge Operation</span>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Merge <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">{sourceBranch}</code> into{' '}
-              <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">{targetBranch}</code>
+              Session: <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">{sessionId.slice(0, 8)}...</code>
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Project: <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">{projectRoot}</code>
             </p>
           </div>
           
-          {conflictCount > 0 && (
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <span className="text-2xl">⚠️</span>
-                <span className="font-medium text-yellow-800 dark:text-yellow-200">
-                  {conflictCount} Conflict{conflictCount !== 1 ? 's' : ''} Detected
-                </span>
+          {previewLoading && (
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <span className="text-2xl">⏳</span>
+                <span className="font-medium">Loading preview...</span>
               </div>
-              <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                This merge may require manual conflict resolution.
+            </div>
+          )}
+          
+          {previewError && (
+            <div className="p-4 bg-red-50 dark:bg-red-900 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <span className="text-2xl">❌</span>
+                <span className="font-medium text-red-800 dark:text-red-200">Preview Error</span>
+              </div>
+              <p className="text-sm text-red-700 dark:text-red-300">
+                {previewError}
+              </p>
+            </div>
+          )}
+          
+          {preview && (
+            <div className="p-4 bg-green-50 dark:bg-green-900 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <span className="text-2xl">📋</span>
+                <span className="font-medium text-green-800 dark:text-green-200">Preview Available</span>
+              </div>
+              <p className="text-sm text-green-700 dark:text-green-300">
+                Changes ready for merge
               </p>
             </div>
           )}
@@ -83,25 +153,25 @@ const MergeConfirmDialog: React.FC<MergeConfirmDialogProps> = ({
         
         <div className="flex justify-end space-x-2 mt-6">
           <button
-            onClick={onClose}
+            onClick={onCancel}
             className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
           >
             Cancel
           </button>
           <button
-            onClick={handleConfirm}
-            className={`px-4 py-2 rounded text-white ${
-              conflictCount > 0 
-                ? 'bg-yellow-500 hover:bg-yellow-600' 
-                : 'bg-green-500 hover:bg-green-600'
-            }`}
+            onClick={() => handleConfirm(true)}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
           >
-            {conflictCount > 0 ? 'Merge with Conflicts' : 'Confirm Merge'}
+            Keep Worktree
+          </button>
+          <button
+            onClick={() => handleConfirm(false)}
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
+          >
+            Merge & Finalize
           </button>
         </div>
       </div>
     </div>
   );
 };
-
-export default MergeConfirmDialog;
