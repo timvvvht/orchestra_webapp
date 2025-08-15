@@ -1,9 +1,9 @@
-import type { Route } from "./+types/download";
+import type { LoaderArgs } from "@remix-run/cloudflare";
 import { validateAndConsumeToken } from "../utils/tokens.server";
 import { fetchR2Object } from "../utils/r2.server";
 import { getClientIp } from "../utils/security.server";
 
-export async function loader({ request, context }: Route.LoaderArgs) {
+export async function loader({ request, context }: LoaderArgs) {
   const url = new URL(request.url);
   const token = url.searchParams.get("token") ?? "";
   const ip = getClientIp(request);
