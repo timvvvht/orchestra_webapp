@@ -45,6 +45,7 @@
     "lexical": "^0.34.0",
     "lodash-es": "^4.17.21",
     "lucide-react": "^0.539.0",
+    "miniflare": "^4.20250813.1",
     "path": "^0.12.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
