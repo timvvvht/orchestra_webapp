@@ -122,7 +122,6 @@ import { ACSAgentConfigService } from './agent-configs';
 import { ACSInfrastructureService } from './infrastructure';
 import { ACSGitHubService } from './github';
 import { getFirehose } from '@/services/GlobalServiceManager';
-import { LocalToolOrchestrator } from '../localTool';
 import { ChatEventOrchestrator } from '../chat/ChatEventOrchestrator';
 
 /**
@@ -144,7 +143,6 @@ export class OrchestACSClient {
 
     // Fire-hose service and orchestrators
     private firehose?: any;
-    private localToolOrchestrator?: LocalToolOrchestrator;
     private chatEvents?: ChatEventOrchestrator;
 
     constructor(config: ACSClientConfig, streamingServiceFactory?: () => any) {
@@ -173,7 +171,6 @@ export class OrchestACSClient {
         if (!this.firehose) {
             throw new Error('FirehoseMux not available from GlobalServiceManager - check GlobalServiceManager is initialized');
         }
-        this.localToolOrchestrator = new LocalToolOrchestrator(this.firehose);
         this.chatEvents = new ChatEventOrchestrator(this.firehose, { debugEnabled: false });
 
         // Inject firehose service into streaming service for user-specific connections
@@ -182,7 +179,6 @@ export class OrchestACSClient {
         // Note: Firehose connections will be established when needed:
         // - User-specific connection via connectPrivate() when user authenticates
         // - Session-specific connection via connect() when ChatMain mounts
-        this.localToolOrchestrator.start();
         this.chatEvents.start();
 
         // Expose chat orchestrator for debugging in dev mode
@@ -296,7 +292,6 @@ export class OrchestACSClient {
                     // Note: Session-specific connections will be established when ChatMain mounts
 
                     // Connect fire-hose and start orchestrators if authenticated
-                    this.localToolOrchestrator?.start();
                     this.chatEvents?.start();
 
                     return {
@@ -350,7 +345,6 @@ export class OrchestACSClient {
             // Note: Session-specific connections will be established when ChatMain mounts
 
             // Connect fire-hose and start orchestrators
-            this.localToolOrchestrator?.start();
             this.chatEvents?.start();
 
             // If sessionId provided, connect to streaming
@@ -381,7 +375,6 @@ export class OrchestACSClient {
     async logoutAndDisconnect(): Promise<void> {
         this.firehose?.close();
         // Stop orchestrators
-        this.localToolOrchestrator?.stop();
         this.chatEvents?.stop();
 
         // Disconnect from streaming
@@ -409,7 +402,6 @@ export class OrchestACSClient {
         streamingConnected: boolean;
     }> {
         // Start orchestrators if not already started
-        this.localToolOrchestrator?.start();
         this.chatEvents?.start();
 
         // Start the conversation
@@ -441,7 +433,6 @@ export class OrchestACSClient {
         streamingConnected: boolean;
     }> {
         // Start orchestrators if not already started
-        this.localToolOrchestrator?.start();
         this.chatEvents?.start();
 
         // Ensure streaming is connected (idempotent)

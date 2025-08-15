@@ -74,11 +74,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('🔑 [AuthContext] Initial seed token (filtered):', { len: accessToken.length, start: accessToken.substring(0, 50) + '...' });
               acsClient.setAuthToken(accessToken);
               
-              // ✅ CRITICAL: Establish firehose connection for LocalToolOrchestrator
+              // ✅ CRITICAL: Establish firehose connection
               // This must happen at app level to persist across navigation
               try {
                 acsClient.streaming.connectPrivate(data.session.user.id, accessToken);
-                console.log('🔥 [AuthContext] Initial firehose connection established for LocalToolOrchestrator');
+                console.log('🔥 [AuthContext] Initial firehose connection established');
               } catch (error) {
                 console.error('❌ [AuthContext] Failed to establish initial firehose connection:', error);
               }
@@ -157,11 +157,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 console.log('🔑 [AuthContext] Auth state change (filtered):', { event: evt, len: accessToken.length, start: accessToken.substring(0, 50) + '...' });
                 acsClient.setAuthToken(accessToken);
                 
-                // ✅ CRITICAL: Establish firehose connection for LocalToolOrchestrator
+                // ✅ CRITICAL: Establish firehose connection
                 // This must happen at app level to persist across navigation
                 try {
                   acsClient.streaming.connectPrivate(session.user.id, accessToken);
-                  console.log('🔥 [AuthContext] Firehose connection established for LocalToolOrchestrator');
+                  console.log('🔥 [AuthContext] Firehose connection established');
                 } catch (error) {
                   console.error('❌ [AuthContext] Failed to establish firehose connection:', error);
                 }

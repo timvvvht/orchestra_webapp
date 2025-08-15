@@ -2,7 +2,6 @@
  * GlobalServiceMonitor - Real-time monitoring of global services
  * 
  * Displays:
- * - Local Tool Orchestrator status
  * - ACS Firehose connection status
  * - Health metrics and performance data
  * - Error information and recovery status
@@ -11,19 +10,8 @@
 import React, { useState, useEffect } from 'react';
 import { globalServiceManager } from '@/services/GlobalServiceManager';
 
-interface ServiceStatus {
-  isRunning: boolean;
-  isHealthy: boolean;
-  reconnectAttempts: number;
-  lastHealthCheck: number;
-  uptime: number;
-  errorCount?: number;
-  lastError?: string;
-}
-
 interface GlobalStatus {
   isInitialized: boolean;
-  orchestrator: ServiceStatus;
   firehose: {
     isConnected: boolean;
     connectionType: string;
@@ -79,11 +67,7 @@ export const GlobalServiceMonitor: React.FC<{ isVisible: boolean }> = ({ isVisib
     }
   };
 
-  const getStatusIcon = (isHealthy: boolean, isRunning: boolean) => {
-    if (isHealthy && isRunning) return '🟢';
-    if (isRunning && !isHealthy) return '🟡';
-    return '🔴';
-  };
+
 
   const handleRestart = async () => {
     try {
@@ -94,16 +78,7 @@ export const GlobalServiceMonitor: React.FC<{ isVisible: boolean }> = ({ isVisib
     }
   };
 
-  const handleForceHealthCheck = () => {
-    try {
-      const orchestrator = (globalServiceManager as any).orchestrator;
-      if (orchestrator?.forceHealthCheck) {
-        orchestrator.forceHealthCheck();
-      }
-    } catch (error) {
-      console.error('Failed to force health check:', error);
-    }
-  };
+
 
   return (
     <div className="fixed top-4 right-4 z-50 bg-black/90 text-white p-4 rounded-lg shadow-lg font-mono text-xs max-w-md">
@@ -118,16 +93,7 @@ export const GlobalServiceMonitor: React.FC<{ isVisible: boolean }> = ({ isVisib
       </div>
 
       <div className="mt-2 space-y-2">
-        {/* Orchestrator Status */}
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            {getStatusIcon(status.orchestrator.isHealthy, status.orchestrator.isRunning)}
-            <span>Orchestrator</span>
-          </span>
-          <span className="text-xs opacity-60">
-            {formatDuration(status.orchestrator.uptime)}
-          </span>
-        </div>
+        {/* Orchestrator removed for web */}
 
         {/* Firehose Status */}
         <div className="flex items-center justify-between">
@@ -143,24 +109,7 @@ export const GlobalServiceMonitor: React.FC<{ isVisible: boolean }> = ({ isVisib
         {/* Expanded Details */}
         {isExpanded && (
           <div className="mt-3 pt-3 border-t border-white/20 space-y-2">
-            {/* Orchestrator Details */}
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-blue-300">🔧 Orchestrator Details</div>
-              <div className="pl-2 space-y-1 text-xs">
-                <div>Running: {status.orchestrator.isRunning ? '✅' : '❌'}</div>
-                <div>Healthy: {status.orchestrator.isHealthy ? '✅' : '❌'}</div>
-                <div>Reconnects: {status.orchestrator.reconnectAttempts}</div>
-                <div>Last Check: {formatTime(status.orchestrator.lastHealthCheck)}</div>
-                {status.orchestrator.errorCount !== undefined && (
-                  <div>Errors: {status.orchestrator.errorCount}</div>
-                )}
-                {status.orchestrator.lastError && (
-                  <div className="text-red-300 break-words">
-                    Error: {status.orchestrator.lastError}
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* Orchestrator Details removed for web */}
 
             {/* Firehose Details */}
             <div className="space-y-1">
@@ -189,12 +138,7 @@ export const GlobalServiceMonitor: React.FC<{ isVisible: boolean }> = ({ isVisib
               >
                 🔄 Restart Services
               </button>
-              <button
-                onClick={handleForceHealthCheck}
-                className="w-full px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs"
-              >
-                🏥 Force Health Check
-              </button>
+              {/* Force Health Check removed */}
             </div>
           </div>
         )}
@@ -204,7 +148,6 @@ export const GlobalServiceMonitor: React.FC<{ isVisible: boolean }> = ({ isVisib
       {!isExpanded && (
         <div className="mt-2 text-xs opacity-60">
           {status.isInitialized ? '✅' : '❌'} Init | 
-          {status.orchestrator.isHealthy ? '✅' : '❌'} LTO | 
           {status.firehose.isConnected ? '✅' : '❌'} SSE
         </div>
       )}
