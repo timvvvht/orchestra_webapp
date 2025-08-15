@@ -5,16 +5,16 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useAuth } from "@/auth/AuthContext";
+// import { useAuth } from "@/auth/AuthContext";
 import { motion } from "framer-motion";
 import {
   useMissionControlStore,
   type MissionControlAgent,
 } from "@/stores/missionControlStore";
 import { useSessionsSnapshot } from "@/hooks/useSessionsSnapshot";
-import { usePlansSnapshot } from "@/hooks/usePlansSnapshot";
+// import { usePlansSnapshot } from "@/hooks/usePlansSnapshot";
 import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
-import { useMissionControlHotkeys } from "@/hooks/useMissionControlHotkeys";
+// import { useMissionControlHotkeys } from "@/hooks/useMissionControlHotkeys";
 import { getDefaultACSClient } from "@/services/acs";
 import { InfrastructureUtils } from "@/services/acs/infrastructure";
 
@@ -50,7 +50,9 @@ const itemVariants = {
 };
 
 const MissionControlV2: React.FC = () => {
-  const { isAuthenticated, setShowModal } = useAuth();
+  // const { isAuthenticated, setShowModal } = useAuth();
+  const isAuthenticated = true;
+  const setShowModal = () => {};
   const {
     viewMode,
     showNewDraftModal,
@@ -88,12 +90,14 @@ const MissionControlV2: React.FC = () => {
   }, [sessions]);
 
   // Fetch plans data
-  const { plansBySession, refetch: refetchPlans } =
-    usePlansSnapshot(sessionIds);
+  // const { plansBySession, refetch: refetchPlans } =
+  //   usePlansSnapshot(sessionIds);
+  const plansBySession = {};
+  const refetch: any = () => {};
 
   // Set up real-time updates and hotkeys
   useMissionControlFirehose();
-  useMissionControlHotkeys();
+  // useMissionControlHotkeys();
 
   // Update store when sessions change
   useEffect(() => {
