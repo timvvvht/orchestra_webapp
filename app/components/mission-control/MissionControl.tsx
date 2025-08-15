@@ -22,7 +22,6 @@ import { NewTaskModal } from "@/components/modals/NewTaskModal";
 import Header from "./Header";
 import LayoutSplit from "./LayoutSplit";
 import GitHubConnectPanel from "./GitHubConnectPanel";
-import "./mission-control-v2.css";
 
 // Animation variants for staggered reveals
 const containerVariants = {
