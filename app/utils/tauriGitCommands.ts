@@ -90,7 +90,7 @@ export async function gitShowFile(cwd: string, sha: string, filePath: string, wo
   });
   
   try {
-    const result: any = await invoke('simple_git_show_file', { 
+    const result = await invoke('simple_git_show_file', { 
       cwd: workspaceOverride || cwd, 
       sha, 
       filePath 

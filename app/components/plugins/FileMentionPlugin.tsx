@@ -1,13 +1,13 @@
 /**
  * FileMentionPlugin - Lexical Plugin for File Mentions
- *
+ * 
  * Handles @-trigger detection and file autocomplete functionality.
  * Integrates with existing FileSelector infrastructure.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
-import ReactDOM from "react-dom";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import React, { useCallback, useEffect, useState } from 'react';
+import ReactDOM from 'react-dom';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
   $getSelection,
   $isRangeSelection,
@@ -19,10 +19,10 @@ import {
   KEY_ENTER_COMMAND,
   KEY_ESCAPE_COMMAND,
   KEY_TAB_COMMAND,
-} from "lexical";
-import { $createFilePillNode } from "@/components/nodes/FilePillNode";
-import { FancyFileSelector } from "@/components/ui/FancyFileSelector";
-import { useFileSearch } from "@/hooks/useFileSearch";
+} from 'lexical';
+import { $createFilePillNode } from '../nodes/FilePillNode';
+import { FancyFileSelector } from '@/components/ui/fancy-file-selector';
+import { useFileSearch } from '@/hooks/useFileSearch';
 
 interface FileMentionPluginProps {
   codePath?: string;
@@ -46,7 +46,7 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
   const [editor] = useLexicalComposerContext();
   const [mentionState, setMentionState] = useState<MentionState>({
     isOpen: false,
-    query: "",
+    query: '',
     anchorElement: null,
     textNode: null,
     startOffset: 0,
@@ -55,21 +55,18 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
   });
 
   // File search hook - scoped to provided codePath
-  const { results: fileResults, isLoading: isSearchingFiles } = useFileSearch(
-    mentionState.query,
-    {
-      debounceMs: 200,
-      limit: 10,
-      minQueryLength: 0,
-      codePath: codePath?.trim() || undefined,
-    }
-  );
+  const { results: fileResults, isLoading: isSearchingFiles } = useFileSearch(mentionState.query, {
+    debounceMs: 200,
+    limit: 10,
+    minQueryLength: 0,
+    codePath: codePath?.trim() || undefined
+  });
 
   // Close mention popup
   const closeMention = useCallback(() => {
     setMentionState({
       isOpen: false,
-      query: "",
+      query: '',
       anchorElement: null,
       textNode: null,
       startOffset: 0,
@@ -79,53 +76,36 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
   }, []);
 
   // Handle file selection from autocomplete
-  const handleFileSelect = useCallback(
-    (file: { display: string; full_path: string }) => {
-      editor.update(() => {
-        const selection = $getSelection();
-        if ($isRangeSelection(selection) && mentionState.textNode) {
-          // Remove the @query text
-          const textContent = mentionState.textNode.getTextContent();
-          const beforeMention = textContent.substring(
-            0,
-            mentionState.startOffset
-          );
-          const afterMention = textContent.substring(selection.anchor.offset);
-
-          // Replace the text node content
-          mentionState.textNode.setTextContent(beforeMention + afterMention);
-
-          // Create and insert the file pill node
-          const filePillNode = $createFilePillNode(
-            file.display,
-            file.full_path
-          );
-
-          // Position cursor after the mention start
-          selection.anchor.set(
-            mentionState.textNode.__key,
-            mentionState.startOffset,
-            "text"
-          );
-          selection.focus.set(
-            mentionState.textNode.__key,
-            mentionState.startOffset,
-            "text"
-          );
-
-          // Insert the pill node
-          selection.insertNodes([filePillNode]);
-
-          // Add a space after the pill
-          const spaceNode = $createTextNode(" ");
-          selection.insertNodes([spaceNode]);
-        }
-      });
-
-      closeMention();
-    },
-    [editor, mentionState, closeMention]
-  );
+  const handleFileSelect = useCallback((file: { display: string; full_path: string }) => {
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection) && mentionState.textNode) {
+        // Remove the @query text
+        const textContent = mentionState.textNode.getTextContent();
+        const beforeMention = textContent.substring(0, mentionState.startOffset);
+        const afterMention = textContent.substring(selection.anchor.offset);
+        
+        // Replace the text node content
+        mentionState.textNode.setTextContent(beforeMention + afterMention);
+        
+        // Create and insert the file pill node
+        const filePillNode = $createFilePillNode(file.display, file.full_path);
+        
+        // Position cursor after the mention start
+        selection.anchor.set(mentionState.textNode.__key, mentionState.startOffset, 'text');
+        selection.focus.set(mentionState.textNode.__key, mentionState.startOffset, 'text');
+        
+        // Insert the pill node
+        selection.insertNodes([filePillNode]);
+        
+        // Add a space after the pill
+        const spaceNode = $createTextNode(' ');
+        selection.insertNodes([spaceNode]);
+      }
+    });
+    
+    closeMention();
+  }, [editor, mentionState, closeMention]);
 
   // Check for @ mentions in text
   const checkForMention = useCallback(() => {
@@ -140,7 +120,7 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
 
       const anchor = selection.anchor;
       const node = anchor.getNode();
-
+      
       if (!(node instanceof TextNode)) {
         if (mentionState.isOpen) {
           closeMention();
@@ -150,16 +130,16 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
 
       const textContent = node.getTextContent();
       const offset = anchor.offset;
-
+      
       // Look for @ symbol before cursor
       let mentionStart = -1;
       for (let i = offset - 1; i >= 0; i--) {
         const char = textContent[i];
-        if (char === "@") {
+        if (char === '@') {
           mentionStart = i;
           break;
         }
-        if (char === " " || char === "\n") {
+        if (char === ' ' || char === '\n') {
           break;
         }
       }
@@ -173,7 +153,7 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
 
       // Extract query after @
       const query = textContent.substring(mentionStart + 1, offset);
-
+      
       // Get DOM element for positioning
       const domSelection = window.getSelection();
       const range = domSelection?.getRangeAt(0);
@@ -189,7 +169,7 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
           domRange: range.cloneRange(), // Store a copy of the range
           selectedIndex: 0,
         });
-
+        
         onTrigger?.(query, range);
       }
     });
@@ -219,12 +199,9 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
       editor.registerCommand(
         KEY_ARROW_DOWN_COMMAND,
         () => {
-          setMentionState((prev) => ({
+          setMentionState(prev => ({
             ...prev,
-            selectedIndex: Math.min(
-              prev.selectedIndex + 1,
-              fileResults.length - 1
-            ),
+            selectedIndex: Math.min(prev.selectedIndex + 1, fileResults.length - 1)
           }));
           return true;
         },
@@ -233,9 +210,9 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
       editor.registerCommand(
         KEY_ARROW_UP_COMMAND,
         () => {
-          setMentionState((prev) => ({
+          setMentionState(prev => ({
             ...prev,
-            selectedIndex: Math.max(prev.selectedIndex - 1, 0),
+            selectedIndex: Math.max(prev.selectedIndex - 1, 0)
           }));
           return true;
         },
@@ -271,16 +248,9 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
     ];
 
     return () => {
-      removeCommands.forEach((remove) => remove());
+      removeCommands.forEach(remove => remove());
     };
-  }, [
-    editor,
-    mentionState.isOpen,
-    mentionState.selectedIndex,
-    fileResults,
-    handleFileSelect,
-    closeMention,
-  ]);
+  }, [editor, mentionState.isOpen, mentionState.selectedIndex, fileResults, handleFileSelect, closeMention]);
 
   if (!mentionState.isOpen || !mentionState.anchorElement) {
     return null;
@@ -304,7 +274,7 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
         const range = document.createRange();
         range.setStart(textNode, mentionState.startOffset);
         range.setEnd(textNode, mentionState.startOffset + 1);
-
+        
         const rect = range.getBoundingClientRect();
         return {
           top: rect.bottom + 4, // 4px gap below @ symbol
@@ -312,7 +282,7 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
         };
       }
     } catch (error) {
-      console.warn("Failed to calculate dropdown position:", error);
+      console.warn('Failed to calculate dropdown position:', error);
     }
 
     // Final fallback: Use current selection
@@ -330,7 +300,7 @@ export const FileMentionPlugin: React.FC<FileMentionPluginProps> = ({
   };
 
   const rawPosition = getDropdownPosition();
-
+  
   // Adjust position to keep dropdown within viewport bounds
   const adjustedPosition = {
     top: Math.max(4, Math.min(rawPosition.top, window.innerHeight - 300)), // Keep 300px space for dropdown height

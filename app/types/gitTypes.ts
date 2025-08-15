@@ -2,25 +2,9 @@
  * Git-related TypeScript types for the DirtyRepo merge flow
  */
 
-export interface RepoStatusEntry {
-  status: string; // e.g. "M", "A", "D", "??"
-  path: string;   // relative file path from repo root
-}
-
 export interface GitFileStatus {
   path: string;
-  status:
-    | "M"
-    | "A"
-    | "D"
-    | "R"
-    | "??"
-    | "MM"
-    | "AM"
-    | "AD"
-    | "DM"
-    | "RM"
-    | "UU";
+  status: 'M' | 'A' | 'D' | 'R' | '??' | 'MM' | 'AM' | 'AD' | 'DM' | 'RM' | 'UU';
 }
 
 export interface GitStatusResponse {

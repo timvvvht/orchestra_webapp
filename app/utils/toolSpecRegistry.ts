@@ -28,7 +28,7 @@ import {
   createStartBackgroundOsJobInSessionSpec,
   createGetBackgroundOsJobStatusSpec,
   createSendSignalToOsJobSpec,
-} from "./registerSessionTools"
+} from "./registerSessionTools";
 import {
   createFindSymbolSpec,
   createGetSymbolsOverviewSpec,
@@ -142,10 +142,4 @@ export function getAllToolSpecs(): ToolSpec[] {
     .filter(Boolean) as ToolSpec[];
 }
 
-export default {
-  registerToolsByNames,
-  getToolSpec,
-  getToolSpecs,
-  getAllToolNames,
-  getAllToolSpecs,
-};
+export default { registerToolsByNames, getToolSpec, getToolSpecs, getAllToolNames, getAllToolSpecs };

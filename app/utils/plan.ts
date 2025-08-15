@@ -12,12 +12,12 @@ export interface ParsedPlanResult {
 /**
  * Parses plan-related data from tool_result content text.
  * Handles the YAML-like format returned by plan_mark_todo and similar tools.
- *
+ * 
  * @param text - The raw text content from tool_result
  * @returns Parsed plan data or empty object if parsing fails
  */
 export function parsePlanResult(text: string): ParsedPlanResult {
-  if (!text || typeof text !== "string") {
+  if (!text || typeof text !== 'string') {
     return {};
   }
 
@@ -50,34 +50,33 @@ export function parsePlanResult(text: string): ParsedPlanResult {
         const jsonStr = nextTodosMatch[1]
           .replace(/'/g, '"')
           .replace(/(\w+):/g, '"$1":'); // Quote unquoted keys
-
+        
         const parsed = JSON.parse(jsonStr);
         if (Array.isArray(parsed)) {
           result.next_todos = parsed.map((todo: any) => ({
-            id: String(todo.id || ""),
-            description: String(todo.description || ""),
+            id: String(todo.id || ''),
+            description: String(todo.description || '')
           }));
         }
       } catch {
         // If JSON parsing fails, try to extract manually
         const todosText = nextTodosMatch[1];
-        const todoMatches = todosText.match(
-          /'id':\s*'([^']+)'[^}]*'description':\s*'([^']+)'/g
-        );
+        const todoMatches = todosText.match(/'id':\s*'([^']+)'[^}]*'description':\s*'([^']+)'/g);
         if (todoMatches) {
-          result.next_todos = todoMatches.map((match) => {
+          result.next_todos = todoMatches.map(match => {
             const idMatch = match.match(/'id':\s*'([^']+)'/);
             const descMatch = match.match(/'description':\s*'([^']+)'/);
             return {
-              id: idMatch ? idMatch[1] : "",
-              description: descMatch ? descMatch[1] : "",
+              id: idMatch ? idMatch[1] : '',
+              description: descMatch ? descMatch[1] : ''
             };
           });
         }
       }
     }
+
   } catch (error) {
-    console.warn("Failed to parse plan result:", error);
+    console.warn('Failed to parse plan result:', error);
     return {};
   }
 

@@ -13,15 +13,10 @@ export interface WorktreeMeta {
 export type FinalizeResultResponse = FinalizeResult;
 
 export type FinalizeResult =
-  | { status: "merged"; commit: string; project_root?: string }
-  | {
-      status: "needs_merge";
-      worktree_path: string;
-      conflicted_files: string[];
-      project_root?: string;
-    }
-  | { status: "no_changes"; project_root?: string }
-  | { status: "DirtyRepo"; project_root?: string };
+  | { status: 'merged'; commit: string; project_root?: string }
+  | { status: 'needs_merge'; worktree_path: string; conflicted_files: string[]; project_root?: string }
+  | { status: 'no_changes'; project_root?: string }
+  | { status: 'DirtyRepo'; project_root?: string };
 
 export interface CreateWorktreeResponse {
   workspace_path: string;
@@ -36,7 +31,7 @@ export interface WorktreeError {
 }
 export interface MergePreviewFileChange {
   path: string;
-  status: "A" | "M" | "D" | "R" | string;
+  status: 'A' | 'M' | 'D' | 'R' | string;
   additions: number;
   deletions: number;
 }
@@ -51,7 +46,7 @@ export interface MergePreviewSummary {
 
 export interface MergePreviewFileChange {
   path: string;
-  status: "A" | "M" | "D" | "R" | string;
+  status: 'A' | 'M' | 'D' | 'R' | string;
   additions: number;
   deletions: number;
 }

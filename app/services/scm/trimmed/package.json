@@ -1,0 +1,21 @@
+{
+  "name": "orchestra-scm-trimmed",
+  "version": "1.0.0",
+  "description": "Trimmed VS Code-inspired SCM for Orchestra",
+  "main": "OrchestraSCM.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node -r ts-node/register test.ts",
+    "dev": "ts-node test.ts",
+    "cli": "ts-node cli.ts"
+  },
+  "bin": {
+    "orchestra-scm": "./cli.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.0.0"
+  }
+}

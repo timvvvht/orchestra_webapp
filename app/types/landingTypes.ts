@@ -5,7 +5,7 @@ export interface ProjectContext {
 }
 
 export interface LandingState {
-  mode: "prelude" | "chat" | "project";
+  mode: 'prelude' | 'chat' | 'project';
   projectContext: ProjectContext | null;
   recentProjects: ProjectContext[];
 }
@@ -15,7 +15,7 @@ export interface StoredRecentProjects {
 }
 
 export const STORAGE_KEYS = {
-  RECENT_PROJECTS: "orchestra_recent_projects",
-  LAST_MODE: "orchestra_last_mode",
-  LAST_PROJECT: "orchestra_last_project",
+  RECENT_PROJECTS: 'orchestra_recent_projects',
+  LAST_MODE: 'orchestra_last_mode',
+  LAST_PROJECT: 'orchestra_last_project'
 } as const;

@@ -7,7 +7,7 @@
  * @returns The user's name or null if not set
  */
 export function getUserName(): string | null {
-  return localStorage.getItem("userName");
+  return localStorage.getItem('userName');
 }
 
 /**
@@ -15,7 +15,7 @@ export function getUserName(): string | null {
  * @param name The name to store
  */
 export function setUserName(name: string): void {
-  localStorage.setItem("userName", name);
+  localStorage.setItem('userName', name);
 }
 
 /**
@@ -23,9 +23,9 @@ export function setUserName(name: string): void {
  * @returns Array of user goals or empty array if none set
  */
 export function getUserGoals(): string[] {
-  const goalsString = localStorage.getItem("userGoal");
+  const goalsString = localStorage.getItem('userGoal');
   if (!goalsString) return [];
-  return goalsString.split(",");
+  return goalsString.split(',');
 }
 
 /**
@@ -34,7 +34,7 @@ export function getUserGoals(): string[] {
  * @deprecated Use getUserGoals() instead
  */
 export function getUserGoal(): string | null {
-  return localStorage.getItem("userGoal");
+  return localStorage.getItem('userGoal');
 }
 
 /**
@@ -43,9 +43,9 @@ export function getUserGoal(): string | null {
  */
 export function setUserGoals(goals: string[] | string): void {
   if (Array.isArray(goals)) {
-    localStorage.setItem("userGoal", goals.join(","));
+    localStorage.setItem('userGoal', goals.join(','));
   } else {
-    localStorage.setItem("userGoal", goals);
+    localStorage.setItem('userGoal', goals);
   }
 }
 
@@ -55,7 +55,7 @@ export function setUserGoals(goals: string[] | string): void {
  * @deprecated Use setUserGoals() instead
  */
 export function setUserGoal(goal: string): void {
-  localStorage.setItem("userGoal", goal);
+  localStorage.setItem('userGoal', goal);
 }
 
 /**
@@ -63,14 +63,14 @@ export function setUserGoal(goal: string): void {
  * @returns True if onboarding is completed, false otherwise
  */
 export function isOnboardingCompleted(): boolean {
-  return localStorage.getItem("onboardingCompleted") === "true";
+  return localStorage.getItem('onboardingCompleted') === 'true';
 }
 
 /**
  * Mark onboarding as completed
  */
 export function setOnboardingCompleted(): void {
-  localStorage.setItem("onboardingCompleted", "true");
+  localStorage.setItem('onboardingCompleted', 'true');
 }
 
 /**
@@ -95,7 +95,7 @@ export function getAllUserPreferences(): {
  * Clear all user preferences from localStorage
  */
 export function clearUserPreferences(): void {
-  localStorage.removeItem("userName");
-  localStorage.removeItem("userGoal");
-  localStorage.removeItem("onboardingCompleted");
+  localStorage.removeItem('userName');
+  localStorage.removeItem('userGoal');
+  localStorage.removeItem('onboardingCompleted');
 }

@@ -20,14 +20,12 @@ const CONFLICT_END = /^>>>>>>> .+$/m;
 
 /**
  * Strip Git conflict markers from content, keeping the "current" (HEAD) side by default
- *
+ * 
  * @param content - File content that may contain conflict markers
  * @returns Object with cleaned content and boolean indicating if markers were found
  */
-export function stripGitConflictMarkers(
-  content: string
-): ConflictResolutionResult {
-  const lines = content.split("\n");
+export function stripGitConflictMarkers(content: string): ConflictResolutionResult {
+  const lines = content.split('\n');
   const result: string[] = [];
   let inConflict = false;
   let hadMarkers = false;
@@ -37,7 +35,7 @@ export function stripGitConflictMarkers(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-
+    
     if (CONFLICT_START.test(line)) {
       // Start of conflict block
       inConflict = true;
@@ -63,7 +61,7 @@ export function stripGitConflictMarkers(
     }
   }
 
-  // If we found conflict markers but didn't complete a block,
+  // If we found conflict markers but didn't complete a block, 
   // include the remaining lines as-is (partial conflict)
   if (hadMarkers && inConflict) {
     // Push remaining lines that were part of an incomplete conflict
@@ -75,21 +73,19 @@ export function stripGitConflictMarkers(
   }
 
   return {
-    cleaned: result.join("\n"),
-    hadMarkers,
+    cleaned: result.join('\n'),
+    hadMarkers
   };
 }
 
 /**
  * Alternative version that keeps the "incoming" (theirs) side instead of "current" (HEAD)
- *
+ * 
  * @param content - File content that may contain conflict markers
  * @returns Object with cleaned content and boolean indicating if markers were found
  */
-export function stripGitConflictMarkersKeepTheirs(
-  content: string
-): ConflictResolutionResult {
-  const lines = content.split("\n");
+export function stripGitConflictMarkersKeepTheirs(content: string): ConflictResolutionResult {
+  const lines = content.split('\n');
   const result: string[] = [];
   let inConflict = false;
   let inTheirsSection = false;
@@ -123,7 +119,7 @@ export function stripGitConflictMarkersKeepTheirs(
   }
 
   return {
-    cleaned: result.join("\n"),
-    hadMarkers,
+    cleaned: result.join('\n'),
+    hadMarkers
   };
 }

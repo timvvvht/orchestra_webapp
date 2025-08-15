@@ -4,19 +4,20 @@
  * Represents file references as interactive pills within the Lexical editor.
  * Each pill displays a filename and can be deleted by the user.
  */
-import { type JSX } from 'react';
-import { FilePill } from '@/components/ui/FilePill';
+
+import React from 'react';
 import {
   DecoratorNode,
-  type NodeKey,
-  type LexicalNode,
-  type SerializedLexicalNode,
-  type LexicalEditor,
-  type EditorConfig,
-  type DOMConversionMap,
-  type DOMConversionOutput,
-  type DOMExportOutput,
+  NodeKey,
+  LexicalNode,
+  SerializedLexicalNode,
+  LexicalEditor,
+  EditorConfig,
+  DOMConversionMap,
+  DOMConversionOutput,
+  DOMExportOutput,
 } from 'lexical';
+import { FilePill } from '../components/FilePill';
 
 export interface FilePillNodeData {
   fileName: string;

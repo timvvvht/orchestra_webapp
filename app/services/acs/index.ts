@@ -122,8 +122,8 @@ import { ACSAgentConfigService } from './agent-configs';
 import { ACSInfrastructureService } from './infrastructure';
 import { ACSGitHubService } from './github';
 import { getFirehose } from '@/services/GlobalServiceManager';
-// // import { LocalToolOrchestrator } from '../localTool';
-// import { ChatEventOrchestrator } from '../chat/ChatEventOrchestrator';
+import { LocalToolOrchestrator } from '../localTool';
+import { ChatEventOrchestrator } from '../chat/ChatEventOrchestrator';
 
 /**
  * Main ACS (Agent Core Service) client
@@ -144,8 +144,8 @@ export class OrchestACSClient {
 
     // Fire-hose service and orchestrators
     private firehose?: any;
-    // private localToolOrchestrator?: LocalToolOrchestrator;
-    // private chatEvents?: ChatEventOrchestrator;
+    private localToolOrchestrator?: LocalToolOrchestrator;
+    private chatEvents?: ChatEventOrchestrator;
 
     constructor(config: ACSClientConfig, streamingServiceFactory?: () => any) {
         this.client = createACSClient(config);
@@ -173,8 +173,8 @@ export class OrchestACSClient {
         if (!this.firehose) {
             throw new Error('FirehoseMux not available from GlobalServiceManager - check GlobalServiceManager is initialized');
         }
-        // this.localToolOrchestrator = new LocalToolOrchestrator(this.firehose);
-        // this.chatEvents = new ChatEventOrchestrator(this.firehose, { debugEnabled: false });
+        this.localToolOrchestrator = new LocalToolOrchestrator(this.firehose);
+        this.chatEvents = new ChatEventOrchestrator(this.firehose, { debugEnabled: false });
 
         // Inject firehose service into streaming service for user-specific connections
         this.streaming.setFirehoseService(this.firehose);
@@ -182,13 +182,13 @@ export class OrchestACSClient {
         // Note: Firehose connections will be established when needed:
         // - User-specific connection via connectPrivate() when user authenticates
         // - Session-specific connection via connect() when ChatMain mounts
-        // this.localToolOrchestrator.start();
-        // this.chatEvents.start();
+        this.localToolOrchestrator.start();
+        this.chatEvents.start();
 
         // Expose chat orchestrator for debugging in dev mode
-        // if (import.meta.env.DEV) {
-        //     (globalThis as any).__CHAT_ORCH = this.chatEvents;
-        // }
+        if (import.meta.env.DEV) {
+            (globalThis as any).__CHAT_ORCH = this.chatEvents;
+        }
     }
 
     /**
@@ -229,9 +229,9 @@ export class OrchestACSClient {
     /**
      * Get chat event orchestrator for debugging
      */
-    // getChatEvents(): ChatEventOrchestrator | undefined {
-    //     return this.chatEvents;
-    // }
+    getChatEvents(): ChatEventOrchestrator | undefined {
+        return this.chatEvents;
+    }
 
     /**
      * Get comprehensive health status from all services

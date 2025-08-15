@@ -12,11 +12,11 @@ export interface Plan {
 export interface PlanProgress {
   total: number;
   checked: number;
-  completed: number; // alias for checked - remove after UI migration
+  completed: number;    // alias for checked - remove after UI migration
   unchecked: number;
-  percent: number; // 0-100
-  bar: string; // e.g. "████░░░░░░"
-  status: "complete" | "in_progress" | "not_started";
+  percent: number;      // 0-100
+  bar: string;          // e.g. "████░░░░░░"
+  status: 'complete' | 'in_progress' | 'not_started';
   items: PlanItem[];
 }
 
