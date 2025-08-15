@@ -9,7 +9,7 @@ import {
   Clock,
 } from "lucide-react";
 import {
-  MissionControlAgent,
+  type MissionControlAgent,
   useMissionControlStore,
 } from "@/stores/missionControlStore";
 import { MergeWorktreeButton } from "./MergeWorktreeButton";

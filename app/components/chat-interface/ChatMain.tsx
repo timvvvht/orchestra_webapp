@@ -697,7 +697,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   // Initialize ACS client
   useEffect(() => {
     if (!acsInitialized) {
-      initializeACS().catch((error) => {
+      initializeACS().catch((error: any) => {
         // Error handling maintained without logging
       });
     }
@@ -1002,7 +1002,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         // Force complete stale streaming messages
         staleMessages.forEach((msg) => {
           const state = useEventStore.getState();
-          const sessionEvents = state.bySession.get(sessionId) || [];
+          const sessionEvents = sessionId
+            ? state.bySession.get(sessionId) || []
+            : [];
 
           sessionEvents.forEach((eventId) => {
             const event = state.byId.get(eventId);
@@ -1030,7 +1032,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   useEffect(() => {
     const interval = setInterval(() => {
       const state = useEventStore.getState();
-      const sessionEvents = state.bySession.get(sessionId) || [];
+      const sessionEvents = sessionId
+        ? state.bySession.get(sessionId) || []
+        : [];
       const now = Date.now();
 
       let foundStaleStreaming = false;
