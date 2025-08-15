@@ -1,7 +1,7 @@
 import type { ACSClient } from '../shared/client';
 import type { ACSConverseRequest, ACSConverseResponse, RequestOptions, APIResponse, AgentConfigOverrides } from '../shared/types';
 import { ACS_ENDPOINTS } from '../shared/types';
-import { CoreTemplateVars } from '@/utils/templateVariables';
+import type { CoreTemplateVars } from '~/utils/templateVariables';
 
 /**
  * Core chat/conversation functionality
