@@ -30,7 +30,8 @@ export default function Landing({}: any) {
       {/* Content */}
       <div className="relative z-10 flex items-center justify-center py-24 px-6">
         <Glass className="content-narrow w-full p-10">
-          <MissionControl />
+          hi
+          {/* <MissionControl /> */}
         </Glass>
         
       </div>
