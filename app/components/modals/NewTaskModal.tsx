@@ -42,7 +42,10 @@ import { AUTO_MODE_PRESETS } from "@/utils";
 import * as taskOrchestration from "@/utils/taskOrchestration";
 import { autoCommitRepo } from "@/utils/worktreeApi";
 import { remapFilePills } from "@/utils/remapFilePills";
-import { getRepoPorcelainStatus, type RepoStatusEntry } from "@/utils/gitStatus";
+import {
+  getRepoPorcelainStatus,
+  type RepoStatusEntry,
+} from "@/utils/gitStatus";
 import GitStatusList from "@/components/mission-control/GitStatusList";
 
 interface MissionControlAgent {
