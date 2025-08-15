@@ -1211,7 +1211,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       const useStoredKeys = byokStore.useStoredKeysPreference;
 
       console.log(
-        "🚀 [ChatMainCanonicalLegacy] Sending message with resolved overrides:",
+        "🚀 [ChatMain] Sending message with resolved overrides:",
         {
           agentConfigName: overrides.agentConfigName,
           hasModelOverride: !!overrides.overrides?.model_id,

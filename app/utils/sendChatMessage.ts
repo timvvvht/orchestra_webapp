@@ -352,7 +352,7 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Se
     }
 
     // Mark session as awaiting when user sends a new message
-    useSessionStatusStore.getState().markAwaiting(sessionId, 'user_send');
+    useSessionStatusStore.getState().markAwaiting(sessionId);
 
     const trimmedMessage = message.trim();
 
