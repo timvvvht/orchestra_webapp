@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   GitBranch,
   Clock,
@@ -18,7 +18,7 @@ import {
 import { supabase } from "@/auth/SupabaseClient";
 import { SCMManager } from "@/services/scm/SCMManager";
 import { getDiffStatsFromUnifiedDiff } from "@/utils/gitDiffStats";
-import { DiffStats } from "@/types/gitTypes";
+import { type DiffStats } from "@/types/gitTypes";
 import { type MissionControlAgent } from "@/stores/missionControlStore";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -91,7 +91,7 @@ const CheckpointsPane: React.FC<CheckpointsPaneProps> = ({
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase
+      const { data, error }: { data: any; error: any } = await supabase
         .from("chat_checkpoints")
         .select("*")
         .eq("session_id", sessionId)

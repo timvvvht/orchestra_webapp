@@ -130,7 +130,7 @@ export async function invokeCreateWorktree(
       workspace_path: result,
       session_id: sessionId,
       branch: `session-${sessionId}`, // Convention from backend
-      projectRoot: projectRoot,
+      project_root: projectRoot,
     };
 
     console.log(`✅ [worktreeApi] Worktree created successfully:`, {
@@ -288,7 +288,7 @@ export async function createWorktreeWithDirtyCheck(
       workspace_path: projectRoot,
       session_id: sessionId,
       branch: "direct",
-      projectRoot,
+      project_root: projectRoot, // Return the project root directly
     };
   }
   try {
