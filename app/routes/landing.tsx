@@ -19,6 +19,7 @@ export default function Landing({}: Route.ComponentProps) {
 
   return (
     <main className="min-h-screen relative orchestra-page">
+      hi
       {/* Background layers */}
       <div className="page-void">
         <div className="page-void-gradient" />
@@ -29,6 +30,7 @@ export default function Landing({}: Route.ComponentProps) {
       {/* Content */}
       <div className="relative z-10 flex items-center justify-center py-24 px-6">
         <Glass className="content-narrow w-full p-10">
+          hi
           <MissionControl />
         </Glass>
         
