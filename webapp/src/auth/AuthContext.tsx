@@ -7,6 +7,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import React from "react";
 import { supabase } from "./SupabaseClient";
 import { getDefaultACSClient } from "@/services/acs";
 import { getSupabaseAccessToken } from "@/utils/getSupabaseAccessToken";
