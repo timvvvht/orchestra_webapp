@@ -3,8 +3,48 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, Event, Disposable, ProviderResult, Command, CancellationToken, SourceControlHistoryItem } from 'vscode';
-export { ProviderResult } from 'vscode';
+// Stubbed VSCode types for webapp
+interface Uri {
+  scheme: string;
+  authority: string;
+  path: string;
+  query: string;
+  fragment: string;
+  fsPath: string;
+  toString(): string;
+}
+
+interface Event<T> {
+  (listener: (e: T) => any, thisArgs?: any, disposables?: Disposable[]): Disposable;
+}
+
+interface Disposable {
+  dispose(): void;
+}
+
+type ProviderResult<T> = T | undefined | null | Thenable<T | undefined | null>;
+
+interface Command {
+  title: string;
+  command: string;
+  tooltip?: string;
+  arguments?: any[];
+}
+
+interface CancellationToken {
+  isCancellationRequested: boolean;
+  onCancellationRequested: Event<any>;
+}
+
+interface SourceControlHistoryItem {
+  id: string;
+  parentIds: string[];
+  message: string;
+  author?: string;
+  timestamp?: number;
+}
+
+export { ProviderResult, Uri, Event, Disposable, Command, CancellationToken, SourceControlHistoryItem };
 
 export interface Git {
 	readonly path: string;

@@ -16,7 +16,7 @@ interface LexicalChatInputProps {
   className?: string;
 }
 
-const LexicalChatInput: React.FC<LexicalChatInputProps> = ({ 
+export const LexicalChatInput: React.FC<LexicalChatInputProps> = ({ 
   onSendMessage,
   placeholder = "Type your message...",
   disabled = false,

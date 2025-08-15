@@ -16,7 +16,7 @@ interface MobileChatInputProps {
   className?: string;
 }
 
-const MobileChatInput: React.FC<MobileChatInputProps> = ({ 
+export const MobileChatInput: React.FC<MobileChatInputProps> = ({ 
   onSendMessage,
   placeholder = "Type your message...",
   disabled = false,

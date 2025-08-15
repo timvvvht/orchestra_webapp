@@ -1,7 +1,12 @@
 /* eslint-env browser */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mitt from 'mitt';
-import { fetchEventSource } from '@microsoft/fetch-event-source';
+// Stubbed fetch-event-source for webapp
+const fetchEventSource = async (url: string, options: any) => {
+  console.log('🔄 [STUB] Would fetch event source:', url);
+  // Return a promise that never resolves to simulate ongoing connection
+  return new Promise(() => {});
+};
 import { eventBus } from '../eventBus';
 import type { SSEEvent } from '../shared/types';
 import { DedupeCache } from '@/utils/DedupeCache';

@@ -73,3 +73,10 @@ const UnrefinedModeTimelineRenderer: React.FC<UnrefinedModeTimelineRendererProps
 };
 
 export default UnrefinedModeTimelineRenderer;
+
+// Additional exports for compatibility
+export const shouldUseUnifiedRendering = (context?: any): boolean => {
+  console.log('🔄 [STUB] Would determine if unified rendering should be used');
+  return false; // Default to false for webapp
+};
+

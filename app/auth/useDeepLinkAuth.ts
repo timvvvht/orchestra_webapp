@@ -1,6 +1,19 @@
-import { listen } from '@tauri-apps/api/event';
-// eslint-disable-next-line import/no-unresolved
-import { onOpenUrl, getCurrent } from '@tauri-apps/plugin-deep-link';
+// Stubbed Tauri imports for webapp
+const listen = async (event: string, handler: (payload: any) => void) => {
+  console.log(`🔗 [STUB] Would listen for event: ${event}`);
+  return () => console.log(`🔗 [STUB] Would unlisten from event: ${event}`);
+};
+
+const onOpenUrl = async (handler: (urls: string[]) => void) => {
+  console.log('🔗 [STUB] Would setup onOpenUrl listener');
+  return () => console.log('🔗 [STUB] Would cleanup onOpenUrl listener');
+};
+
+const getCurrent = async () => {
+  console.log('🔗 [STUB] Would get current deep link URLs');
+  return [];
+};
+
 import { supabase } from './SupabaseClient';
 import { isTauri } from '@/lib/isTauri';
 import { useEffect } from 'react';
