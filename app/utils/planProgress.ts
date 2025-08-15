@@ -1,4 +1,4 @@
-import { PlanProgress, PlanItem } from '@/types/plans';
+import type { PlanProgress, PlanItem } from '@/types/plans';
 
 // Simple interface for test compatibility
 export interface SimplePlanProgress {
