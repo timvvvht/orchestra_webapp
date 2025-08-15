@@ -7,6 +7,7 @@ declare global {
 }
 
 export const pushHydro = (stage: HydroStage, payload: any) => {
+  if (typeof window === 'undefined') return;
   if (!window.__HYDRO_DEBUG) window.__HYDRO_DEBUG = [];
   window.__HYDRO_DEBUG.push({ stage, payload, ts: Date.now() });
   // keep latest 500
@@ -17,4 +18,4 @@ export const pushHydro = (stage: HydroStage, payload: any) => {
 const EMPTY_ARRAY: HydroEntry[] = [];
 
 export const useHydroDebug = (): HydroEntry[] =>
-  window.__HYDRO_DEBUG || EMPTY_ARRAY;
+  typeof window !== 'undefined' ? (window.__HYDRO_DEBUG || EMPTY_ARRAY) : EMPTY_ARRAY;

@@ -39,6 +39,8 @@ const clone = (v: any): any =>
  * @param data - Additional data to log
  */
 export function logDebug(kind: string, data: any = {}): void {
+  if (typeof window === 'undefined') return;
+  
   // Initialize global history array if it doesn't exist
   if (!window.__SSE_HISTORY) {
     window.__SSE_HISTORY = [];

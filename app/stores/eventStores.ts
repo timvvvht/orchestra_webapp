@@ -174,7 +174,7 @@ export function useChronologicalEvents() {
 /**
  * Development helpers
  */
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && typeof window !== 'undefined') {
   // Expose store to window for debugging
   (window as any).eventStore = useEventStore;
   (window as any).useEventStore = useEventStore;

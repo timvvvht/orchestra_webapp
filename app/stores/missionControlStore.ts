@@ -196,20 +196,22 @@ export const useMissionControlStore = create<MissionControlState>(
       };
 
       // Backwards compatibility: if old 'idle' state exists in localStorage, migrate it
-      try {
-        const saved = localStorage.getItem("mc_collapsed_groups_v1");
-        if (saved) {
-          const oldState = JSON.parse(saved);
-          if (typeof oldState.idle === "boolean") {
-            // Migrate old 'idle' state to both new keys
-            baseState.collapsedGroups.idleUnread = oldState.idle;
-            baseState.collapsedGroups.idleRead = oldState.idle;
-            // Clear old state to prevent future migrations
-            localStorage.removeItem("mc_collapsed_groups_v1");
+      if (typeof window !== 'undefined') {
+        try {
+          const saved = localStorage.getItem("mc_collapsed_groups_v1");
+          if (saved) {
+            const oldState = JSON.parse(saved);
+            if (typeof oldState.idle === "boolean") {
+              // Migrate old 'idle' state to both new keys
+              baseState.collapsedGroups.idleUnread = oldState.idle;
+              baseState.collapsedGroups.idleRead = oldState.idle;
+              // Clear old state to prevent future migrations
+              localStorage.removeItem("mc_collapsed_groups_v1");
+            }
           }
+        } catch (error) {
+          console.warn("Failed to migrate collapsed groups state:", error);
         }
-      } catch (error) {
-        console.warn("Failed to migrate collapsed groups state:", error);
       }
 
       return baseState;

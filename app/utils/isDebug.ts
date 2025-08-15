@@ -4,8 +4,10 @@
 
 export function isDebug(): boolean {
   // Check for debug query parameter
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.has('debug')) return true;
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('debug')) return true;
+  }
   
   // Check for development environment
   if (import.meta.env.DEV) return true;
@@ -17,6 +19,7 @@ export function isDebug(): boolean {
 }
 
 export function isDebugFeature(feature: string): boolean {
+  if (typeof window === 'undefined') return false;
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.has('debug') || urlParams.has(`debug-${feature}`);
 }
