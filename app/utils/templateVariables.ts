@@ -6,7 +6,6 @@
 import { getUserName } from './userPreferences';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { getPreference } from '@/api/settingsApi';
-import { getDefaultACSClient } from '@/services/acs';
 
 /**
  * Get template variables that can be used for system prompt substitution
@@ -91,6 +90,8 @@ export interface CoreTemplateVars {
     user_name: string;
     vault_path: string;
     timestamp: string;
+    // Allow additional template variables like {{NAME}}, {{PROJECT_NAME}}, etc.
+    [key: string]: string;
 }
 
 /**
@@ -98,6 +99,9 @@ export interface CoreTemplateVars {
  * This is the main function to use when sending messages to ACS
  */
 export async function createACSTemplateVariables(context?: { projectName?: string; sessionId?: string; agentName?: string }): Promise<CoreTemplateVars> {
+    // Lazy import to avoid circular dependency
+    const { getDefaultACSClient } = await import('@/services/acs');
+    
     // Get auth from the default ACS client
     const authService = getDefaultACSClient().auth;
 
