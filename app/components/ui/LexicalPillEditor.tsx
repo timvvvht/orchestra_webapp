@@ -19,8 +19,11 @@ import {
   $createParagraphNode,
   $createTextNode,
 } from "lexical";
-import { cn } from "@/lib/utils";
-import { FilePillNode, $createFilePillNode } from "@/components/nodes/FilePillNode";
+import { cn } from "cn-utility";
+import {
+  FilePillNode,
+  $createFilePillNode,
+} from "@/components/nodes/FilePillNode";
 import { FileMentionPlugin } from "@/components/plugins/FileMentionPlugin";
 import "@/components/chat-interface/LexicalChatInput.css";
 

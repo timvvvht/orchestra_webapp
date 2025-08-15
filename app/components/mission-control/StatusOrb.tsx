@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn } from "cn-utility";
 
 interface StatusOrbProps {
   status: "processing" | "idle" | "needs-review" | "error" | "creating";

@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { cn } from "@/lib/utils";
+import { cn } from "cn-utility";
 
 interface PlanPaneProps {
   sessionId: string;

@@ -7,7 +7,7 @@
 
 import React, { useState } from "react";
 import { X, FileText } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn-utility";
 
 interface FilePillProps {
   fileName: string;

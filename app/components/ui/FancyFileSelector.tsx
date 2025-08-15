@@ -34,7 +34,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { File, ChevronUp, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "cn-utility";
 import { SearchMatch } from "@/lib/tauri/fileSelector";
 
 interface FancyFileSelectorProps {

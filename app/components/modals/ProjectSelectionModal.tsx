@@ -16,7 +16,7 @@ import {
   Shield,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn } from "cn-utility";
 import { isTauri } from "@/utils/environment";
 import { recentProjectsManager } from "@/utils/projectStorage";
 
