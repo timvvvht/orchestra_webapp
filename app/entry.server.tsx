@@ -1,7 +1,27 @@
-// Minimal server entry stub for React Router dev mode
-// This file is required by React Router even with ssr: false
-// It will not be used in production since ssr: false
+import type { AppLoadContext, EntryContext } from "react-router";
 
-export default function handleRequest() {
-  throw new Error('SSR is disabled - this should not be called');
+export default async function handleRequest(
+  request: Request,
+  responseStatusCode: number,
+  responseHeaders: Headers,
+  routerContext: EntryContext,
+  _loadContext: AppLoadContext
+) {
+  // Minimal HTML shell for CSR-only app with ssr: false
+  // React Router dev needs this to serve the document, but no SSR occurs
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Orchestra</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- React Router dev will inject client scripts -->
+  </body>
+</html>`;
+
+  responseHeaders.set("Content-Type", "text/html");
+  return new Response(html, { headers: responseHeaders, status: responseStatusCode });
 }
