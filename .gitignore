@@ -12,3 +12,5 @@
 .dev.vars*
 
 .orchestra/
+
+.env

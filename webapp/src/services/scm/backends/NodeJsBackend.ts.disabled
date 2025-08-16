@@ -1,0 +1,177 @@
+/**
+ * Node.js Backend - SCM implementation using Node.js child_process
+ * 
+ * This backend implements SCM operations using the original Node.js
+ * child_process approach. It's used as a fallback when Tauri is not
+ * available or for Node.js-only environments.
+ */
+
+import * as path from 'path';
+import * as fs from 'fs';
+import { ScmBackend } from './ScmBackend';
+import { Commit } from '../types';
+import { Repository } from '../repository';
+import { Git } from '../git';
+
+export interface NodeJsBackendOptions {
+  gitPath?: string;
+  userAgent?: string;
+}
+
+export class NodeJsBackend implements ScmBackend {
+  private repositories: Map<string, Repository> = new Map();
+  private git: Git;
+
+  constructor(options: NodeJsBackendOptions = {}) {
+    // Initialize Git instance with Orchestra-specific configuration
+    this.git = new Git({
+      gitPath: options.gitPath || 'git',
+      userAgent: options.userAgent || 'Orchestra-SCM/1.0.0',
+      version: '2.0.0', // Will be detected dynamically
+      env: process.env
+    });
+  }
+
+  async hasRepository(cwd: string): Promise<boolean> {
+    const normalizedCwd = path.resolve(cwd);
+    const orchestraDir = path.join(normalizedCwd, '.orchestra');
+    const gitDir = path.join(orchestraDir, '.git');
+    return fs.existsSync(gitDir);
+  }
+
+  async getCurrentCommit(cwd: string): Promise<string | null> {
+    try {
+      const repo = await this.getRepoForCwd(cwd);
+      const head = await repo.getHEAD();
+      return head.commit || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getHistory(cwd: string, limit: number = 50): Promise<Commit[]> {
+    const repo = await this.getRepoForCwd(cwd);
+    return await repo.log({ maxEntries: limit });
+  }
+
+  async checkpoint(cwd: string, message: string): Promise<string> {
+    const repo = await this.getRepoForCwd(cwd);
+    
+    // Stage all changes in the workspace (not .orchestra directory)
+    const workspaceFiles = await this.getWorkspaceFiles(cwd);
+    if (workspaceFiles.length > 0) {
+      await repo.add(workspaceFiles);
+    }
+
+    // Commit with timestamp and message
+    const commitMessage = `${message}\n\nTimestamp: ${new Date().toISOString()}`;
+    await repo.commit(commitMessage);
+
+    // Get the commit hash
+    const head = await repo.getHEAD();
+    return head.commit || '';
+  }
+
+  async diff(cwd: string, fromSha: string, toSha?: string): Promise<string> {
+    const repo = await this.getRepoForCwd(cwd);
+    
+    if (toSha) {
+      // Diff between two commits
+      return await repo.diffBetween(fromSha, toSha);
+    } else {
+      // Diff between commit and working tree
+      return await repo.diffWith(fromSha);
+    }
+  }
+
+  async revert(cwd: string, sha: string): Promise<void> {
+    const repo = await this.getRepoForCwd(cwd);
+    await repo.reset(sha, true); // Hard reset
+  }
+
+  async getFileAtCommit(cwd: string, sha: string, filePath: string): Promise<string> {
+    const repo = await this.getRepoForCwd(cwd);
+    return await repo.show(sha, filePath);
+  }
+
+  async initializeRepository(cwd: string): Promise<void> {
+    const normalizedCwd = path.resolve(cwd);
+    
+    // Create .orchestra directory if it doesn't exist
+    const orchestraDir = path.join(normalizedCwd, '.orchestra');
+    if (!fs.existsSync(orchestraDir)) {
+      fs.mkdirSync(orchestraDir, { recursive: true });
+    }
+
+    // Initialize git repository in .orchestra directory if needed
+    const gitDir = path.join(orchestraDir, '.git');
+    if (!fs.existsSync(gitDir)) {
+      await this.git.init(orchestraDir);
+    }
+  }
+
+  getBackendType(): string {
+    return 'NodeJs';
+  }
+
+  isRealBackend(): boolean {
+    return true;
+  }
+
+  dispose(): void {
+    this.repositories.clear();
+  }
+
+  /**
+   * Get or create repository for given CWD
+   * Initializes .orchestra/ hidden Git repository on first use
+   */
+  private async getRepoForCwd(cwd: string): Promise<Repository> {
+    const normalizedCwd = path.resolve(cwd);
+    
+    if (this.repositories.has(normalizedCwd)) {
+      return this.repositories.get(normalizedCwd)!;
+    }
+
+    // Ensure repository is initialized
+    await this.initializeRepository(cwd);
+
+    const orchestraDir = path.join(normalizedCwd, '.orchestra');
+
+    // Create Repository instance
+    const dotGit = await this.git.getRepositoryDotGit(orchestraDir);
+    const repository = this.git.open(orchestraDir, undefined, dotGit, console);
+
+    this.repositories.set(normalizedCwd, repository);
+    return repository;
+  }
+
+  /**
+   * Get all files in workspace (excluding .orchestra directory)
+   */
+  private async getWorkspaceFiles(cwd: string): Promise<string[]> {
+    const files: string[] = [];
+    
+    const scanDirectory = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        
+        // Skip .orchestra directory
+        if (entry.name === '.orchestra') {
+          continue;
+        }
+        
+        if (entry.isDirectory()) {
+          scanDirectory(fullPath);
+        } else if (entry.isFile()) {
+          files.push(path.relative(cwd, fullPath));
+        }
+      }
+    };
+
+    scanDirectory(cwd);
+    return files;
+  }
+}

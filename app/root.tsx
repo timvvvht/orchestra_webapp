@@ -9,8 +9,10 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { AuthProvider } from "./auth/AuthContext";
+// import { AuthProvider } from "./auth/AuthContext";
 
-export const links: Route.LinksFunction = () => [
+export const links: any = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -50,7 +52,7 @@ export function HydrateFallback() {
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-white/[0.02] rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-white/[0.02] rounded-full blur-3xl" />
       </div>
-      
+
       {/* Loading content */}
       <div className="relative z-10 text-center">
         <div className="mb-8">
@@ -59,7 +61,7 @@ export function HydrateFallback() {
             <div className="absolute inset-0 border-2 border-white/10 rounded-full"></div>
             <div className="absolute inset-0 border-2 border-transparent border-t-white/60 rounded-full animate-spin"></div>
           </div>
-          
+
           {/* Loading text */}
           <h1 className="text-xl font-medium text-white/90 mb-2">
             Loading Orchestra
@@ -68,7 +70,7 @@ export function HydrateFallback() {
             Preparing your development environment...
           </p>
         </div>
-        
+
         {/* Optional: Progress dots */}
         <div className="flex items-center justify-center gap-1">
           {[0, 1, 2].map((i) => (
@@ -85,10 +87,14 @@ export function HydrateFallback() {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  );
 }
 
-export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+export function ErrorBoundary({ error }: any) {
   let message = "Oops!";
   let details = "An unexpected error occurred.";
   let stack: string | undefined;
