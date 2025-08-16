@@ -32,11 +32,117 @@ import { isTauri } from "@/utils/environment";
 // Removed static Tauri imports; will use dynamic import under isTauri()
 import { recentProjectsManager } from "@/utils/projectStorage";
 import { useFileSearch } from "@/hooks/useFileSearch";
-import { LexicalPillEditor } from "@/components/ui/LexicalPillEditor";
+// Lazy-loaded Lexical editor with fallback for compatibility issues
 import { useMissionControlShortcuts } from "@/hooks/useMissionControlShortcuts";
 import { useAuth } from "@/auth/AuthContext";
 import { startBackgroundSessionOps } from "@/workers/sessionBackgroundWorker";
 import { useMissionControlStore } from "@/stores/missionControlStore";
+
+// Fallback editor for when Lexical fails
+function FallbackTextEditor({
+  value,
+  onChange,
+  placeholder
+}: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <textarea
+      className="w-full min-h-[120px] rounded-md border border-white/10 bg-white/[0.03] p-3 text-white/90 outline-none focus:border-white/20 resize-none"
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        background: 'transparent',
+        fontSize: '15px',
+        lineHeight: '1.6',
+        padding: '16px 20px',
+        minHeight: '220px',
+        maxHeight: '45vh',
+        overflowY: 'auto'
+      }}
+    />
+  );
+}
+
+// Lazy-loaded Lexical editor component
+const LazyLexicalPillEditor = React.lazy(() => 
+  import("@/components/ui/LexicalPillEditor").then(module => ({
+    default: module.LexicalPillEditor
+  })).catch(error => {
+    console.warn("[NewTaskModal] Failed to load LexicalPillEditor, using fallback:", error);
+    // Return a component that will trigger the error boundary
+    throw error;
+  })
+);
+
+// Error boundary class for Lexical editor
+class LexicalErrorBoundary extends React.Component<
+  { 
+    children: React.ReactNode; 
+    fallback: React.ReactNode;
+    onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  },
+  { hasError: boolean }
+> {
+  constructor(props: { 
+    children: React.ReactNode; 
+    fallback: React.ReactNode;
+    onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    console.warn("[NewTaskModal] Lexical failed, using fallback:", error);
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.warn("[NewTaskModal] Lexical error details:", error, errorInfo);
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+
+// Safe wrapper for Lexical editor with lazy loading and fallback
+function SafeLexicalEditor(props: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [hasError, setHasError] = React.useState(false);
+
+  const handleError = React.useCallback((error: Error) => {
+    console.warn("[NewTaskModal] Lexical editor error, switching to fallback:", error);
+    // Use setTimeout to avoid infinite re-render loops
+    setTimeout(() => setHasError(true), 0);
+  }, []);
+
+  // If we've encountered an error, use the fallback
+  if (hasError) {
+    return <FallbackTextEditor {...props} />;
+  }
+
+  return (
+    <React.Suspense fallback={<FallbackTextEditor {...props} />}>
+      <LexicalErrorBoundary
+        fallback={<FallbackTextEditor {...props} />}
+        onError={handleError}
+      >
+        <LazyLexicalPillEditor {...props} />
+      </LexicalErrorBoundary>
+    </React.Suspense>
+  );
+}
 import { AUTO_MODE_PRESETS } from "@/utils";
 import * as taskOrchestration from "@/utils/taskOrchestration";
 import { autoCommitRepo } from "@/utils/worktreeApi";
@@ -912,14 +1018,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             <div className="px-8 pb-6">
               {/* Task input with Lexical editor */}
               <div className="relative rounded-2xl bg-black/20 border border-white/10 focus-within:border-white/20 transition-colors duration-200 overflow-hidden">
-                <LexicalPillEditor
+                <SafeLexicalEditor
                   value={content}
                   onChange={setContent}
-                  codePath={codePath}
                   placeholder={PLACEHOLDERS[placeholderIndex]}
-                  className="lexical-chat-input lexical-task-input"
-                  autoFocus={true}
-                  data-testid="task-editor"
                 />
               </div>
             </div>

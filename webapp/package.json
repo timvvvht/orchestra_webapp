@@ -19,6 +19,7 @@
     "vite-tsconfig-paths": "^5"
   },
   "dependencies": {
+    "@lexical/react": "^0.34.0",
     "@monaco-editor/react": "^4.7.0",
     "@supabase/supabase-js": "^2",
     "autoprefixer": "^10.4.0",
@@ -26,6 +27,7 @@
     "date-fns": "^4",
     "framer-motion": "^12",
     "jwt-decode": "^4",
+    "lexical": "^0.34.0",
     "lucide-react": "^0.539",
     "normalize-range": "^0.1.2",
     "postcss": "^8.4.0",
