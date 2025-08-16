@@ -269,7 +269,7 @@ const ChatPane: React.FC = () => {
           <ChatErrorBoundary>
             <div className="h-full max-h-full overflow-hidden flex flex-col">
               <SessionIdContext.Provider value={selectedSession}>
-                <ChatMainCanonicalLegacy
+                <ChatMain
                   sessionId={selectedSession}
                   sidebarCollapsed={true}
                   onSubmit={handleSubmit}

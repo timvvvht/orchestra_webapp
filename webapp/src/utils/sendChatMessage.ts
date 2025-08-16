@@ -323,7 +323,6 @@ export async function sendChatMessage(
     message,
     userId,
     agentConfigName,
-    acsClient,
     acsOverrides,
     sessionData,
     autoMode = false, // Default to false unless explicitly set
@@ -446,9 +445,8 @@ export async function sendChatMessage(
 
     const hasJwt: boolean = false;
 
-    if (hasJwt){
-        // add to header and remove user_id from body
-        
+    if (hasJwt) {
+      // add to header and remove user_id from body
     }
 
     console.log(
