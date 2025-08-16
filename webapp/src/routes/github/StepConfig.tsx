@@ -18,23 +18,24 @@ export default function StepConfig() {
 
   const testConnectivity = async () => {
     setConnectivityState("loading");
-    setStatus("Testing /auth/me (unauthenticated) to verify reachability...");
+    setStatus("Testing ACS reachability via /infrastructure/provision-test (unauthenticated)...");
     try {
-      const res = await api.whoAmI(); // expect 401 or 200 if reachable
-      if (res.status === 200) {
-        setStatus(`Connected successfully to ${withApiV1(acsBase)}`);
-        setMe(res.data);
+      // Use unauthenticated endpoint similar to HTML tester flow
+      const res = await fetch(`${withApiV1(acsBase)}/infrastructure/provision-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        setStatus(`Connected successfully to ${withApiV1(acsBase)} (provision-test ok)`);
+        setMe(data);
         setConnectivityState("success");
+        // Auto-advance to next step
         window.dispatchEvent(new CustomEvent("stepSuccess"));
-      } else if (res.status === 401) {
-        setStatus(
-          `Reachable at ${withApiV1(acsBase)} but not authenticated (status ${res.status})`
-        );
-        setMe(res.data);
-        setConnectivityState("error");
       } else {
-        setStatus(`Unexpected response: ${res.status}`);
-        setMe(res.data);
+        setStatus(`Reachable but unexpected response from provision-test: ${res.status}`);
+        setMe(data);
         setConnectivityState("error");
       }
     } catch (error) {

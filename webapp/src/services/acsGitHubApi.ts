@@ -19,6 +19,8 @@ export const acsGithubApi = (config: ACSConfig) => {
 
   return {
     // Auth
+    // Note: /auth/me is not used by the GitHub Wizard flow to avoid CORS dependency.
+    // The wizard proceeds directly to GitHub endpoints after successful cookie exchange.
     exchangeSupabaseJwt: async (opts: { access_token: string; user: any }) => {
       return getJson(`${API}/auth/oauth/exchange`, {
         method: "POST",

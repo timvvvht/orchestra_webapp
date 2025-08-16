@@ -27,30 +27,19 @@ export default function StepExchange() {
       access_token: session.access_token,
       user: session.user || {},
     });
-    setStatus(
-      res.ok
-        ? "Success: cookies set"
-        : `Failed: ${res.data?.detail ?? "Unknown"}`
-    );
-    setResult(res);
+    
+    if (res.ok) {
+      setStatus("Success: cookies set");
+      setResult(res);
+      // Auto-advance to install/verify step
+      window.dispatchEvent(new Event("stepSuccess"));
+    } else {
+      setStatus(`Failed: ${res.data?.detail ?? "Unknown"}`);
+      setResult(res);
+    }
   };
 
-  const whoAmI = async () => {
-    setStatus("Checking /auth/me...");
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const authHeader = session?.access_token
-      ? `Bearer ${session.access_token}`
-      : undefined;
-    const res = await api.whoAmI(authHeader);
-    setStatus(
-      res.ok
-        ? `Authenticated as ${res.data?.email}`
-        : `Not authenticated: ${res.data?.detail ?? res.status}`
-    );
-    setResult(res);
-  };
+
 
   return (
     <section>
@@ -59,9 +48,6 @@ export default function StepExchange() {
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <Button onClick={exchange}>Exchange for ACS Cookies</Button>
-        <Button variant="secondary" onClick={whoAmI}>
-          Who Am I
-        </Button>
       </div>
 
       <div style={{ marginTop: 8, color: "#777" }}>

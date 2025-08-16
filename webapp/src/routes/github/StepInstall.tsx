@@ -28,11 +28,14 @@ export default function StepInstall() {
       ? `Bearer ${session.access_token}`
       : undefined;
     const res = await api.listInstallations(authHeader);
-    setStatus(
-      res.ok
-        ? `Found ${res.data?.count ?? 0} installations`
-        : "Failed to list installations"
-    );
+    
+    if (res.ok) {
+      setStatus(`Found ${res.data?.count ?? 0} installations`);
+    } else if (res.status === 401 || res.status === 403) {
+      setStatus('Not authenticated with ACS. Please run "Exchange for ACS Cookies" in previous step.');
+    } else {
+      setStatus("Failed to list installations");
+    }
     setResult(res);
   };
 
@@ -45,9 +48,13 @@ export default function StepInstall() {
       ? `Bearer ${session.access_token}`
       : undefined;
     const res = await api.listRepos(authHeader);
-    setStatus(
-      res.ok ? `Found ${res.data?.count ?? 0} repos` : "Failed to list repos"
-    );
+    if (res.ok) {
+      setStatus(`Found ${res.data?.count ?? 0} repos`);
+    } else if (res.status === 401 || res.status === 403) {
+      setStatus('Not authenticated with ACS. Please run "Exchange for ACS Cookies" in previous step.');
+    } else {
+      setStatus("Failed to list repos");
+    }
     setResult(res);
   };
 
