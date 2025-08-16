@@ -25,6 +25,7 @@
     "autoprefixer": "^10.4.0",
     "cn-utility": "^1.0.1",
     "date-fns": "^4",
+    "eventemitter3": "^5.0.1",
     "framer-motion": "^12",
     "jwt-decode": "^4",
     "lexical": "^0.34.0",

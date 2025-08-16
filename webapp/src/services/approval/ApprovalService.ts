@@ -5,7 +5,7 @@
  * Provides a thin layer between LocalToolOrchestrator and the UI for human-in-the-loop control.
  */
 
-import { EventEmitter } from "events";
+import EventEmitter from "eventemitter3";
 import {
   ToolInvocation,
   ApprovalStatus,
@@ -19,7 +19,7 @@ import {
 // In-memory storage for now - in production this would be backed by a database
 interface ApprovalStore {
   invocations: Map<string, ToolInvocation>;
-  pendingTimeouts: Map<string, NodeJS.Timeout>;
+  pendingTimeouts: Map<string, ReturnType<typeof setTimeout>>;
 }
 
 export class ApprovalService extends EventEmitter {
