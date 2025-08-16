@@ -435,8 +435,12 @@ export async function sendChatMessage(
     );
 
     // 5) POST to ACS Converse using httpApi
-    const ACS_BASE = process.env.ACS_URL;
+    const ACS_BASE =
+      import.meta.env.VITE_ACS_BASE_URL || "http://localhost:8000";
     const url = `${ACS_BASE}/acs/converse`;
+
+    console.log(ACS_BASE);
+    console.log(`URL:::::: ${url}`);
 
     // Optional: Attach Authorization header if you have a JWT; if so, remove user_id from body
     const headers: Record<string, string> = {
