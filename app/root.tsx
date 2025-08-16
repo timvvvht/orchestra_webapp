@@ -10,6 +10,7 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 import { AuthProvider } from "./auth/AuthContext";
+import { SignOutButton } from "../webapp/src/components/SignOutButton";
 // import { AuthProvider } from "./auth/AuthContext";
 
 export const links: any = () => [
@@ -35,7 +36,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {children}
+        <div className="min-h-screen flex flex-col">
+          <div className="flex-1">{children}</div>
+          <footer className="p-4 flex justify-center">
+            <SignOutButton />
+          </footer>
+        </div>
         <ScrollRestoration />
         <Scripts />
       </body>

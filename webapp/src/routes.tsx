@@ -43,6 +43,10 @@ export const routes: RouteObject[] = [
         element: <GitHubConnectPage />,
       },
       {
+        path: "github",
+        element: <GitHubWizardLayout />,
+      },
+      {
         path: "/github/connect",
         element: <GitHubWizardLayout />,
         children: [

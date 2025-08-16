@@ -19,6 +19,8 @@ import { useDeepLinkAuth } from "./useDeepLinkAuth";
 
 import { notifyAuthChange } from "@/services/GlobalServiceManager";
 
+import { SignOutButton } from "@/components/SignOutButton";
+
 type AuthCtx = {
   user: any | null;
   isAuthenticated: boolean;
@@ -473,16 +475,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
       }}
     >
-      <>
+      <div className="min-h-[100vh] min-w-[100vw] flex flex-col items-center">
         <span className="text-xl text-white">{showModal}</span>
         {children}
+        {user && <SignOutButton />}
         {showModal && (
           <SecureAuthModal
             isOpen={showModal}
             onClose={() => setShowModal(false)}
           />
         )}
-      </>
+      </div>
     </Ctx.Provider>
   );
 };

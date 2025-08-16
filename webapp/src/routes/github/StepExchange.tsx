@@ -1,13 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { supabase } from "../../auth/SupabaseClient";
-import { acsGithubApi } from "@/services/acsGitHubApi";
+import { acsGithubApi, withApiV1 } from "@/services/acsGitHubApi";
 import { CONFIG } from "../../config";
 import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
 import { Separator } from "../../components/ui/separator";
 
 export default function StepExchange() {
-  const [acsBase, setAcsBase] = useState(CONFIG.ACS_BASE_URL);
+  const acsBase = CONFIG.ACS_BASE_URL;
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
   const [status, setStatus] = useState(
     "Exchange your Supabase JWT for ACS cookies. This is CRITICAL."
@@ -58,23 +57,19 @@ export default function StepExchange() {
       <h2 style={{ fontSize: 18, fontWeight: 600 }}>Exchange Tokens</h2>
       <p style={{ color: "#555" }}>{status}</p>
 
-      <div style={{ display: "grid", gap: 10, maxWidth: 480 }}>
-        <div>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
-            ACS Base URL
-          </label>
-          <Input value={acsBase} onChange={(e) => setAcsBase(e.target.value)} />
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Button onClick={exchange}>Exchange for ACS Cookies</Button>
-          <Button variant="secondary" onClick={whoAmI}>
-            Who Am I
-          </Button>
-        </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <Button onClick={exchange}>Exchange for ACS Cookies</Button>
+        <Button variant="secondary" onClick={whoAmI}>
+          Who Am I
+        </Button>
+      </div>
+
+      <div style={{ marginTop: 8, color: "#777" }}>
+        ACS Base URL (locked): <code>{acsBase}</code> | API:{" "}
+        <code>{withApiV1(acsBase)}</code>
       </div>
 
       <Separator style={{ margin: "16px 0" }} />
-      <pre style={preStyle}>{JSON.stringify(result, null, 2)}</pre>
     </section>
   );
 }

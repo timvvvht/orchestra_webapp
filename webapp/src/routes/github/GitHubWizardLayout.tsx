@@ -1,6 +1,7 @@
-import React from "react";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Separator } from "../../components/ui/separator";
+import { Button } from "../../components/ui/Button";
 
 const steps = [
   { to: "/github/connect/config", label: "1) Configure ACS" },
@@ -11,6 +12,31 @@ const steps = [
 
 export default function GitHubWizardLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const currentIndex = steps.findIndex((step) => step.to === location.pathname);
+  const canGoBack = currentIndex > 0;
+  const canGoNext = currentIndex < steps.length - 1;
+
+  useEffect(() => {
+    const handleStepSuccess = () => {
+      const currentPath = window.location.pathname;
+      console.log("Received stepSuccess event, current path:", currentPath);
+      const currentIndex = steps.findIndex((step) => step.to === currentPath);
+      const nextStep = steps[currentIndex + 1];
+      console.log("Current index:", currentIndex, "Next step:", nextStep);
+      if (nextStep) {
+        setTimeout(() => {
+          console.log("Navigating to:", nextStep.to);
+          navigate(nextStep.to);
+        }, 2000);
+      }
+    };
+
+    window.addEventListener("stepSuccess", handleStepSuccess);
+    return () => window.removeEventListener("stepSuccess", handleStepSuccess);
+  }, [navigate]);
+
   return (
     <div style={{ maxWidth: 960, margin: "2rem auto", padding: "0 1rem" }}>
       <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 8 }}>
@@ -21,29 +47,24 @@ export default function GitHubWizardLayout() {
         GitHub App.
       </p>
 
-      <nav style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        {steps.map((s) => (
-          <NavLink
-            key={s.to}
-            to={s.to}
-            style={({ isActive }) => ({
-              padding: "8px 12px",
-              borderRadius: 6,
-              textDecoration: "none",
-              background: isActive ? "#e9f2ff" : "#f6f7f9",
-              border: "1px solid #e1e4e8",
-              color: "#111",
-              fontWeight: isActive ? 600 : 500,
-            })}
-          >
-            {s.label}
-          </NavLink>
-        ))}
-      </nav>
-
-      <Separator style={{ margin: "16px 0" }} />
-
       <Outlet />
+
+      <div className="flex gap-12 min-w-full mt-24 justify-between">
+        <Button
+          onClick={() => navigate(steps[currentIndex - 1].to)}
+          disabled={!canGoBack}
+          className="cursor-pointer"
+        >
+          Back
+        </Button>
+        <Button
+          onClick={() => navigate(steps[currentIndex + 1].to)}
+          disabled={!canGoNext}
+          className="cursor-pointer"
+        >
+          Next
+        </Button>
+      </div>
     </div>
   );
 }

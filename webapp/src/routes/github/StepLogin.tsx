@@ -5,8 +5,8 @@ import { Input } from "../../components/ui/Input";
 import { Separator } from "../../components/ui/separator";
 
 export default function StepLogin() {
-  const [email, setEmail] = useState("test@example.com");
-  const [password, setPassword] = useState("testpassword123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [status, setStatus] = useState("Log in or register with Supabase");
   const [session, setSession] = useState<any>(null);
 
@@ -67,6 +67,7 @@ export default function StepLogin() {
           <Input
             type="email"
             value={email}
+            placeholder="Email"
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
@@ -77,6 +78,7 @@ export default function StepLogin() {
           <Input
             type="password"
             value={password}
+            placeholder="Password"
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
@@ -94,7 +96,6 @@ export default function StepLogin() {
       </div>
 
       <Separator style={{ margin: "16px 0" }} />
-      <pre style={preStyle}>{JSON.stringify({ session }, null, 2)}</pre>
     </section>
   );
 }
