@@ -1,0 +1,171 @@
+/* Orchestra Toast System - CSS Animations */
+
+/* ===== KEYFRAMES ===== */
+
+/* Enter animations */
+@keyframes toast-slide-in-top {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-slide-in-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Exit animations */
+@keyframes toast-slide-out-right {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+  }
+}
+
+@keyframes toast-slide-out-left {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-100%) scale(0.9);
+  }
+}
+
+@keyframes toast-fade-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Mystical glow pulse for accent bars */
+@keyframes toast-glow-pulse {
+  0%, 100% { 
+    opacity: 0.6;
+    box-shadow: 0 0 8px currentColor;
+  }
+  50% { 
+    opacity: 1;
+    box-shadow: 0 0 16px currentColor;
+  }
+}
+
+/* ===== STATE CLASSES ===== */
+
+.toast-card {
+  transition: all var(--duration-smooth, 300ms) var(--ease-smooth, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+/* Entering state - initial */
+.toast-entering {
+  opacity: 0;
+  transform: translateY(-20px) scale(0.95);
+}
+
+/* Visible state - steady */
+.toast-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Exiting state - removal */
+.toast-exiting {
+  opacity: 0;
+  transform: translateX(100%) scale(0.9);
+}
+
+/* ===== PLACEMENT-SPECIFIC ANIMATIONS ===== */
+
+/* Top placements */
+.toast-viewport-top .toast-entering {
+  animation: toast-slide-in-top var(--duration-smooth, 300ms) var(--ease-water, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Bottom placements */
+.toast-viewport-bottom .toast-entering {
+  animation: toast-slide-in-bottom var(--duration-smooth, 300ms) var(--ease-water, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Right-side exits */
+.toast-viewport-right .toast-exiting {
+  animation: toast-slide-out-right var(--duration-fast, 200ms) var(--ease-out, ease-out);
+}
+
+/* Left-side exits */
+.toast-viewport-left .toast-exiting {
+  animation: toast-slide-out-left var(--duration-fast, 200ms) var(--ease-out, ease-out);
+}
+
+/* Center exits (fade only) */
+.toast-viewport-center .toast-exiting {
+  animation: toast-fade-out var(--duration-fast, 200ms) var(--ease-out, ease-out);
+}
+
+/* ===== ACCENT GLOW BARS ===== */
+
+.toast-accent-bar {
+  animation: toast-glow-pulse 2s var(--ease-gentle, cubic-bezier(0.19, 1, 0.22, 1)) infinite;
+}
+
+/* ===== REDUCED MOTION ===== */
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-card,
+  .toast-entering,
+  .toast-visible,
+  .toast-exiting {
+    animation: none !important;
+    transition: opacity 0.1s ease !important;
+  }
+  
+  .toast-accent-bar {
+    animation: none !important;
+  }
+  
+  .toast-entering {
+    opacity: 0;
+    transform: none;
+  }
+  
+  .toast-visible {
+    opacity: 1;
+    transform: none;
+  }
+  
+  .toast-exiting {
+    opacity: 0;
+    transform: none;
+  }
+}

@@ -1,7 +1,4 @@
 import type { AppLoadContext, EntryContext } from "react-router";
-import { ServerRouter } from "react-router";
-import { isbot } from "isbot";
-import { renderToReadableStream } from "react-dom/server";
 
 export default async function handleRequest(
   request: Request,
@@ -10,34 +7,22 @@ export default async function handleRequest(
   routerContext: EntryContext,
   _loadContext: AppLoadContext
 ) {
-  let shellRendered = false;
-  const userAgent = request.headers.get("user-agent");
-
-  const body = await renderToReadableStream(
-    <ServerRouter context={routerContext} url={request.url} />,
-    {
-      onError(error: unknown) {
-        responseStatusCode = 500;
-        // Log streaming rendering errors from inside the shell.  Don't log
-        // errors encountered during initial shell rendering since they'll
-        // reject and get logged in handleDocumentRequest.
-        if (shellRendered) {
-          console.error(error);
-        }
-      },
-    }
-  );
-  shellRendered = true;
-
-  // Ensure requests from bots and SPA Mode renders wait for all content to load before responding
-  // https://react.dev/reference/react-dom/server/renderToPipeableStream#waiting-for-all-content-to-load-for-crawlers-and-static-generation
-  if ((userAgent && isbot(userAgent)) || routerContext.isSpaMode) {
-    await body.allReady;
-  }
+  // Minimal HTML shell for CSR-only app with ssr: false
+  // React Router dev needs this to serve the document, but no SSR occurs
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Orchestra</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/@vite/client"></script>
+    <script type="module" src="/app/entry.client.tsx"></script>
+  </body>
+</html>`;
 
   responseHeaders.set("Content-Type", "text/html");
-  return new Response(body, {
-    headers: responseHeaders,
-    status: responseStatusCode,
-  });
+  return new Response(html, { headers: responseHeaders, status: responseStatusCode });
 }
