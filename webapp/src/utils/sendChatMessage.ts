@@ -334,7 +334,7 @@ export async function sendChatMessage(
     tools: params.tools || "none",
   });
 
-  if (trimmedMessage) {
+  if (!trimmedMessage) {
     return { success: false, error: "Message is empty" };
   }
 
