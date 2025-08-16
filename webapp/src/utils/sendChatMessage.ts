@@ -10,6 +10,8 @@ import { useBYOKStore } from "@/stores/byokStore";
 import { createACSTemplateVariables } from "@/utils/templateVariables";
 import { registerToolsByNames } from "@/utils/toolSpecRegistry";
 
+import { httpApi } from "@/api/httpApi";
+
 import {
   ChatRole,
   type ChatMessage as ChatMessageType,
@@ -433,33 +435,39 @@ export async function sendChatMessage(
       effectiveAgentCwd
     );
 
-    // 5) POST to ACS Converse
-    const ACS_BASE = "https://orchestra-acs.fly.dev";
+    // 5) POST to ACS Converse using httpApi
+    const ACS_BASE = process.env.ACS_URL;
     const url = `${ACS_BASE}/acs/converse`;
 
     // Optional: Attach Authorization header if you have a JWT; if so, remove user_id from body
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
+
+    const hasJwt: boolean = false;
+
+    if (hasJwt){
+        // add to header and remove user_id from body
+        
+    }
+
     console.log(
       "📡 [sendChatMessage] POST /acs/converse with redacted body:",
       JSON.stringify({ ...body, prompt: `len(${body.prompt.length})` }, null, 2)
     );
 
-    const res = await fetch(url, {
-      method: "POST",
+    // Use httpApi for the POST request
+    const res = await httpApi.POST<ConverseResponse>(url, {
       headers,
-      body: JSON.stringify(body),
+      body,
     });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(
-        `ACS converse error ${res.status}: ${errText || res.statusText}`
-      );
+    if (!res || !res.ok) {
+      const errText = res?.rawBody || res?.statusText || "";
+      throw new Error(`ACS converse error ${res?.status ?? "?"}: ${errText}`);
     }
 
-    const data = (await res.json()) as ConverseResponse;
+    const data = res.data;
     console.log("✅ [sendChatMessage] ACS accepted message", {
       session_id: data.session_id,
       suspended: data.conversation_suspended,
@@ -492,8 +500,6 @@ export function useSendChatMessage() {
     sendChatMessage,
   };
 }
-
-// refactor below
 
 type ConverseRequest = {
   user_id?: string;
