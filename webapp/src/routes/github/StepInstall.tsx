@@ -35,10 +35,33 @@ export default function StepInstall() {
   // Track provisioning state for each repo
   const [repoStates, setRepoStates] = useState<Record<string, RepoProvisionState>>({});
 
+  // Form state for manual provisioning
+  const [repoId, setRepoId] = useState<number>(0);
+  const [repoName, setRepoName] = useState<string>("");
+  const [branch, setBranch] = useState<string>("main");
+  const [selectedRepoName, setSelectedRepoName] = useState<string>("");
+
   // Helper to generate unique key for repo+branch combination
   const getRepoKey = useCallback((repo: any, branch?: string) => {
     const branchName = branch || repo.defaultBranch || 'main';
     return `${repo.githubRepoId}-${branchName}`;
+  }, []);
+
+  // Map HTTP status codes to user-friendly error messages per PRD
+  const getErrorMessage = useCallback((status: number, defaultMessage?: string) => {
+    switch (status) {
+      case 401:
+      case 403:
+        return "Not authenticated with ACS. Please run 'Exchange for ACS Cookies' in Step 3.";
+      case 404:
+        return "Repository mapping not found.";
+      case 503:
+        return "Provisioning service disabled. Please try later or contact support.";
+      case 500:
+        return "Server error. Please try again.";
+      default:
+        return defaultMessage || `HTTP ${status} error`;
+    }
   }, []);
 
   // Cleanup polling intervals on unmount
@@ -211,7 +234,7 @@ export default function StepInstall() {
         // Start polling for status
         startStatusPolling(repo, branchName);
       } else {
-        const errorMsg = res.data?.detail || `HTTP ${res.status}`;
+        const errorMsg = getErrorMessage(res.status, res.data?.detail);
         setRepoStates(prev => ({
           ...prev,
           [repoKey]: {
@@ -391,7 +414,7 @@ export default function StepInstall() {
           startStatusPolling(repo, branchName);
         }, 2000);
       } else {
-        const errorMsg = res.data?.detail || `HTTP ${res.status}`;
+        const errorMsg = getErrorMessage(res.status, res.data?.detail);
         setRepoStates(prev => ({
           ...prev,
           [repoKey]: {
@@ -410,6 +433,64 @@ export default function StepInstall() {
       }));
     }
   }, [api, getRepoKey, startStatusPolling]);
+
+  // Manual provisioning wrapper using form values
+  const provisionWithRepo = useCallback(async () => {
+    if (!repoId || !repoName || !branch) {
+      setStatus("Please fill in all repository fields");
+      return;
+    }
+
+    try {
+      const res = await api.provisionWithRepo({
+        repo_id: Number(repoId),
+        repo_name: repoName.trim(),
+        branch: branch.trim(),
+      });
+
+      if (res.ok) {
+        setStatus(`Repository provisioning initiated: ${res.data.status}`);
+        // Start polling using a synthetic repo object
+        const syntheticRepo = {
+          githubRepoId: repoId,
+          fullName: repoName,
+          defaultBranch: branch
+        };
+        startStatusPolling(syntheticRepo, branch.trim());
+      } else {
+        const errorMsg = getErrorMessage(res.status, res.data?.detail);
+        setStatus(`Repository provisioning failed: ${errorMsg}`);
+      }
+    } catch (error) {
+      setStatus(`Repository provisioning failed: ${error}`);
+    }
+  }, [api, repoId, repoName, branch, startStatusPolling, getErrorMessage]);
+
+  // Retry status polling for a repo (used on timeout)
+  const retryStatusCheck = useCallback((repo: any, branch?: string) => {
+    const branchName = branch || repo.defaultBranch || 'main';
+    const repoKey = getRepoKey(repo, branchName);
+    
+    // Clear any existing polling interval
+    setRepoStates(prev => {
+      const currentState = prev[repoKey];
+      if (currentState?.pollingInterval) {
+        clearInterval(currentState.pollingInterval);
+      }
+      return {
+        ...prev,
+        [repoKey]: {
+          ...prev[repoKey],
+          status: 'polling',
+          message: 'Retrying status check...',
+          pollingInterval: undefined
+        }
+      };
+    });
+    
+    // Start polling again
+    startStatusPolling(repo, branchName);
+  }, [getRepoKey, startStatusPolling]);
 
   return (
     <section>
@@ -561,8 +642,109 @@ export default function StepInstall() {
                       )}
                     </div>
                     
-                    <div style={{ marginLeft: 12, fontSize: 11, color: '#8c959f' }}>
-                      {repo.githubRepoId ? 'Click to select' : 'No GitHub ID'}
+                    <div style={{ marginLeft: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                      {(() => {
+                        const branchName = repo.defaultBranch || 'main';
+                        const repoKey = getRepoKey(repo, branchName);
+                        const repoState = repoStates[repoKey];
+                        const isProvisioning = repoState?.status === 'provisioning' || repoState?.status === 'polling';
+                        const isReady = repoState?.status === 'ready' || repoState?.status === 'provisioned';
+                        const hasError = repoState?.status === 'error';
+                        const canStop = isReady && (repoState?.machine_id || repoState?.app_name);
+
+                        return (
+                          <>
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              {repo.githubRepoId && (
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    provisionRepo(repo, branchName);
+                                  }}
+                                  disabled={isProvisioning}
+                                  style={{ fontSize: 11, padding: '4px 8px' }}
+                                >
+                                  {isProvisioning ? 'Provisioning...' : 'Provision'}
+                                </Button>
+                              )}
+                              
+                              {canStop && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    stopRepo(repo, branchName);
+                                  }}
+                                  style={{ fontSize: 11, padding: '4px 8px' }}
+                                >
+                                  Stop Machine
+                                </Button>
+                              )}
+                              
+                              {hasError && repoState?.error === 'Polling timeout' && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    retryStatusCheck(repo, branchName);
+                                  }}
+                                  style={{ fontSize: 11, padding: '4px 8px' }}
+                                >
+                                  Retry
+                                </Button>
+                              )}
+                            </div>
+                            
+                            {/* Status Display */}
+                            {repoState && (
+                              <div style={{ 
+                                fontSize: 10, 
+                                textAlign: 'right',
+                                maxWidth: 200,
+                                wordWrap: 'break-word'
+                              }}>
+                                <div style={{ 
+                                  color: hasError ? '#d1242f' : isReady ? '#1f883d' : isProvisioning ? '#0969da' : '#656d76',
+                                  fontWeight: 600,
+                                  marginBottom: 2
+                                }}>
+                                  {repoState.status.toUpperCase()}
+                                </div>
+                                {repoState.message && (
+                                  <div style={{ color: '#656d76', marginBottom: 2 }}>
+                                    {repoState.message}
+                                  </div>
+                                )}
+                                {/* Machine Info */}
+                                {(repoState.app_name || repoState.machine_id) && (
+                                  <div style={{ color: '#8c959f', fontSize: 9 }}>
+                                    {repoState.app_name && <div>App: {repoState.app_name}</div>}
+                                    {repoState.machine_id && <div>Machine: {repoState.machine_id}</div>}
+                                    {repoState.volume_id && <div>Volume: {repoState.volume_id}</div>}
+                                  </div>
+                                )}
+                                {/* Orchestrator Status */}
+                                {repoState.details?.has_orchestrator === false && (
+                                  <div style={{ color: '#d1242f', fontSize: 9, marginTop: 2 }}>
+                                    ⚠️ Orchestrator not attached
+                                    {repoState.details.db_status && <div>DB: {repoState.details.db_status}</div>}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {!repo.githubRepoId && (
+                              <div style={{ fontSize: 11, color: '#8c959f' }}>
+                                No GitHub ID
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
