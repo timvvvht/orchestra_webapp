@@ -523,3 +523,95 @@ export function useSendChatMessage() {
     sendChatMessage,
   };
 }
+
+// refactor below
+
+type ConverseRequest = {
+  user_id?: string;
+  agent_config_name: string;
+  prompt: string;
+  session_id?: string;
+  messages_history_override?: any[];
+  model_api_keys?: Record<string, string>;
+  use_stored_keys?: boolean;
+  overrides?: Partial<ConverseRequestOverride>;
+  template_variables?: Record<string, string>;
+  auto_mode?: boolean;
+  model_auto_mode?: boolean;
+  explicit_model_id?: string;
+  role_model_overrides?: Record<string, string>;
+  is_background_session?: boolean;
+};
+
+type ConverseRequestOverride = {
+  model_id: string;
+  provider_name?: string;
+  system_prompt?: string;
+  enabled_tool_groups?: string[];
+  enabled_tools?: string[];
+  disabled_tools?: string[];
+  agent_cwd_override?: string;
+};
+
+function buildConversePayload(
+  params: SendChatMessageParams,
+  effectiveAgentCwd?: string
+): ConverseRequest {
+  const {
+    sessionId,
+    message,
+    userId,
+    agentConfigName,
+    modelApiKeys,
+    useStoredKeys,
+    overrides,
+    templateVariables,
+    autoMode,
+    modelAutoMode,
+    explicitModelId,
+    roleModelOverrides,
+    isBackgroundSession,
+  } = params;
+
+  // Merge overrides with backward-compatible acsOverrides
+  const mergedOverrides = {
+    ...(params.acsOverrides || {}),
+    ...(overrides || {}),
+  };
+
+  // Honor agent_cwd_override fallback
+  if (effectiveAgentCwd && !mergedOverrides.agent_cwd_override) {
+    mergedOverrides.agent_cwd_override = effectiveAgentCwd;
+  }
+
+  const payload: ConverseRequest = {
+    agent_config_name: agentConfigName,
+    prompt: message.trim(),
+    session_id: sessionId,
+    // If no Authorization header will be supplied, include user_id here:
+    user_id: userId,
+    model_api_keys:
+      modelApiKeys && Object.keys(modelApiKeys).length
+        ? modelApiKeys
+        : undefined,
+    use_stored_keys: useStoredKeys,
+    overrides:
+      mergedOverrides && Object.keys(mergedOverrides).length
+        ? mergedOverrides
+        : undefined,
+    template_variables:
+      templateVariables && Object.keys(templateVariables).length
+        ? templateVariables
+        : undefined,
+    auto_mode: autoMode,
+    model_auto_mode: modelAutoMode,
+    explicit_model_id: explicitModelId,
+    role_model_overrides:
+      roleModelOverrides && Object.keys(roleModelOverrides).length
+        ? roleModelOverrides
+        : undefined,
+    is_background_session: isBackgroundSession,
+  };
+
+  return payload;
+}
