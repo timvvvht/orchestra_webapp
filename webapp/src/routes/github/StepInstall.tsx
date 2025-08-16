@@ -16,6 +16,51 @@ export default function StepInstall() {
   const [repos, setRepos] = useState<any[]>([]);
   const [selectedRepoName, setSelectedRepoName] = useState<string>("");
 
+  // Normalize various repo shapes (ACS vs GitHub API) into a single view model
+  function normalizeRepo(repo: any) {
+    const normalized = {
+      // Core identifiers
+      githubRepoId: repo?.repo_id ?? repo?.id ?? null, // GitHub numeric ID (for provisioning)
+      acsRecordId: repo?.id && typeof repo.id === 'string' && repo.id.length > 20 ? repo.id : null, // ACS UUID
+      
+      // Names and URLs
+      fullName: repo?.repo_full_name ?? repo?.full_name ?? repo?.name ?? 'unknown/repo',
+      name: repo?.repo_name ?? repo?.name ?? undefined,
+      url: repo?.repo_url ?? repo?.html_url ?? undefined,
+      
+      // Repository metadata
+      isPrivate: repo?.is_private ?? repo?.private ?? undefined,
+      language: repo?.language ?? undefined,
+      description: repo?.description ?? undefined,
+      stars: repo?.stargazers_count ?? undefined,
+      forks: repo?.forks_count ?? undefined,
+      defaultBranch: repo?.default_branch ?? 'main',
+      
+      // ACS-specific fields
+      accessLevel: repo?.access_level ?? undefined,
+      installationId: repo?.installation?.github_installation_id ?? repo?.installation_id ?? undefined,
+      installationAccount: repo?.installation?.account_login ?? undefined,
+      
+      // Timestamps
+      updatedAt: repo?.updated_at ?? undefined,
+      createdAt: repo?.created_at ?? undefined,
+      
+      // Keep raw for debugging
+      raw: repo,
+    };
+    
+    return normalized;
+  }
+
+  function formatDate(dateStr?: string) {
+    if (!dateStr) return undefined;
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch {
+      return dateStr;
+    }
+  }
+
   const openInstall = () => {
     const url = "https://github.com/apps/orchestra-agents/installations/new";
     window.open(url, "_blank", "noopener,noreferrer");
@@ -61,13 +106,19 @@ export default function StepInstall() {
     console.log("🔍 [StepInstall] Response data type:", typeof res.data);
     
     if (res.ok) {
-      const repoData = res.data?.repositories || res.data?.repos || [];
-      console.log("🔍 [StepInstall] Extracted repositories:", repoData);
-      console.log("🔍 [StepInstall] First repo sample:", repoData[0]);
+      const rawRepoData = res.data?.repositories || res.data?.repos || [];
+      console.log("🔍 [StepInstall] Raw repositories:", rawRepoData);
+      console.log("🔍 [StepInstall] First raw repo sample:", rawRepoData[0]);
       
-      setRepos(repoData);
+      // Normalize the repository data
+      const normalizedRepos = rawRepoData.map(normalizeRepo);
+      console.log("🔍 [StepInstall] Normalized repositories:", normalizedRepos);
+      console.log("🔍 [StepInstall] First normalized repo sample:", normalizedRepos[0]);
+      console.table(normalizedRepos.slice(0, 3)); // Show first 3 in table format
+      
+      setRepos(normalizedRepos);
       setSelectedRepoName(""); // Clear any previous selection
-      setStatus(`Found ${res.data?.count ?? repoData.length ?? 0} repos`);
+      setStatus(`Found ${res.data?.count ?? normalizedRepos.length ?? 0} repos`);
     } else if (res.status === 401 || res.status === 403) {
       setStatus('Not authenticated with ACS. Please run "Exchange for ACS Cookies" in previous step.');
       setRepos([]);
@@ -135,19 +186,26 @@ export default function StepInstall() {
             }}>
               {repos.map((repo, index) => (
                 <div 
-                  key={repo.id || index} 
+                  key={repo.acsRecordId || repo.githubRepoId || index} 
                   style={{
                     padding: '12px 16px',
                     borderBottom: index < repos.length - 1 ? '1px solid #e9ecef' : 'none',
                     background: index % 2 === 0 ? '#ffffff' : '#f8f9fa',
-                    cursor: 'pointer'
+                    cursor: repo.githubRepoId ? 'pointer' : 'not-allowed',
+                    opacity: repo.githubRepoId ? 1 : 0.6
                   }}
                   onClick={() => {
-                    // Auto-fill the form fields when clicking a repo
-                    if (repo.id) setRepoId(repo.id);
-                    if (repo.full_name) setRepoName(repo.full_name);
-                    setSelectedRepoName(repo.full_name || repo.name || 'Unknown Repository');
-                    console.log("🔍 [StepInstall] Selected repo:", repo);
+                    // Auto-fill the form fields when clicking a repo - use GitHub repo ID for provisioning
+                    if (repo.githubRepoId) {
+                      setRepoId(repo.githubRepoId);
+                      setRepoName(repo.fullName);
+                      setSelectedRepoName(repo.fullName || 'Unknown Repository');
+                      console.log("🔍 [StepInstall] Selected normalized repo:", repo);
+                      console.log("✅ [StepInstall] Form filled with GitHub ID:", repo.githubRepoId, "and name:", repo.fullName);
+                    } else {
+                      console.warn("⚠️ [StepInstall] No GitHub repo ID available for:", repo);
+                      alert("This repository doesn't have a GitHub ID available for provisioning. Please try another repository.");
+                    }
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -158,7 +216,13 @@ export default function StepInstall() {
                         color: '#0969da',
                         marginBottom: 4 
                       }}>
-                        {repo.full_name || repo.name || 'Unknown Repository'}
+                        {repo.url ? (
+                          <a href={repo.url} target="_blank" rel="noopener noreferrer" style={{ color: '#0969da', textDecoration: 'none' }}>
+                            {repo.fullName}
+                          </a>
+                        ) : (
+                          repo.fullName
+                        )}
                       </div>
                       
                       {repo.description && (
@@ -174,8 +238,14 @@ export default function StepInstall() {
                       
                       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12 }}>
                         <span style={{ color: '#656d76' }}>
-                          🆔 ID: <strong>{repo.id || 'N/A'}</strong>
+                          🆔 GitHub ID: <strong>{repo.githubRepoId || 'N/A'}</strong>
                         </span>
+                        
+                        {repo.acsRecordId && (
+                          <span style={{ color: '#8c959f', fontSize: 10 }}>
+                            ACS: {repo.acsRecordId.slice(0, 8)}...
+                          </span>
+                        )}
                         
                         {repo.language && (
                           <span style={{ color: '#656d76' }}>
@@ -183,40 +253,54 @@ export default function StepInstall() {
                           </span>
                         )}
                         
-                        {repo.private !== undefined && (
-                          <span style={{ color: repo.private ? '#d1242f' : '#1f883d' }}>
-                            {repo.private ? '🔒 Private' : '🌍 Public'}
+                        {repo.isPrivate !== undefined && (
+                          <span style={{ color: repo.isPrivate ? '#d1242f' : '#1f883d' }}>
+                            {repo.isPrivate ? '🔒 Private' : '🌍 Public'}
                           </span>
                         )}
                         
-                        {repo.stargazers_count !== undefined && (
+                        {repo.accessLevel && (
                           <span style={{ color: '#656d76' }}>
-                            ⭐ {repo.stargazers_count}
+                            🔑 {repo.accessLevel}
                           </span>
                         )}
                         
-                        {repo.forks_count !== undefined && (
+                        {repo.stars !== undefined && (
                           <span style={{ color: '#656d76' }}>
-                            🍴 {repo.forks_count}
+                            ⭐ {repo.stars}
                           </span>
                         )}
                         
-                        {repo.default_branch && (
+                        {repo.forks !== undefined && (
                           <span style={{ color: '#656d76' }}>
-                            🌿 {repo.default_branch}
+                            🍴 {repo.forks}
+                          </span>
+                        )}
+                        
+                        {repo.defaultBranch && (
+                          <span style={{ color: '#656d76' }}>
+                            🌿 {repo.defaultBranch}
+                          </span>
+                        )}
+                        
+                        {repo.installationId && (
+                          <span style={{ color: '#8c959f', fontSize: 11 }}>
+                            📦 Install: {repo.installationId}
                           </span>
                         )}
                       </div>
                       
-                      {repo.updated_at && (
+                      {(repo.updatedAt || repo.createdAt) && (
                         <div style={{ fontSize: 11, color: '#8c959f', marginTop: 4 }}>
-                          Updated: {new Date(repo.updated_at).toLocaleDateString()}
+                          {repo.updatedAt && `Updated: ${formatDate(repo.updatedAt)}`}
+                          {repo.updatedAt && repo.createdAt && ' • '}
+                          {repo.createdAt && `Created: ${formatDate(repo.createdAt)}`}
                         </div>
                       )}
                     </div>
                     
                     <div style={{ marginLeft: 12, fontSize: 11, color: '#8c959f' }}>
-                      Click to select
+                      {repo.githubRepoId ? 'Click to select' : 'No GitHub ID'}
                     </div>
                   </div>
                 </div>
