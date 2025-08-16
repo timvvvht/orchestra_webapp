@@ -4,6 +4,11 @@ import { lazy } from "react";
 import AppShell from "./shell/AppShell";
 import AuthCallback from "./routes/auth/callback";
 import GitHubConnectPage from "./routes/github-connect";
+import GitHubWizardLayout from "./routes/github/GitHubWizardLayout";
+import StepConfig from "./routes/github/StepConfig";
+import StepLogin from "./routes/github/StepLogin";
+import StepExchange from "./routes/github/StepExchange";
+import StepInstall from "./routes/github/StepInstall";
 
 // Lazy load components for better performance
 const Landing = lazy(() => import("./routes/Landing"));
@@ -36,6 +41,17 @@ export const routes: RouteObject[] = [
       {
         path: "github-connect",
         element: <GitHubConnectPage />,
+      },
+      {
+        path: "/github/connect",
+        element: <GitHubWizardLayout />,
+        children: [
+          { index: true, element: <StepConfig /> },
+          { path: "config", element: <StepConfig /> },
+          { path: "login", element: <StepLogin /> },
+          { path: "exchange", element: <StepExchange /> },
+          { path: "install", element: <StepInstall /> },
+        ],
       },
     ],
   },

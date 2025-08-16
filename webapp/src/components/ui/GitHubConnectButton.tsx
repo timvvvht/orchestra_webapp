@@ -16,7 +16,7 @@ export const GitHubConnectButton: React.FC<GitHubConnectButtonProps> = ({
 }) => {
   return (
     <Button asChild variant={variant} size={size} className={className}>
-      <Link to="/github-connect" className="flex items-center gap-2">
+      <Link to="/github/connect" className="flex items-center gap-2">
         <Github className="w-4 h-4" />
         Connect GitHub
       </Link>
