@@ -11,12 +11,6 @@ import {
   useMissionControlStore,
   type MissionControlAgent,
 } from "@/stores/missionControlStore";
-// import { useSessionsSnapshot } from "@/hooks/useSessionsSnapshot";
-// import { usePlansSnapshot } from "@/hooks/usePlansSnapshot";
-// import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
-// import { useMissionControlHotkeys } from "@/hooks/useMissionControlHotkeys";
-import { getDefaultACSClient } from "@/services/acs";
-import { InfrastructureUtils } from "@/services/acs/infrastructure";
 
 import { NewTaskModal } from "@/components/modals/NewTaskModal";
 import { SelectionProvider } from "@/context/SelectionContext";
@@ -24,7 +18,7 @@ import { ChatUIProvider } from "@/context/ChatUIContext";
 // KeyboardShortcutsProvider removed — no global shortcuts context
 import Header from "./Header";
 import LayoutSplit from "./LayoutSplit";
-import GitHubConnectPanel from "./GitHubConnectPanel";
+
 import { Plan } from "@/types/plans";
 
 // Animation variants for staggered reveals

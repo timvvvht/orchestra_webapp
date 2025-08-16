@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { ToolApprovalBanner } from "./ToolApprovalBanner";
-import type { PendingApproval, ApprovalEvent } from "@/services/approval/types";
+import { PendingApproval, ApprovalEvent } from "@/services/approval/types";
 import { getApprovalAPI } from "@/services/approval";
 
 interface ApprovalPanelProps {

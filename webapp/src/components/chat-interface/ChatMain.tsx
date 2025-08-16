@@ -187,11 +187,8 @@ import AgentProfile from "./AgentProfile";
 import ChatHeader from "./header/ChatHeader";
 import NewChatModal from "./NewChatModal";
 import QuantumWaveIndicator from "./QuantumWaveIndicator";
-import SessionDetailsDebug from "../debug/SessionDetailsDebug";
 import { shouldUseUnifiedRendering } from "./UnrefinedModeTimelineRenderer";
 import {
-  DynamicToolStatusPill,
-  FileOperationsSummary,
   renderUnifiedTimelineEvent,
   CombinedThinkBlockDisplay,
   ThinkBlockDisplay,
@@ -199,31 +196,19 @@ import {
 } from "./UnifiedTimelineRenderer";
 import ToolStatusPill from "./content-parts/ToolStatusPill";
 import { LexicalChatInput } from "./LexicalChatInput";
-import { StreamDebugOverlay } from "../debug/StreamDebugOverlay";
-import HydrationDebugOverlay from "../debug/HydrationDebugOverlay";
 import { MobileChatInput } from "./MobileChatInput";
-import { TouchMessage } from "./TouchMessage";
+import TouchMessage from "./TouchMessage";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
 import ChatEmptyState from "./ChatEmptyState";
 import ChatTypingIndicator from "./ChatTypingIndicator";
 import ChatMessageList from "./ChatMessageList";
 
-// Utilities
-import {
-  isFinalAssistantMessage,
-  getVisibleMessages,
-  getFileOperationsForResponse,
-  getFinalMessageStatus,
-  type ExtendedFileOperation,
-} from "@/utils/conversationBoundaries";
-
 // Performance optimizations
 import {
   getOptimizedVisibleMessages,
   isOptimizedFinalAssistantMessage,
   getOptimizedFileOperationsForResponse,
-  getOptimizedToolCallsForResponse,
 } from "@/utils/optimizedMessageFiltering";
 
 // Chat utilities (extracted from this component)
@@ -231,21 +216,8 @@ import {
   formatMessageDate,
   isSameDay,
   shouldGroupMessages,
-  groupMessagesByDate,
   convertEventsToMessages,
-  type MessageGroup,
 } from "@/utils/chat";
-
-// Tool registration utilities
-import {
-  registerApplyPatchTool,
-  registerCatTool,
-  registerTreeTool,
-  registerSearchFilesTool,
-  registerStrReplaceEditorTool,
-  registerReadFilesTool,
-  registerSearchNotesTool,
-} from "@/utils/registerSessionTools";
 
 // Canonical store imports
 import { useEventStore } from "@/stores/eventStores";
@@ -256,21 +228,9 @@ import { useChatUI } from "@/context/ChatUIContext";
 import { useSelections, getAcsOverrides } from "@/context/SelectionContext";
 import { supabase } from "@/auth/SupabaseClient";
 
-// SSE imports - REMOVED: Now handled by ChatEventOrchestrator
-// import { useACSChatStreaming } from '@/hooks/acs-chat/useACSChatStreaming';
-// import { toUnifiedEvents } from '@/utils/toUnifiedEvent';
-// import type { SSEEvent } from '@/services/acs';
-
-// Debug imports
-import { SSEDebugOverlay } from "@/components/debug/SSEDebugOverlay";
-import ToolEventDebugPanel from "@/components/debug/ToolEventDebugPanel";
-import EventTapDebugOverlay from "@/components/debug/EventTapDebugOverlay";
-
 // Approval imports
 import { ApprovalPanel } from "@/components/approval/ApprovalPanel";
 
-// Debug overlay imports
-import { DebugOverlay } from "./DebugOverlay";
 import { MessageTestControls } from "./MessageTestControls";
 
 // Lazy render constants
