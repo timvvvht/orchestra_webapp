@@ -3,6 +3,7 @@ import { createBrowserRouter, RouteObject } from "react-router-dom";
 import { lazy } from "react";
 import AppShell from "./shell/AppShell";
 import AuthCallback from "./routes/auth/callback";
+import GitHubConnectPage from "./routes/github-connect";
 
 // Lazy load components for better performance
 const Landing = lazy(() => import("./routes/Landing"));
@@ -31,6 +32,10 @@ export const routes: RouteObject[] = [
             element: <AuthCallback />,
           },
         ],
+      },
+      {
+        path: "github-connect",
+        element: <GitHubConnectPage />,
       },
     ],
   },

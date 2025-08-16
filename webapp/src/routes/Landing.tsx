@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthContext";
+import { GitHubConnectButton } from "@/components/ui/GitHubConnectButton";
 import { Link, useLocation } from "react-router-dom";
 
 export default function Landing() {
@@ -41,6 +42,7 @@ export default function Landing() {
               Open Mission Control
             </Link>
           )}
+          <GitHubConnectButton />
         </div>
       </div>
     </main>
