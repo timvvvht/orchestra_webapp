@@ -100,5 +100,33 @@ export const acsGithubApi = (config: ACSConfig) => {
         }),
       });
     },
+    repoStatus: async (args: {
+      repo_id: number;
+      branch: string;
+    }, authorization?: string) => {
+      const params = new URLSearchParams({
+        repo_id: String(args.repo_id),
+        branch: args.branch,
+      });
+      return getJson(`${API}/infrastructure/repo-status?${params}`, {
+        method: "GET",
+        credentials: "include",
+        headers: authorization ? { Authorization: authorization } : {},
+      });
+    },
+    stopRepo: async (args: {
+      repo_id: number;
+      branch: string;
+    }) => {
+      return getJson(`${API}/infrastructure/repo/stop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          repo_id: args.repo_id,
+          branch: args.branch,
+        }),
+      });
+    },
   };
 };
