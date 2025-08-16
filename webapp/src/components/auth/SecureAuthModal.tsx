@@ -407,21 +407,6 @@ export const SecureAuthModal: React.FC<SecureAuthModalProps> = ({
             </TabsContent>
           </Tabs>
 
-          {/* Error Display */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Anonymous Option */}
-          <div className="text-center">
-            <Button variant="ghost" onClick={onClose} disabled={isFormLoading}>
-              Continue as Anonymous
-            </Button>
-          </div>
-
           {/* Security Notice */}
           <div className="text-xs text-gray-500 text-center space-y-1">
             <p>🔒 Your data is protected with enterprise-grade security</p>

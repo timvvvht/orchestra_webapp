@@ -1,24 +1,36 @@
-import React from 'react';
-import { createBrowserRouter, RouteObject } from 'react-router-dom';
-import { lazy } from 'react';
-import AppShell from './shell/AppShell';
+import React from "react";
+import { createBrowserRouter, RouteObject } from "react-router-dom";
+import { lazy } from "react";
+import AppShell from "./shell/AppShell";
+import AuthCallback from "./routes/auth/callback";
 
 // Lazy load components for better performance
-const Landing = lazy(() => import('./routes/Landing'));
-const MissionControl = lazy(() => import('@/components/mission-control/MissionControl'));
+const Landing = lazy(() => import("./routes/Landing"));
+const MissionControl = lazy(
+  () => import("@/components/mission-control/MissionControl")
+);
 
 export const routes: RouteObject[] = [
   {
-    path: '/',
+    path: "/",
     element: <AppShell />,
     children: [
-      { 
-        index: true, 
-        element: <Landing /> 
+      {
+        index: true,
+        element: <Landing />,
       },
-      { 
-        path: 'mission-control', 
-        element: <MissionControl /> 
+      {
+        path: "mission-control",
+        element: <MissionControl />,
+      },
+      {
+        path: "auth",
+        children: [
+          {
+            path: "callback",
+            element: <AuthCallback />,
+          },
+        ],
       },
     ],
   },

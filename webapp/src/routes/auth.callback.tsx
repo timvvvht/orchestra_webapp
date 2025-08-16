@@ -12,7 +12,7 @@ export default function AuthCallback() {
 
         if (error) {
           console.error("Auth callback error:", error);
-          navigate("/landing?error=auth_failed");
+          navigate("/?error=auth_failed");
           return;
         }
 
@@ -21,11 +21,11 @@ export default function AuthCallback() {
           navigate("/mission-control");
         } else {
           console.log("No session found");
-          navigate("/landing");
+          navigate("/");
         }
       } catch (error) {
         console.error("Auth callback failed:", error);
-        navigate("/landing?error=auth_failed");
+        navigate("/?error=auth_failed");
       }
     };
 

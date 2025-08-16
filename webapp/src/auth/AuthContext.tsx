@@ -474,6 +474,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }}
     >
       <>
+        <span className="text-xl text-white">{showModal}</span>
         {children}
         {showModal && (
           <SecureAuthModal

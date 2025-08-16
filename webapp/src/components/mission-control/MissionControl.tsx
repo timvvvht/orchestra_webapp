@@ -5,7 +5,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-// import { useAuth } from "@/auth/AuthContext";
 import { motion } from "framer-motion";
 import {
   useMissionControlStore,
