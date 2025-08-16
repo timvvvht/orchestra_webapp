@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   AdvancedMonacoDiffViewer,
   detectLanguage,
-} from "~/components/monaco/AdvancedMonacoDiffViewer";
+} from "@/components/monaco/AdvancedMonacoDiffViewer";
 import { readFileAbs, writeFileAbs } from "@/utils/worktreeFs";
 import { toWorktreeAbsPath } from "@/utils/pathHelpers";
 import { stripGitConflictMarkers } from "@/utils/conflictResolution";

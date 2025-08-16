@@ -5,7 +5,7 @@ import {
   type APIKeyProviderResponse,
 } from "@/services/acs";
 
-import { listApiKeys } from "~/services/byokApi";
+import { listApiKeys } from "@/services/byokApi";
 
 /**
  * Zustand store for Bring-Your-Own-Key (BYOK) preferences & metadata
