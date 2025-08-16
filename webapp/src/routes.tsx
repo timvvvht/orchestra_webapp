@@ -20,6 +20,7 @@ export const routes: RouteObject[] = [
         path: 'mission-control', 
         element: <MissionControl /> 
       },
+      {path}
     ],
   },
 ];
