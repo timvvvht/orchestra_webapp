@@ -10,9 +10,8 @@
  */
 
 import { ACSFirehoseService } from './acs/streaming/ACSFirehoseService';
-import { LocalRelaySource } from './acs/streaming/LocalRelaySource';
+// Defer Tauri-loaded modules to runtime only when in Tauri
 import { FirehoseMux } from './acs/streaming/FirehoseMux';
-import { invoke } from '@tauri-apps/api/core';
 import { isTauriEnvironment } from '@/lib/isTauri';
 
 /**
@@ -22,7 +21,7 @@ class GlobalServiceManager {
     private static instance: GlobalServiceManager | null = null;
     private firehose: FirehoseMux | null = null;
     private remoteFirehose: ACSFirehoseService | null = null;
-    private relaySource: LocalRelaySource | null = null;
+    private relaySource: any | null = null;
 
     private isInitialized = false;
     private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -59,7 +58,17 @@ class GlobalServiceManager {
             this.remoteFirehose = new ACSFirehoseService(sseBaseUrl);
 
             // Create the relay source
-            this.relaySource = new LocalRelaySource();
+            if (isTauriEnvironment()) {
+                const mod = await import('./acs/streaming/LocalRelaySource');
+                this.relaySource = new mod.LocalRelaySource();
+            } else {
+                this.relaySource = {
+                    subscribe: () => () => {},
+                    onError: () => () => {},
+                    isConnected: () => false,
+                    disconnect: () => {},
+                } as unknown as any;
+            }
 
             // Create the multiplexer that combines both sources
             this.firehose = new FirehoseMux(this.remoteFirehose, this.relaySource);
@@ -154,6 +163,7 @@ class GlobalServiceManager {
 
         this.relayStartInFlight = (async () => {
             try {
+                const { invoke } = await import('@tauri-apps/api/core');
                 await invoke('sse_relay_start', { userId: userId });
                 console.log('[GSM] 🔌 SSE relay started for', userId);
                 this.relayStartedFor = userId;
@@ -173,6 +183,7 @@ class GlobalServiceManager {
         console.log('[GSM] stopSSERelay()');
         if (!isTauriEnvironment()) return;
         try {
+            const { invoke } = await import('@tauri-apps/api/core');
             await invoke('sse_relay_stop');
             console.log('[GSM] 🔌 SSE relay stopped');
         } catch (err) {

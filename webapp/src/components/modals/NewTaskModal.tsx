@@ -29,9 +29,8 @@ import { useSelections } from "@/context/SelectionContext";
 import { useAgentConfigs } from "@/hooks/useAgentConfigs";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isTauri } from "@/utils/environment";
-import { open } from "@tauri-apps/plugin-dialog";
+// Removed static Tauri imports; will use dynamic import under isTauri()
 import { recentProjectsManager } from "@/utils/projectStorage";
-import { SearchMatch } from "@/lib/tauri/fileSelector";
 import { useFileSearch } from "@/hooks/useFileSearch";
 import { LexicalPillEditor } from "@/components/ui/LexicalPillEditor";
 import { useMissionControlShortcuts } from "@/hooks/useMissionControlShortcuts";
@@ -804,6 +803,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
     if (!isTauri()) return;
 
     try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
         directory: true,
         multiple: false,

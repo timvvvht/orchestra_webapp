@@ -1,4 +1,5 @@
-import { platform } from '@tauri-apps/plugin-os';
+// Browser-safe platform detection (no Tauri dependency)
+// Uses navigator.userAgent to infer OS for the web runtime
 import type { Settings } from '@/types/settings';
 
 /**
@@ -10,18 +11,11 @@ export type Platform = 'windows' | 'macos' | 'linux' | 'unknown';
  * Get the current platform (linux, macos, ios, freebsd, dragonfly, netbsd, openbsd, solaris, android, windows)
  */
 export async function getPlatform(): Promise<string> {
-  try {
-    // The platform() function returns a string directly
-    return platform();
-  } catch (error) {
-    console.error('Failed to get platform information:', error);
-    // Return a default value based on browser detection as fallback
-    const userAgent = navigator.userAgent.toLowerCase();
-    if (userAgent.includes('win')) return 'windows';
-    if (userAgent.includes('mac')) return 'macos';
-    if (userAgent.includes('linux')) return 'linux';
-    return 'unknown';
-  }
+  const userAgent = (typeof navigator !== 'undefined' ? navigator.userAgent : '').toLowerCase();
+  if (userAgent.includes('win')) return 'windows';
+  if (userAgent.includes('mac')) return 'macos';
+  if (userAgent.includes('linux')) return 'linux';
+  return 'unknown';
 }
 
 /**

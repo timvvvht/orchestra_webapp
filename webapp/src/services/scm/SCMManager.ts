@@ -10,7 +10,7 @@
 
 import { Commit } from './types';
 import { ScmBackend, RustTauriBackend, MockBackend, isTauriEnvironment } from './backends';
-import { invoke } from '@tauri-apps/api/core';
+
 
 export interface SCMManagerOptions {
     /**
@@ -233,13 +233,4 @@ export class SCMManager {
     }
 }
 
-/**
- * Get the base commit for a worktree session
- * This is a standalone function that directly calls the Tauri command
- */
-export async function getWorktreeBaseCommit(sessionId: string, projectRoot: string): Promise<string> {
-    return await invoke<string>('get_worktree_base_commit', {
-        sessionId: sessionId,
-        projectRoot: projectRoot
-    });
-}
+// Removed Tauri-only helper for web builds

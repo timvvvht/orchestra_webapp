@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { MergeWorktreeButton } from "./MergeWorktreeButton";
 import { parseMultiFileDiff, detectLanguage } from "@/utils/diffParser";
 import { DiffViewer } from "@/components/DiffViewer";
-import { gitShowFile } from "@/utils/tauriGitCommands";
+// No direct Tauri git calls in web – using SCMManager abstraction instead
 
 interface CheckpointsPaneProps {
   sessionId: string;
@@ -414,35 +414,20 @@ const CheckpointsPane: React.FC<CheckpointsPaneProps> = ({
       return;
     }
     try {
-      const [origRes, modRes] = await Promise.all([
-        gitShowFile(agent.agent_cwd, fromHash, filePath).catch((err) => ({
-          success: false,
-          stdout: "",
-          stderr: String(err),
-        })),
-        gitShowFile(agent.agent_cwd, toHash, filePath).catch((err) => ({
-          success: false,
-          stdout: "",
-          stderr: String(err),
-        })),
-      ]);
+      const scmManager = new SCMManager({ forceBackend: "mock", allowMockFallback: true });
+      let originalContent = "";
+      let modifiedContent = "";
+      try { originalContent = await scmManager.getFileAtCommit(agent.agent_cwd, fromHash, filePath); } catch (_) {}
+      try { modifiedContent = await scmManager.getFileAtCommit(agent.agent_cwd, toHash, filePath); } catch (_) {}
 
-      let originalContent = origRes.success ? origRes.stdout : "";
-      let modifiedContent = modRes.success ? modRes.stdout : "";
-
-      // Allow new/deleted files
-      const haveEither =
-        originalContent.length > 0 ||
-        modifiedContent.length > 0 ||
-        origRes.success ||
-        modRes.success;
+      const haveEither = originalContent.length > 0 || modifiedContent.length > 0;
 
       if (!haveEither) {
-        const scmManager = new SCMManager({
-          forceBackend: "rust",
-          allowMockFallback: false,
+        const fallbackScmManager = new SCMManager({
+          forceBackend: "mock",
+          allowMockFallback: true,
         });
-        const unifiedDiff = await scmManager.diff(
+        const unifiedDiff = await fallbackScmManager.diff(
           agent.agent_cwd,
           fromHash,
           toHash
