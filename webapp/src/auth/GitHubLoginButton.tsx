@@ -1,19 +1,29 @@
 import { useAuth } from "./AuthContext";
 import { cn } from "@/lib/utils";
 
-interface GitHubLoginButtonProps {
+export interface GitHubLoginButtonProps {
   className?: string;
   variant?: "default" | "outline";
+  disabled?: boolean;
+  onClick?: () => void;
 }
 
 export const GitHubLoginButton = ({
   className,
   variant = "default",
-}: GitHubLoginButtonProps = {}) => {
+  disabled = false,
+  onClick = () => {},
+}: GitHubLoginButtonProps) => {
   const { loginGitHub } = useAuth();
+
+  const handleClick = () => {
+    onClick();
+    loginGitHub();
+  };
+
   return (
     <button
-      onClick={loginGitHub}
+      onClick={handleClick}
       className={cn(
         // Base styles
         "relative flex items-center justify-center gap-3 w-full px-5 py-3 rounded-lg",
@@ -35,6 +45,7 @@ export const GitHubLoginButton = ({
         className
       )}
       aria-label="Sign in with GitHub"
+      disabled={disabled}
     >
       {/* GitHub Logo with better spacing */}
       <svg

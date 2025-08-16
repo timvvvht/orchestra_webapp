@@ -12,18 +12,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import {
-  Loader2,
-  User,
-  Mail,
-  Lock,
-  Shield,
-  Chrome,
-  Github,
-  AlertTriangle,
-} from "lucide-react";
+import { Loader2, User, Mail, Lock, Shield } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { toast } from "sonner";
 import { GoogleLoginButton } from "@/auth/GoogleLoginButton";
@@ -39,24 +29,15 @@ export const SecureAuthModal: React.FC<SecureAuthModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const {
-    user,
-    isAuthenticated,
-    booted,
-    showModal,
-    setShowModal,
-    loginGoogle,
-    loginGitHub,
-    loginEmailPassword,
-    signUpEmailPassword,
-    logout,
-  } = useAuth();
+  const { user, isAuthenticated, loginEmailPassword, signUpEmailPassword } =
+    useAuth();
 
-  const [isOAuthAvailable, setIsOAuthAvailable] = useState<boolean>(true); // start of a feature flag
+  const [isOAuthAvailable] = useState<boolean>(true); // start of a feature flag
 
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [isLoading, setIsLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const [oauthGglLoading, setOauthGglLoading] = useState<boolean>(false); // is google OAuth loading
+  const [oauthGHloading, setoauthGHloading] = useState<boolean>(false); // is GitHubOAuth loading
   const [error, setError] = useState<string | null>(null);
 
   // Form state
@@ -64,6 +45,35 @@ export const SecureAuthModal: React.FC<SecureAuthModalProps> = ({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
+
+  // If user is authenticated, show a different dialog with logout option
+  if (isAuthenticated) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-green-600" />
+              Account Status
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <User className="w-4 h-4 text-green-600" />
+              <p className="text-sm text-green-800">
+                You are currently signed in as {user?.email}
+              </p>
+            </div>
+
+            <Button onClick={onClose} className="w-full">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,52 +154,6 @@ export const SecureAuthModal: React.FC<SecureAuthModalProps> = ({
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      setOauthLoading("google");
-      setError(null);
-
-      const result: AuthResult = await loginGoogle();
-
-      if (result.success) {
-        toast.success("Redirecting to Google authentication...");
-      } else {
-        setError(result.error || "Google login failed");
-        toast.error(result.error || "Google login failed");
-      }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Google login failed";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setOauthLoading(null);
-    }
-  };
-
-  const handleGitHubLogin = async () => {
-    try {
-      setOauthLoading("github");
-      setError(null);
-
-      const result: AuthResult = await loginGitHub();
-
-      if (result.success) {
-        toast.success("Redirecting to GitHub authentication...");
-      } else {
-        setError(result.error || "GitHub login failed");
-        toast.error(result.error || "GitHub login failed");
-      }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "GitHub login failed";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setOauthLoading(null);
-    }
-  };
-
   const resetForm = () => {
     setEmail("");
     setPassword("");
@@ -203,7 +167,16 @@ export const SecureAuthModal: React.FC<SecureAuthModalProps> = ({
     resetForm();
   };
 
-  const isFormLoading = isLoading || oauthLoading !== null;
+  const isFormLoading = isLoading || oauthGHloading || oauthGglLoading;
+
+  const onGHClick = () => {
+    // function that sets the GH OAuth Loading state to true, which disables the google button
+    setoauthGHloading(true);
+  };
+
+  const onGGLClick = () => {
+    setOauthGglLoading(true);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -228,9 +201,15 @@ export const SecureAuthModal: React.FC<SecureAuthModalProps> = ({
           {isOAuthAvailable && (
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-2">
-                <GoogleLoginButton />
+                <GoogleLoginButton
+                  disabled={oauthGHloading}
+                  onClick={onGGLClick}
+                />
 
-                <GitHubLoginButton />
+                <GitHubLoginButton
+                  disabled={oauthGglLoading}
+                  onClick={onGHClick}
+                />
               </div>
 
               <div className="relative">
