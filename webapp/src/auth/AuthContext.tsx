@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import React from "react";
+import SecureAuthModal from "@/components/auth/SecureAuthModal";
+import type { AuthResult } from "@/types/auth/AuthResult";
 import { supabase } from "./SupabaseClient";
 import { getDefaultACSClient } from "@/services/acs";
 import { getSupabaseAccessToken } from "@/utils/getSupabaseAccessToken";
@@ -23,10 +25,10 @@ type AuthCtx = {
   booted: boolean;
   showModal: boolean;
   setShowModal(v: boolean): void;
-  loginGitHub(): Promise<void>;
-  loginGoogle(): Promise<void>;
-  loginEmailPassword(email: string, password: string): Promise<void>;
-  signUpEmailPassword(email: string, password: string): Promise<void>;
+  loginGitHub(): Promise<AuthResult>;
+  loginGoogle(): Promise<AuthResult>;
+  loginEmailPassword(email: string, password: string): Promise<AuthResult>;
+  signUpEmailPassword(email: string, password: string): Promise<AuthResult>;
   logout(): Promise<void>;
 };
 
@@ -334,7 +336,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => sub.subscription.unsubscribe();
   }, [exchangeSupabaseSessionForACSCookies]);
 
-  const loginGoogle = async () => {
+  const loginGoogle = async (): Promise<AuthResult> => {
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -343,96 +345,101 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           queryParams: { access_type: "offline", prompt: "consent" },
         },
       });
-
       if (error) {
         console.error("Google login error:", error);
-        throw error;
+        return { success: false, error: error.message };
       }
-
       console.log("Google login initiated:", data);
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error("Failed to initiate Google login:", error);
-      throw error;
+      return { success: false, error: error?.message || "Unknown error" };
     }
   };
 
-  async function loginGitHub() {
+  const loginGitHub = async (): Promise<AuthResult> => {
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+        provider: "github",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
-
       if (error) {
-        console.error("Google login error:", error);
-        throw error;
+        console.error("GitHub login error:", error);
+        return { success: false, error: error.message };
       }
-
-      console.log("Google login initiated:", data);
-    } catch (error) {
-      console.error("Failed to initiate Google login:", error);
-      throw error;
-    }
-  }
-
-  const loginEmailPassword = async (email: string, password: string) => {
-    console.log("🔐 [AuthContext] Starting email/password login", { email });
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      console.error("❌ [AuthContext] Email/password login error:", error);
-      throw error;
-    }
-
-    if (data.session && data.user) {
-      console.log("✅ [AuthContext] Email/password login successful", {
-        userId: data.user.id,
-        email: data.user.email,
-      });
-      setUser(data.user);
+      console.log("GitHub login initiated:", data);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Failed to initiate GitHub login:", error);
+      return { success: false, error: error?.message || "Unknown error" };
     }
   };
 
-  const signUpEmailPassword = async (email: string, password: string) => {
-    console.log("🔐 [AuthContext] Starting email/password sign up", { email });
-
-    const isDesktop = isTauri();
-    const ORCHESTRA_DEEP_LINK = "orchestra://auth-callback";
-    const WEB_REDIRECT = `${window.location.origin}/auth/callback`;
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: isDesktop ? ORCHESTRA_DEEP_LINK : WEB_REDIRECT,
-      },
-    });
-
-    if (error) {
-      console.error("❌ [AuthContext] Email/password sign up error:", error);
-      throw error;
-    }
-
-    if (data.user) {
-      console.log("✅ [AuthContext] Email/password sign up successful", {
-        userId: data.user.id,
-        email: data.user.email,
-        needsConfirmation: !data.session, // If no session, email confirmation is required
-        confirmationSent: !!data.user && !data.session,
+  const loginEmailPassword = async (
+    email: string,
+    password: string
+  ): Promise<AuthResult> => {
+    console.log("🔐 [AuthContext] Starting email/password login", { email });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-
-      // If there's a session, the user is immediately signed in
-      if (data.session) {
-        setUser(data.user);
+      if (error) {
+        console.error("❌ [AuthContext] Email/password login error:", error);
+        return { success: false, error: error.message };
       }
-      // If no session, the user needs to confirm their email first
-      // The confirmation email will redirect to the same callback URL as OAuth
+      if (data.session && data.user) {
+        console.log("✅ [AuthContext] Email/password login successful", {
+          userId: data.user.id,
+          email: data.user.email,
+        });
+        setUser(data.user);
+        return { success: true, user: data.user, session: data.session };
+      }
+      return { success: false, error: "No session or user returned" };
+    } catch (error: any) {
+      return { success: false, error: error?.message || "Unknown error" };
+    }
+  };
+
+  const signUpEmailPassword = async (
+    email: string,
+    password: string
+  ): Promise<AuthResult> => {
+    console.log("🔐 [AuthContext] Starting email/password sign up", { email });
+    try {
+      const isDesktop = isTauri();
+      const ORCHESTRA_DEEP_LINK = "orchestra://auth-callback";
+      const WEB_REDIRECT = `${window.location.origin}/auth/callback`;
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: isDesktop ? ORCHESTRA_DEEP_LINK : WEB_REDIRECT,
+        },
+      });
+      if (error) {
+        console.error("❌ [AuthContext] Email/password sign up error:", error);
+        return { success: false, error: error.message };
+      }
+      if (data.user) {
+        console.log("✅ [AuthContext] Email/password sign up successful", {
+          userId: data.user.id,
+          email: data.user.email,
+          needsConfirmation: !data.session, // If no session, email confirmation is required
+          confirmationSent: !!data.user && !data.session,
+        });
+        if (data.session) {
+          setUser(data.user);
+        }
+        return { success: true, user: data.user, session: data.session };
+      }
+      return { success: false, error: "No user returned" };
+    } catch (error: any) {
+      return { success: false, error: error?.message || "Unknown error" };
     }
   };
 
@@ -455,9 +462,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <Ctx.Provider
       value={{
         user: user || defaultUser, // Use actual user or default for single-player
-        // DEV_MODE_AUTH_BYPASS: Hardcoded to true for development.
         isAuthenticated: !!user,
-        // isAuthenticated: true,
         booted,
         showModal,
         setShowModal,
@@ -468,7 +473,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
       }}
     >
-      {children}
+      <>
+        {children}
+        {showModal && (
+          <SecureAuthModal
+            isOpen={showModal}
+            onClose={() => setShowModal(false)}
+          />
+        )}
+      </>
     </Ctx.Provider>
   );
 };
