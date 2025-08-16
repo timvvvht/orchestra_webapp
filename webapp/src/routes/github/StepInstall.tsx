@@ -167,23 +167,249 @@ export default function StepInstall() {
     setResult(res);
   };
 
-  // Optional provisioning fields still editable by user (not ACS URL)
-  const [repoId, setRepoId] = useState<number>(123456789);
-  const [repoName, setRepoName] = useState<string>("octocat/Hello-World");
-  const [branch, setBranch] = useState<string>("main");
+  // Provision a specific repo
+  const provisionRepo = useCallback(async (repo: any, branch?: string) => {
+    if (!repo.githubRepoId) {
+      console.error("Cannot provision repo without GitHub ID:", repo);
+      return;
+    }
 
-  const provisionWithRepo = async () => {
-    setStatus("Provisioning with repo...");
-    const res = await api.provisionWithRepo({
-      repo_id: Number(repoId),
-      repo_name: repoName.trim(),
-      branch: branch.trim(),
-    });
-    setStatus(
-      res.ok ? `Provision started: ${res.data?.status}` : "Provision failed"
-    );
-    setResult(res);
-  };
+    const branchName = branch || repo.defaultBranch || 'main';
+    const repoKey = getRepoKey(repo, branchName);
+    
+    // Prevent double-clicking
+    if (repoStates[repoKey]?.status === 'provisioning' || repoStates[repoKey]?.status === 'polling') {
+      console.log("Provision already in progress for", repoKey);
+      return;
+    }
+
+    // Set provisioning state
+    setRepoStates(prev => ({
+      ...prev,
+      [repoKey]: {
+        status: 'provisioning',
+        message: 'Starting provisioning...'
+      }
+    }));
+
+    try {
+      const res = await api.provisionWithRepo({
+        repo_id: repo.githubRepoId,
+        repo_name: repo.fullName,
+        branch: branchName,
+      });
+
+      if (res.ok) {
+        setRepoStates(prev => ({
+          ...prev,
+          [repoKey]: {
+            status: 'polling',
+            message: 'Provisioning started, checking status...'
+          }
+        }));
+        
+        // Start polling for status
+        startStatusPolling(repo, branchName);
+      } else {
+        const errorMsg = res.data?.detail || `HTTP ${res.status}`;
+        setRepoStates(prev => ({
+          ...prev,
+          [repoKey]: {
+            status: 'error',
+            error: errorMsg,
+            message: `Provisioning failed: ${errorMsg}`
+          }
+        }));
+      }
+    } catch (error) {
+      setRepoStates(prev => ({
+        ...prev,
+        [repoKey]: {
+          status: 'error',
+          error: String(error),
+          message: `Provisioning failed: ${error}`
+        }
+      }));
+    }
+  }, [api, getRepoKey, repoStates]);
+
+  // Start polling for repo status
+  const startStatusPolling = useCallback(async (repo: any, branch: string) => {
+    const repoKey = getRepoKey(repo, branch);
+    let pollCount = 0;
+    const maxPolls = 60; // 5 minutes at 5s intervals
+    
+    const poll = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const authHeader = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+        
+        const res = await api.repoStatus({
+          repo_id: repo.githubRepoId,
+          branch: branch,
+        }, authHeader);
+
+        if (res.ok) {
+          const statusData = res.data;
+          const status = statusData.status;
+          
+          // Terminal states
+          if (status === 'ready' || status === 'provisioned' || status === 'error') {
+            setRepoStates(prev => {
+              const currentState = prev[repoKey];
+              if (currentState?.pollingInterval) {
+                clearInterval(currentState.pollingInterval);
+              }
+              return {
+                ...prev,
+                [repoKey]: {
+                  status: status as any,
+                  message: status === 'ready' ? 'Machine ready!' : 
+                          status === 'provisioned' ? 'Machine provisioned!' : 
+                          'Provisioning failed',
+                  app_name: statusData.app_name,
+                  machine_id: statusData.machine_id,
+                  volume_id: statusData.volume_id,
+                  tes_internal_url: statusData.tes_internal_url,
+                  details: statusData.details,
+                  error: status === 'error' ? 'Provisioning failed' : undefined
+                }
+              };
+            });
+            return;
+          }
+          
+          // Update with current status
+          setRepoStates(prev => ({
+            ...prev,
+            [repoKey]: {
+              ...prev[repoKey],
+              status: 'polling',
+              message: `Status: ${status}${statusData.details?.db_status ? ` (DB: ${statusData.details.db_status})` : ''}`,
+              app_name: statusData.app_name,
+              machine_id: statusData.machine_id,
+              volume_id: statusData.volume_id,
+              details: statusData.details
+            }
+          }));
+        } else {
+          console.error("Status polling failed:", res);
+          if (res.status === 404) {
+            // Repo not found, might not be provisioned yet
+            setRepoStates(prev => ({
+              ...prev,
+              [repoKey]: {
+                ...prev[repoKey],
+                message: 'Waiting for provisioning to start...'
+              }
+            }));
+          }
+        }
+        
+        pollCount++;
+        if (pollCount >= maxPolls) {
+          // Timeout
+          setRepoStates(prev => {
+            const currentState = prev[repoKey];
+            if (currentState?.pollingInterval) {
+              clearInterval(currentState.pollingInterval);
+            }
+            return {
+              ...prev,
+              [repoKey]: {
+                ...prev[repoKey],
+                status: 'error',
+                error: 'Polling timeout',
+                message: 'Status check timed out after 5 minutes'
+              }
+            };
+          });
+        }
+      } catch (error) {
+        console.error("Status polling error:", error);
+        setRepoStates(prev => ({
+          ...prev,
+          [repoKey]: {
+            ...prev[repoKey],
+            message: `Status check error: ${error}`
+          }
+        }));
+      }
+    };
+
+    // Start polling every 5 seconds
+    const interval = setInterval(poll, 5000);
+    
+    // Update state with polling interval
+    setRepoStates(prev => ({
+      ...prev,
+      [repoKey]: {
+        ...prev[repoKey],
+        pollingInterval: interval
+      }
+    }));
+    
+    // Do initial poll
+    poll();
+  }, [api, getRepoKey]);
+
+  // Stop a repo's machine
+  const stopRepo = useCallback(async (repo: any, branch?: string) => {
+    if (!repo.githubRepoId) return;
+
+    const branchName = branch || repo.defaultBranch || 'main';
+    const repoKey = getRepoKey(repo, branchName);
+    
+    setRepoStates(prev => ({
+      ...prev,
+      [repoKey]: {
+        ...prev[repoKey],
+        message: 'Stopping machine...'
+      }
+    }));
+
+    try {
+      const res = await api.stopRepo({
+        repo_id: repo.githubRepoId,
+        branch: branchName,
+      });
+
+      if (res.ok) {
+        setRepoStates(prev => ({
+          ...prev,
+          [repoKey]: {
+            ...prev[repoKey],
+            status: 'stopped',
+            message: 'Machine stopped successfully'
+          }
+        }));
+        
+        // Re-poll status to get updated state
+        setTimeout(() => {
+          startStatusPolling(repo, branchName);
+        }, 2000);
+      } else {
+        const errorMsg = res.data?.detail || `HTTP ${res.status}`;
+        setRepoStates(prev => ({
+          ...prev,
+          [repoKey]: {
+            ...prev[repoKey],
+            message: `Stop failed: ${errorMsg}`
+          }
+        }));
+      }
+    } catch (error) {
+      setRepoStates(prev => ({
+        ...prev,
+        [repoKey]: {
+          ...prev[repoKey],
+          message: `Stop failed: ${error}`
+        }
+      }));
+    }
+  }, [api, getRepoKey, startStatusPolling]);
 
   return (
     <section>
