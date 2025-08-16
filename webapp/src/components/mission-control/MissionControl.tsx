@@ -20,6 +20,8 @@ import { InfrastructureUtils } from "@/services/acs/infrastructure";
 
 import { NewTaskModal } from "@/components/modals/NewTaskModal";
 import { SelectionProvider } from "@/context/SelectionContext";
+import { ChatUIProvider } from "@/context/ChatUIContext";
+import { KeyboardShortcutsProvider } from "@/hooks/useKeyboardShortcuts";
 import Header from "./Header";
 import LayoutSplit from "./LayoutSplit";
 import GitHubConnectPanel from "./GitHubConnectPanel";
@@ -323,8 +325,10 @@ const MissionControlV2: React.FC = () => {
   }
 
   return (
-    <SelectionProvider>
-      <div className="h-full w-full bg-black flex flex-col overflow-hidden min-h-0">
+    <ChatUIProvider>
+      <SelectionProvider>
+        <KeyboardShortcutsProvider>
+          <div className="h-full w-full bg-black flex flex-col overflow-hidden min-h-0">
       {/* Subtle background */}
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-gray-950 via-black to-gray-950" />
       <div className="fixed inset-0 pointer-events-none">
@@ -394,8 +398,10 @@ const MissionControlV2: React.FC = () => {
           66% { transform: translate(-20px, 20px) scale(0.9); }
         }
       `}</style>
-      </div>
-    </SelectionProvider>
+          </div>
+        </KeyboardShortcutsProvider>
+      </SelectionProvider>
+    </ChatUIProvider>
   );
 };
 
