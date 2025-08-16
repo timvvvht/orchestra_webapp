@@ -6,6 +6,23 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Separator } from "../../components/ui/separator";
 
+// Types for repo provisioning state
+interface RepoProvisionState {
+  status: 'idle' | 'provisioning' | 'polling' | 'ready' | 'provisioned' | 'error' | 'stopped';
+  message?: string;
+  app_name?: string;
+  machine_id?: string;
+  volume_id?: string;
+  tes_internal_url?: string;
+  details?: {
+    db_status?: string;
+    runtime_ready?: boolean;
+    has_orchestrator?: boolean;
+  };
+  error?: string;
+  pollingInterval?: NodeJS.Timeout;
+}
+
 export default function StepInstall() {
   const acsBase = CONFIG.ACS_BASE_URL;
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
@@ -14,7 +31,26 @@ export default function StepInstall() {
   );
   const [result, setResult] = useState<any>(null);
   const [repos, setRepos] = useState<any[]>([]);
-  const [selectedRepoName, setSelectedRepoName] = useState<string>("");
+  
+  // Track provisioning state for each repo
+  const [repoStates, setRepoStates] = useState<Record<string, RepoProvisionState>>({});
+
+  // Helper to generate unique key for repo+branch combination
+  const getRepoKey = useCallback((repo: any, branch?: string) => {
+    const branchName = branch || repo.defaultBranch || 'main';
+    return `${repo.githubRepoId}-${branchName}`;
+  }, []);
+
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(repoStates).forEach(state => {
+        if (state.pollingInterval) {
+          clearInterval(state.pollingInterval);
+        }
+      });
+    };
+  }, [repoStates]);
 
   // Normalize various repo shapes (ACS vs GitHub API) into a single view model
   function normalizeRepo(repo: any) {
