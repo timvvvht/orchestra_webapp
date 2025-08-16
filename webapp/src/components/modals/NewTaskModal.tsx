@@ -33,7 +33,7 @@ import { isTauri } from "@/utils/environment";
 import { recentProjectsManager } from "@/utils/projectStorage";
 import { useFileSearch } from "@/hooks/useFileSearch";
 // Lazy-loaded Lexical editor with fallback for compatibility issues
-import { useMissionControlShortcuts } from "@/hooks/useMissionControlShortcuts";
+// Removed global keyboard shortcuts; using local key handler and hint
 import { useAuth } from "@/auth/AuthContext";
 import { startBackgroundSessionOps } from "@/workers/sessionBackgroundWorker";
 import { useMissionControlStore } from "@/stores/missionControlStore";
@@ -199,6 +199,16 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const selections = useSelections();
   const { settings } = useSettingsStore();
   const auth = useAuth();
+
+  // Local keyboard shortcut hint helper
+  const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform);
+  const getShortcutHint = (action: 'send' | 'save' | 'new') => {
+    const modifier = isMac ? '⌘' : 'Ctrl+';
+    if (action === 'send') return `${modifier}↵`;
+    if (action === 'save') return `${modifier}S`;
+    if (action === 'new') return `${modifier}N`;
+    return '';
+  };
 
   // Core state - minimal and focused
   const [content, setContent] = useState("");
@@ -941,11 +951,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
     !worktreeBlocked;
   const projectName = codePath.split(/[\\\/]/).pop() || "No project selected";
 
-  // Mission Control shortcuts
-  const { getShortcutHint } = useMissionControlShortcuts({
-    onSendToAgent: handleSend,
-    isModalOpen: true,
-  });
+  // Using local getShortcutHint helper (see above)
 
   return ReactDOM.createPortal(
     <>
