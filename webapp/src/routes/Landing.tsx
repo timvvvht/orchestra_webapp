@@ -1,7 +1,10 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from "react-router-dom";
 
 export default function Landing() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const authFailed = params.get("error") === "auth_failed";
+
   return (
     <main className="min-h-screen relative orchestra-page">
       {/* Background layers */}
@@ -18,12 +21,15 @@ export default function Landing() {
           <p className="text-body mb-8">
             Welcome to Orchestra - your AI development environment.
           </p>
-          <Link 
-            to="/mission-control"
-            className="btn-primary inline-block"
-          >
-            Open Mission Control
-          </Link>
+          {authFailed ? (
+            <div className="mb-4 p-3 rounded bg-red-100 text-red-700 border border-red-300 text-center">
+              Login failed. Please try again.
+            </div>
+          ) : (
+            <Link to="/mission-control" className="btn-primary inline-block">
+              Open Mission Control
+            </Link>
+          )}
         </div>
       </div>
     </main>

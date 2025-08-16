@@ -23,7 +23,7 @@ type AuthCtx = {
   booted: boolean;
   showModal: boolean;
   setShowModal(v: boolean): void;
-
+  loginGitHub(): Promise<void>;
   loginGoogle(): Promise<void>;
   loginEmailPassword(email: string, password: string): Promise<void>;
   signUpEmailPassword(email: string, password: string): Promise<void>;
@@ -90,12 +90,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 start: accessToken.substring(0, 50) + "...",
               });
               acsClient.setAuthToken(accessToken);
-              
+
               // ✅ CRITICAL: Establish firehose connection
               // This must happen at app level to persist across navigation
               try {
-                acsClient.streaming.connectPrivate(data.session.user.id, accessToken);
-                console.log('🔥 [AuthContext] Initial firehose connection established');
+                acsClient.streaming.connectPrivate(
+                  data.session.user.id,
+                  accessToken
+                );
+                console.log(
+                  "🔥 [AuthContext] Initial firehose connection established"
+                );
               } catch (error) {
                 console.error(
                   "❌ [AuthContext] Failed to establish initial firehose connection:",
@@ -330,7 +335,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [exchangeSupabaseSessionForACSCookies]);
 
   const loginGoogle = async () => {
-
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -352,13 +356,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  async function signInWithGithub() {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+  async function loginGitHub() {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        console.error("Google login error:", error);
+        throw error;
+      }
+
+      console.log("Google login initiated:", data);
+    } catch (error) {
+      console.error("Failed to initiate Google login:", error);
+      throw error;
+    }
   }
 
   const loginEmailPassword = async (email: string, password: string) => {
@@ -446,6 +462,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         showModal,
         setShowModal,
         loginGoogle,
+        loginGitHub,
         loginEmailPassword,
         signUpEmailPassword,
         logout,
