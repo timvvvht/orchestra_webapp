@@ -6,8 +6,8 @@ import { acsGithubApi, withApiV1 } from "@/services/acsGitHubApi";
 type Status = { type: "info" | "success" | "error"; message: string };
 
 const ENV_ACS_BASE =
-  (import.meta as any).env?.VITE_ACS_URL_GH ||
-  import.meta.env?.VITE_ACS_URL_GH ||
+  (import.meta as any).env?.VITE_ACS_BASE_URL ||
+  import.meta.env?.VITE_ACS_BASE_URL ||
   "http://localhost:8001";
 const DEFAULT_SUPABASE_EMAIL = "test@example.com";
 const DEFAULT_SUPABASE_PASSWORD = "testpassword123";

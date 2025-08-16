@@ -6,7 +6,7 @@ import { Separator } from "../../components/ui/separator";
 export default function StepConfig() {
   // Lock to env
   const acsBase = CONFIG.ACS_BASE_URL;
-  console.log(acsBase);
+  console.log(`acsBase: ${acsBase}`);
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
   const [status, setStatus] = useState<string>(
     "ACS base URL is managed by the environment and cannot be changed."
