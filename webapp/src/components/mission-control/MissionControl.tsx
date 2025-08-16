@@ -84,7 +84,7 @@ const MissionControlV2: React.FC = () => {
   const sessions: any[] = [];
   const isLoading = false;
   const error = null;
-  const refetchSessions = () => {};
+  const refetchSessions = useCallback(() => {}, []);
 
   // Get session IDs for plans fetching
   const sessionIds = useMemo(() => {
@@ -98,6 +98,7 @@ const MissionControlV2: React.FC = () => {
   //   usePlansSnapshot(sessionIds);
   const plansBySession = {};
   const refetch: any = () => {};
+  const refetchPlans = useCallback(() => {}, []);
 
   // Set up real-time updates and hotkeys
   // useMissionControlFirehose();

@@ -1,14 +1,16 @@
 # Page snapshot
 
 ```yaml
-- heading "Unexpected Application Error!" [level=2]
-- heading "refetchPlans is not defined" [level=3]
-- text: MissionControlV2@http://localhost:5173/src/components/mission-control/MissionControl.tsx:112:7 react_stack_bottom_frame@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:17424:20 renderWithHooks@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:4206:42 updateFunctionComponent@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:6619:21 beginWork@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:7613:199 runWithFiberInDEV@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:1487:15 performUnitOfWork@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:10868:98 workLoopSync@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:10728:60 renderRootSync@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:10711:13 performWorkOnRoot@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:10359:46 performWorkOnRootViaSchedulerTask@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:11623:26 performWorkUntilDeadline@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:36:58 EventHandlerNonNull*node_modules/scheduler/cjs/scheduler.development.js/<@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:156:9 node_modules/scheduler/cjs/scheduler.development.js@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:266:7 __require@http://localhost:5173/node_modules/.vite/deps/chunk-EWTE5DHJ.js?v=d807abf1:12:50 node_modules/scheduler/index.js@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:277:24 __require@http://localhost:5173/node_modules/.vite/deps/chunk-EWTE5DHJ.js?v=d807abf1:12:50 node_modules/react-dom/cjs/react-dom-client.development.js/<@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:15216:23 node_modules/react-dom/cjs/react-dom-client.development.js@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:18068:7 __require@http://localhost:5173/node_modules/.vite/deps/chunk-EWTE5DHJ.js?v=d807abf1:12:50 node_modules/react-dom/client.js@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:18079:24 __require@http://localhost:5173/node_modules/.vite/deps/chunk-EWTE5DHJ.js?v=d807abf1:12:50 @http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=69850b94:18083:16
-- paragraph: 💿 Hey developer 👋
-- paragraph:
-  - text: You can provide a way better UX than this when your app throws errors by providing your own
-  - code: ErrorBoundary
-  - text: or
-  - code: errorElement
-  - text: prop on your route.
+- banner:
+  - heading "Ready for your next task" [level=1]
+  - button "New Task"
+- button "Active"
+- button "Archived"
+- heading "Run Background Coding Agents In Parallel" [level=1]
+- paragraph: Tell me what you want to build, and we'll make it happen.
+- text: Exploring Coding Testing
+- button "Start Your First Task"
+- paragraph: No setup required • Works with any codebase
+- text: Auto-checkpoint Isolated branches
+- button "Sign in to start →"
 ```

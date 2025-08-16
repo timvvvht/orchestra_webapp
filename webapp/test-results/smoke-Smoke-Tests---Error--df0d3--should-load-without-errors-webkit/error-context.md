@@ -1,14 +1,16 @@
 # Page snapshot
 
 ```yaml
-- heading "Unexpected Application Error!" [level=2]
-- 'heading "Can''t find variable: refetchPlans" [level=3]'
-- text: MissionControlV2@http://localhost:5173/src/components/mission-control/MissionControl.tsx:112:19 react_stack_bottom_frame@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:17424:29 renderWithHooks@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:4206:42 updateFunctionComponent@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:6619:36 beginWork@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:7613:222 runWithFiberInDEV@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:1487:23 performUnitOfWork@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:10868:115 workLoopSync@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:10728:60 renderRootSync@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:10711:25 performWorkOnRoot@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:10359:60 performWorkOnRootViaSchedulerTask@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:11623:26 performWorkUntilDeadline@http://localhost:5173/node_modules/.vite/deps/react-dom_client.js:36:58
-- paragraph: 💿 Hey developer 👋
-- paragraph:
-  - text: You can provide a way better UX than this when your app throws errors by providing your own
-  - code: ErrorBoundary
-  - text: or
-  - code: errorElement
-  - text: prop on your route.
+- banner:
+  - heading "Ready for your next task" [level=1]
+  - button "New Task"
+- button "Active"
+- button "Archived"
+- heading "Run Background Coding Agents In Parallel" [level=1]
+- paragraph: Tell me what you want to build, and we'll make it happen.
+- text: Exploring Coding Testing
+- button "Start Your First Task"
+- paragraph: No setup required • Works with any codebase
+- text: Auto-checkpoint Isolated branches
+- button "Sign in to start →"
 ```
