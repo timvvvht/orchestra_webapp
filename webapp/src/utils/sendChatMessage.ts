@@ -296,6 +296,14 @@ function buildAcsPayload(
   return payload;
 }
 
+type ConverseResponse = {
+  session_id: string;
+  response_messages: any[];
+  final_text_response: string | null;
+  current_agent_cwd?: string;
+  conversation_suspended: boolean;
+};
+
 /**
  * Canonical message sending function that handles:
  * - Session status updates (mark as awaiting)
@@ -321,8 +329,6 @@ export async function sendChatMessage(
     overrides = {}, // Default to empty object
   } = params;
 
-  const trimmedMessage = message.trim();
-
   console.log("📤 [sendChatMessage] Received params:", {
     sessionId: sessionId.slice(0, 8) + "...",
     messageLength: message.length,
@@ -334,9 +340,10 @@ export async function sendChatMessage(
     tools: params.tools || "none",
   });
 
-  if (!trimmedMessage) {
-    return { success: false, error: "Message is empty" };
-  }
+  if (!message) return { success: false, error: "Message is empty" };
+
+  const trimmedMessage = message.trim();
+  if (!trimmedMessage) return { success: false, error: "Message is empty" };
 
   if (!sessionId || !userId) {
     toast.error("Please sign in to send messages");
@@ -344,42 +351,10 @@ export async function sendChatMessage(
   }
 
   // Register tools (defaults to core tools if not specified)
-  // const toolsToRegister = params.tools || ['cat', 'tree', 'search_files', 'str_replace_editor', 'read_files', 'search_notes'];
   const toolsToRegister = params.tools || [
-    // 🟢 Core default tools
-    "cat",
-    "tree",
     "search_files",
+    "cat",
     "str_replace_editor",
-    "read_files",
-    "search_notes",
-    "apply_patch",
-    "ls",
-    "my_new_tool",
-    "path_security",
-    "aws_tools",
-    "agentic_search_background",
-    "initiate_runner_session",
-    "execute_in_runner_session",
-    "set_runner_session_cwd",
-    "set_runner_session_env_var",
-    "unset_runner_session_env_var",
-    "get_runner_session_state",
-    "terminate_runner_session",
-    "start_background_os_job_in_session",
-    "get_background_os_job_status",
-    "send_signal_to_os_job",
-
-    // 🟣 All 9 Serena LSP HTTP symbol-tools
-    "find_symbol",
-    // 'get_symbols_overview',
-    "find_referencing_symbols",
-    "insert_after_symbol",
-    "insert_before_symbol",
-    "replace_symbol_body",
-    // 'find_referencing_code_snippets',
-    // 'codebase_orientation',
-    // 'restart_language_server'
   ];
 
   console.log("🔧 [sendChatMessage] Registering tools:", toolsToRegister);
@@ -398,104 +373,101 @@ export async function sendChatMessage(
   useSessionStatusStore.getState().markAwaiting(sessionId);
 
   try {
-    // Add user message to the store optimistically
+    // 1) Optimistic event insert for UI responsiveness
     const userMessage: ChatMessageType = {
       id: `user-${Date.now()}`,
-      sessionId: sessionId,
+      sessionId,
       role: ChatRole.User,
       content: [{ type: "text", text: trimmedMessage }],
       createdAt: Date.now(),
       isStreaming: false,
     };
-
-    // Add to event store
     useEventStore.getState().addEvent({
       id: userMessage.id,
       kind: "message",
       role: "user",
       content: userMessage.content,
       createdAt: new Date(userMessage.createdAt).toISOString(),
-      sessionId: sessionId,
+      sessionId,
       partial: false,
-      source: "sse" as const,
+      source: "sse" as const, // could be 'local' if you want to distinguish
     });
-
     console.log(
       "✅ [sendChatMessage] Added optimistic user message to event store"
     );
 
-    // Extract agent_cwd_override from acsOverrides (if provided)
+    // 2) Resolve working directory fallback
     const agentCwdOverride = acsOverrides?.agent_cwd_override;
-
-    // 🎯 CRITICAL: Add fallback logic for agent_cwd_override
     let effectiveAgentCwd = agentCwdOverride;
     if (!effectiveAgentCwd && sessionData?.agent_cwd) {
-      // Fallback to session data if provided
       effectiveAgentCwd = sessionData.agent_cwd;
       console.log(
         "📁 [sendChatMessage] Using fallback agent_cwd from session data:",
         effectiveAgentCwd
       );
     }
-
     if (!effectiveAgentCwd) {
-      // TODO: Add fallback to get from session store when available
-      // For now, we'll warn if it's missing
-      console.warn(
-        "⚠️ [sendChatMessage] No agent_cwd_override provided - agent may run in wrong directory",
-        {
-          sessionId: sessionId.slice(0, 8) + "...",
-          hasAcsOverrides: !!acsOverrides,
-          hasSessionData: !!sessionData,
-        }
-      );
+      console.warn("⚠️ [sendChatMessage] No agent_cwd_override provided", {
+        sessionId: sessionId.slice(0, 8) + "...",
+        hasAcsOverrides: !!acsOverrides,
+        hasSessionData: !!sessionData,
+      });
     }
 
-    // Merge provided overrides with acsOverrides for backward compatibility
-    const mergedOverrides = {
-      ...acsOverrides,
-      ...overrides,
-    };
+    // 3) Resolve template variables and BYOK preference defaults
+    const resolvedTemplateVars =
+      params.templateVariables ||
+      ((await createACSTemplateVariables()) as unknown as {
+        [key: string]: string;
+      });
+    const resolvedUseStoredKeys =
+      params.useStoredKeys ?? useBYOKStore.getState().useStoredKeysPreference;
 
-    // Create params object for payload builder with all necessary data
-    const payloadParams: SendChatMessageParams = {
-      ...params,
-      overrides: mergedOverrides,
-      // Use provided templateVariables or generate them if not provided
-      templateVariables:
-        params.templateVariables ||
-        ((await createACSTemplateVariables()) as unknown as {
-          [key: string]: string;
-        }),
-      // Use provided useStoredKeys or get from store if not provided
-      useStoredKeys:
-        params.useStoredKeys ?? useBYOKStore.getState().useStoredKeysPreference,
-    };
-
-    // Prepare the final ACS options using the helper function
-    const acsOptions = buildSendMessageOptions(
-      payloadParams,
+    // 4) Build final ACS body for /acs/converse
+    const body = buildConversePayload(
+      {
+        ...params,
+        templateVariables: resolvedTemplateVars,
+        useStoredKeys: resolvedUseStoredKeys,
+      },
       effectiveAgentCwd
     );
 
+    // 5) POST to ACS Converse
+    const ACS_BASE = "https://orchestra-acs.fly.dev";
+    const url = `${ACS_BASE}/acs/converse`;
+
+    // Optional: Attach Authorization header if you have a JWT; if so, remove user_id from body
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     console.log(
-      "📡 [sendChatMessage] Calling core.sendMessage with options:",
-      JSON.stringify(acsOptions, null, 2)
+      "📡 [sendChatMessage] POST /acs/converse with redacted body:",
+      JSON.stringify({ ...body, prompt: `len(${body.prompt.length})` }, null, 2)
     );
 
-    // Send message via ACS with fresh overrides
-    await acsClient.core.sendMessage(
-      sessionId,
-      trimmedMessage,
-      userId,
-      agentConfigName,
-      acsOptions
-    );
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
 
-    console.log("✅ [sendChatMessage] Message sent successfully to ACS");
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(
+        `ACS converse error ${res.status}: ${errText || res.statusText}`
+      );
+    }
 
-    // Update status to reflect successful send to ACS
-    useSessionStatusStore.getState().markAwaiting(sessionId, "sent_to_acs");
+    const data = (await res.json()) as ConverseResponse;
+    console.log("✅ [sendChatMessage] ACS accepted message", {
+      session_id: data.session_id,
+      suspended: data.conversation_suspended,
+      cwd: data.current_agent_cwd,
+    });
+
+    // 6) Update status to reflect successful send to ACS
+    useSessionStatusStore.getState().markAwaiting(sessionId);
 
     return {
       success: true,
@@ -504,10 +476,7 @@ export async function sendChatMessage(
   } catch (error) {
     console.error("❌ [sendChatMessage] Failed to send message:", error);
     toast.error("Failed to send message");
-
-    // Mark session as error on send failure
-    useSessionStatusStore.getState().markError(sessionId, "send_error");
-
+    useSessionStatusStore.getState().markError(sessionId);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -608,7 +577,11 @@ function buildConversePayload(
     explicit_model_id: explicitModelId,
     role_model_overrides:
       roleModelOverrides && Object.keys(roleModelOverrides).length
-        ? roleModelOverrides
+        ? Object.fromEntries(
+            Object.entries(roleModelOverrides).filter(
+              ([_, value]) => typeof value === "string"
+            )
+          )
         : undefined,
     is_background_session: isBackgroundSession,
   };
