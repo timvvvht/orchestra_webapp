@@ -25,6 +25,7 @@ import { ChatUIProvider } from "@/context/ChatUIContext";
 import Header from "./Header";
 import LayoutSplit from "./LayoutSplit";
 import GitHubConnectPanel from "./GitHubConnectPanel";
+import { Plan } from "@/types/plans";
 
 // Animation variants for staggered reveals
 const containerVariants = {
@@ -52,7 +53,7 @@ const itemVariants = {
   },
 };
 
-const MissionControlV2: React.FC = () => {
+const MissionControl: React.FC = () => {
   // const { isAuthenticated, setShowModal } = useAuth();
   const isAuthenticated = true;
   const setShowModal = () => {};
@@ -120,7 +121,7 @@ const MissionControlV2: React.FC = () => {
 
   // Update store when plans change
   useEffect(() => {
-    const plansArray = Object.values(plansBySession);
+    const plansArray: Plan[] = Object.values(plansBySession);
     const currentPlans = useMissionControlStore.getState().plans;
     const sameLen = Object.keys(currentPlans).length === plansArray.length;
     const sameKeys =
@@ -147,7 +148,7 @@ const MissionControlV2: React.FC = () => {
       useMissionControlStore.getState().sessionRefetchCallback !==
       refetchSessions
     ) {
-      setSessionRefetchCallback(refetchSessions);
+      //setSessionRefetchCallback(refetchSessions);
     }
   }, [refetchSessions, setSessionRefetchCallback]);
 
@@ -186,7 +187,7 @@ const MissionControlV2: React.FC = () => {
   // Handle new session creation from draft modal (supports optimistic UI)
   const handleSessionCreated = useCallback(
     (sessionId: string, sessionData: Partial<MissionControlAgent>) => {
-      console.log("[MissionControlV2] Session created/updated:", {
+      console.log("[MissionControl] Session created/updated:", {
         sessionId,
         sessionData,
       });
@@ -205,7 +206,7 @@ const MissionControlV2: React.FC = () => {
       if (isPendingReplacement) {
         // Replace pending session with confirmed session
         console.log(
-          "[MissionControlV2] Replacing pending session with confirmed session:",
+          "[MissionControl] Replacing pending session with confirmed session:",
           {
             pendingId: currentSessions[pendingSessionIndex].id,
             confirmedId: sessionId,
@@ -224,7 +225,7 @@ const MissionControlV2: React.FC = () => {
         setSessions(newSessions);
       } else if (isUpdate) {
         // Update existing session
-        console.log("[MissionControlV2] Updating existing session:", sessionId);
+        console.log("[MissionControl] Updating existing session:", sessionId);
 
         const updatedSession: MissionControlAgent = {
           ...currentSessions[existingSessionIndex],
@@ -236,7 +237,7 @@ const MissionControlV2: React.FC = () => {
         setSessions(newSessions);
       } else {
         // Create new session (skeleton or regular)
-        console.log("[MissionControlV2] Creating new session:", sessionId);
+        console.log("[MissionControl] Creating new session:", sessionId);
 
         const newSession: MissionControlAgent = {
           id: sessionId,
@@ -261,7 +262,7 @@ const MissionControlV2: React.FC = () => {
         setSessions([newSession, ...currentSessions]);
       }
 
-      console.log("[MissionControlV2] Session operation complete");
+      console.log("[MissionControl] Session operation complete");
     },
     [setSessions, currentSessions]
   );
@@ -274,7 +275,7 @@ const MissionControlV2: React.FC = () => {
             Please sign in to use Mission Control
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => setShowModal()}
             className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-white/90 transition"
           >
             Sign in
@@ -327,39 +328,39 @@ const MissionControlV2: React.FC = () => {
   return (
     <ChatUIProvider>
       <SelectionProvider>
-          <div className="h-full w-full bg-black flex flex-col overflow-hidden min-h-0">
-      {/* Subtle background */}
-      <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-gray-950 via-black to-gray-950" />
-      <div className="fixed inset-0 pointer-events-none">
-        {/* Very subtle floating orbs */}
-        <div
-          className="absolute top-0 left-1/4 w-96 h-96 bg-white/[0.02] rounded-full blur-3xl"
-          style={{ animation: "float 30s ease-in-out infinite" }}
-        />
-        <div
-          className="absolute bottom-0 right-1/4 w-96 h-96 bg-white/[0.02] rounded-full blur-3xl"
-          style={{ animation: "float 35s ease-in-out infinite reverse" }}
-        />
-      </div>
+        <div className="h-full w-full bg-black flex flex-col overflow-hidden min-h-0">
+          {/* Subtle background */}
+          <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-gray-950 via-black to-gray-950" />
+          <div className="fixed inset-0 pointer-events-none">
+            {/* Very subtle floating orbs */}
+            <div
+              className="absolute top-0 left-1/4 w-96 h-96 bg-white/[0.02] rounded-full blur-3xl"
+              style={{ animation: "float 30s ease-in-out infinite" }}
+            />
+            <div
+              className="absolute bottom-0 right-1/4 w-96 h-96 bg-white/[0.02] rounded-full blur-3xl"
+              style={{ animation: "float 35s ease-in-out infinite reverse" }}
+            />
+          </div>
 
-      {/* Main Content with staggered animation */}
-      <motion.div
-        className="relative z-10 flex flex-col h-full min-h-0"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {/* Header */}
+          {/* Main Content with staggered animation */}
+          <motion.div
+            className="relative z-10 flex flex-col h-full min-h-0"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {/* Header */}
 
-        <Header
-          workspaceStatus={workspaceStatus}
-          progressText={progressText}
-          workspaceError={workspaceError}
-          onProvisionWorkspace={handleProvisionWorkspace}
-        />
+            <Header
+              workspaceStatus={workspaceStatus}
+              progressText={progressText}
+              workspaceError={workspaceError}
+              onProvisionWorkspace={handleProvisionWorkspace}
+            />
 
-        {/* GitHub Connection Card Section */}
-        {/* <motion.div variants={itemVariants} className="px-8 py-4">
+            {/* GitHub Connection Card Section */}
+            {/* <motion.div variants={itemVariants} className="px-8 py-4">
           <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -373,34 +374,34 @@ const MissionControlV2: React.FC = () => {
           </div>
         </motion.div> */}
 
-        {/* Layout Split */}
-        <LayoutSplit />
-      </motion.div>
+            {/* Layout Split */}
+            <LayoutSplit />
+          </motion.div>
 
-      {/* New Task Modal */}
-      {showNewDraftModal && (
-        <NewTaskModal
-          initialCodePath={initialDraftCodePath || undefined}
-          onClose={() => {
-            setShowNewDraftModal(false);
-            setInitialDraftCodePath(null);
-          }}
-          onSessionCreated={handleSessionCreated}
-        />
-      )}
+          {/* New Task Modal */}
+          {showNewDraftModal && (
+            <NewTaskModal
+              initialCodePath={initialDraftCodePath || undefined}
+              onClose={() => {
+                setShowNewDraftModal(false);
+                setInitialDraftCodePath(null);
+              }}
+              onSessionCreated={handleSessionCreated}
+            />
+          )}
 
-      {/* CSS animations */}
-      <style>{`
+          {/* CSS animations */}
+          <style>{`
         @keyframes float {
           0%, 100% { transform: translate(0, 0) scale(1); }
           33% { transform: translate(30px, -30px) scale(1.1); }
           66% { transform: translate(-20px, 20px) scale(0.9); }
         }
       `}</style>
-          </div>
+        </div>
       </SelectionProvider>
     </ChatUIProvider>
   );
 };
 
-export default MissionControlV2;
+export default MissionControl;

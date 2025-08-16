@@ -3,12 +3,10 @@ import { createBrowserRouter, RouteObject } from "react-router-dom";
 import { lazy } from "react";
 import AppShell from "./shell/AppShell";
 import MockTestPage from "./components/test-components/testSendChatMessage";
+import MissionControl from "@/components/mission-control/MissionControl";
 
 // Lazy load components for better performance
 const Landing = lazy(() => import("./routes/Landing"));
-const MissionControl = lazy(
-  () => import("@/components/mission-control/MissionControl")
-);
 
 export const routes: RouteObject[] = [
   {
