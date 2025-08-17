@@ -103,7 +103,7 @@ export const useEventStore = create<EventStore>()(
           // The reducer returns a new state, so we need to copy its properties
           const newState = eventReducer(state, action);
 
-          console.log("[eventStores][eventReducer] newState:", newState);
+          console.log("[EventStore][eventReducer] newState:", newState);
 
           // Copy all properties from newState to the draft state
           state.byId = newState.byId;
