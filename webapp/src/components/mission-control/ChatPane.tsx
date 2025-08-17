@@ -3,8 +3,7 @@ import React, { useCallback, useState } from "react";
 import { useMissionControlStore } from "@/stores/missionControlStore";
 
 import { SessionIdContext } from "@/context/SessionIdContext";
-import { ChatMain } from "../chat-interface/ChatMain";
-//import ChatMainCanonicalLegacy from "../chat-interface/ChatMainCanonicalLegacy";
+import ChatMain from "../chat-interface/ChatMain";
 import { sendChatMessage } from "@/utils/sendChatMessage";
 import { getDefaultACSClient } from "@/services/acs";
 import { useAuth } from "@/auth/AuthContext";
