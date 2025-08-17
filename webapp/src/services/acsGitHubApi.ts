@@ -93,10 +93,13 @@ export const acsGithubApi = (config: ACSConfig) => {
       repo_id: number;
       repo_name: string;
       branch: string;
-    }) => {
+    }, authorization?: string) => {
       return getJson(`${API}/infrastructure/provision-with-repo`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authorization ? { Authorization: authorization } : {})
+        },
         credentials: "include",
         body: JSON.stringify({
           repo_id: args.repo_id,

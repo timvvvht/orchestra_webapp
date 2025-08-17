@@ -1,452 +1,300 @@
 // webapp/src/routes/GitHubConnectPage.tsx
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../auth/SupabaseClient";
 import { acsGithubApi, withApiV1 } from "@/services/acsGitHubApi";
 
-type Status = { type: "info" | "success" | "error"; message: string };
-
-const ENV_ACS_BASE =
-  (import.meta as any).env?.VITE_ACS_BASE_URL ||
-  import.meta.env?.VITE_ACS_BASE_URL ||
-  "http://localhost:8001";
-const DEFAULT_SUPABASE_EMAIL = "test@example.com";
-const DEFAULT_SUPABASE_PASSWORD = "testpassword123";
-const DEFAULT_ACS_BASE = (ENV_ACS_BASE as string).replace(/\/$/, "");
+type StatusKind = "idle" | "working" | "success" | "error";
+type Chip = "unknown" | "provisioned" | "ready" | "stopped" | "failed";
+type Panel = {
+  status: Chip;
+  app_name?: string;
+  machine_id?: string;
+  region?: string;
+  tes_internal_url?: string;
+  cpu_count?: number | string;
+  memory_mb?: number | string;
+  volume_size_gb?: number | string;
+  provisioned_at?: string;
+  orchestrator?: boolean;
+  notes?: string;
+  updated_at?: string;
+};
 
 export default function GitHubConnectPage() {
-  const [acsBase, setAcsBase] = useState<string>(DEFAULT_ACS_BASE);
-  const [status, setStatus] = useState<Status>({
-    type: "info",
-    message: "Ready to test Supabase → ACS → GitHub flow",
-  });
-  const [email, setEmail] = useState<string>(DEFAULT_SUPABASE_EMAIL);
-  const [password, setPassword] = useState<string>(DEFAULT_SUPABASE_PASSWORD);
-  const [output, setOutput] = useState<any>({});
-
+  // Config + Auth
+  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "http://localhost:8001").replace(/\/$/, "");
+  const [acsBase, setAcsBase] = useState<string>(DEFAULT_ACS);
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
 
-  const setInfo = (m: string) => setStatus({ type: "info", message: m });
-  const setSuccess = (m: string) => setStatus({ type: "success", message: m });
-  const setError = (m: string) => setStatus({ type: "error", message: m });
-  const log = (title: string, data: any) => {
-    setOutput({ title, time: new Date().toLocaleTimeString(), data });
-    // eslint-disable-next-line no-console
-    console.log(title, data);
-  };
+  const [toast, setToast] = useState<{ kind: StatusKind; msg: string }>({ kind: "idle", msg: "Configure, then proceed step-by-step." });
 
-  const updateConfig = useCallback(() => {
-    const clean = acsBase.replace(/\/$/, "");
-    setAcsBase(clean);
-    setSuccess(`Configuration updated. ACS Base: ${withApiV1(clean)}`);
-    log("Config Update", { base: clean, api: withApiV1(clean) });
-  }, [acsBase]);
+  // Step states
+  const [email, setEmail] = useState("test@example.com");
+  const [password, setPassword] = useState("testpassword123");
+  const [installCount, setInstallCount] = useState<number | null>(null);
+  const [repos, setRepos] = useState<Array<{ id: number; full_name: string }> | null>(null);
+  const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null);
+  const [selectedRepoFullName, setSelectedRepoFullName] = useState<string>("");
+  const [branch, setBranch] = useState("main");
+  const [diag, setDiag] = useState<Panel | null>(null);
+  const [autoPoll, setAutoPoll] = useState<boolean>(true);
 
-  const resetConfig = useCallback(() => {
-    setAcsBase(DEFAULT_ACS_BASE);
-    setInfo("Configuration reset to local development");
-    log("Config Reset", {
-      base: DEFAULT_ACS_BASE,
-      api: withApiV1(DEFAULT_ACS_BASE),
-    });
-  }, []);
+  // Helpers
+  const setInfo = (msg: string) => setToast({ kind: "working", msg });
+  const setOk = (msg: string) => setToast({ kind: "success", msg });
+  const setErr = (msg: string) => setToast({ kind: "error", msg });
 
-  const onRegister = useCallback(async () => {
-    setInfo("Registering with Supabase...");
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) setError(`Registration failed: ${error.message}`);
-    else
-      setSuccess("Registration successful! Check your email for confirmation.");
-    log("Supabase Register", { data, error });
-  }, [email, password]);
-
+  // Auth
   const onLogin = useCallback(async () => {
-    setInfo("Logging in with Supabase...");
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) setError(`Login failed: ${error.message}`);
-    else setSuccess(`Login successful! Welcome ${data.user?.email}`);
-    log("Supabase Login", { data, error });
+    setInfo("Logging in...");
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return setErr(error.message);
+    setOk(`Logged in as ${data.user?.email}`);
   }, [email, password]);
-
-  const onLogout = useCallback(async () => {
-    setInfo("Logging out...");
-    const { error } = await supabase.auth.signOut();
-    if (error) setError(`Logout failed: ${error.message}`);
-    else setSuccess("Logged out successfully");
-    log("Supabase Logout", { ok: !error, error });
-  }, []);
-
-  const onShowSession = useCallback(async () => {
-    setInfo("Fetching Supabase session...");
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
-    if (session) setSuccess(`Session active for ${session.user?.email}`);
-    else setInfo("No active session");
-    log("Supabase Session", { session, error });
-  }, []);
 
   const onExchange = useCallback(async () => {
-    setInfo("Exchanging Supabase token for ACS cookies...");
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
-    if (error || !session?.access_token) {
-      setError("No Supabase session found. Please login first.");
-      log("ACS Exchange", { error: error || "No session/access_token" });
-      return;
-    }
-    const res = await api.exchangeSupabaseJwt({
-      access_token: session.access_token,
-      user: session.user || {},
-    });
-    if (res.ok) setSuccess("Successfully exchanged for ACS cookies!");
-    else setError(`Exchange failed: ${res.data?.detail ?? "Unknown error"}`);
-    log("ACS Exchange Response", res);
+    setInfo("Exchanging Supabase token for ACS cookies…");
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return setErr("No Supabase session. Login first.");
+    const res = await api.exchangeSupabaseJwt({ access_token: session.access_token, user: session.user || {} });
+    if (!res.ok) return setErr(res.data?.detail ?? "Exchange failed");
+    setOk("ACS cookies set.");
   }, [api]);
 
-  const onWhoAmI = useCallback(async () => {
-    setInfo("Checking ACS authentication...");
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const authHeader = session?.access_token
-      ? `Bearer ${session.access_token}`
-      : undefined;
-    const res = await api.whoAmI(authHeader);
-    if (res.ok)
-      setSuccess(
-        `Authenticated as ${res.data.email} (${res.data.authentication_method})`
-      );
-    else
-      setError(
-        `Authentication failed: ${res.data?.detail ?? "Please exchange tokens first"}`
-      );
-    log("ACS /auth/me", res);
+  // GitHub connect
+  const onInstallUrl = useCallback(async () => {
+    setInfo("Fetching GitHub install URL…");
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    const res = await api.installUrl(auth);
+    if (!res.ok) return setErr(res.data?.detail ?? "Failed to get install URL");
+    window.open(res.data.install_url, "_blank", "noopener,noreferrer");
+    setOk("Opened GitHub install in a new tab.");
   }, [api]);
-
-  const onOpenGithubAppInstall = useCallback(() => {
-    setInfo("Opening GitHub App installation page...");
-    const url = "https://github.com/apps/orchestra-agents/installations/new";
-    window.open(url, "_blank", "noopener,noreferrer");
-    log("GitHub Install URL (Hardcoded)", { install_url: url });
-  }, []);
 
   const onListInstalls = useCallback(async () => {
-    setInfo("Fetching GitHub installations...");
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const authHeader = session?.access_token
-      ? `Bearer ${session.access_token}`
-      : undefined;
-    const res = await api.listInstallations(authHeader);
-    if (res.ok) setSuccess(`Found ${res.data.count || 0} GitHub installations`);
-    else
-      setError(
-        `Failed to list installations: ${res.data?.detail ?? "Please authenticate first"}`
-      );
-    log("GitHub Installations", res);
+    setInfo("Listing installations…");
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    const res = await api.listInstallations(auth);
+    if (!res.ok) return setErr(res.data?.detail ?? "Failed to list installations");
+    setInstallCount(res.data.count);
+    setOk(`Installations: ${res.data.count}`);
   }, [api]);
 
   const onListRepos = useCallback(async () => {
-    setInfo("Fetching accessible GitHub repositories...");
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const authHeader = session?.access_token
-      ? `Bearer ${session.access_token}`
-      : undefined;
-    const res = await api.listRepos(authHeader);
-    if (res.ok)
-      setSuccess(`Found ${res.data.count || 0} accessible repositories`);
-    else
-      setError(
-        `Failed to list repos: ${res.data?.detail ?? "Please authenticate first"}`
-      );
-    log("GitHub Repos", res);
+    setInfo("Fetching repositories…");
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    const res = await api.listRepos(auth);
+    if (!res.ok) return setErr(res.data?.detail ?? "Failed to fetch repos");
+    const mapped = (res.data.repositories || []).map((r: any) => ({ id: r.repo_id, full_name: r.repo_full_name }));
+    setRepos(mapped);
+    setOk(`Repos: ${mapped.length}`);
   }, [api]);
 
-  const onProvisionTest = useCallback(async () => {
-    setInfo("Testing provisioning (no auth required)...");
-    const res = await api.provisionTest();
-    if (res.ok) setSuccess(`Provisioning test initiated: ${res.data.status}`);
-    else
-      setError(
-        `Provisioning test failed: ${res.data?.detail ?? "Unknown error"}`
-      );
-    log("/infrastructure/provision-test", res);
-  }, [api]);
-
-  const onProvision = useCallback(async () => {
-    setInfo("Starting authenticated provisioning...");
-    const res = await api.provision();
-    if (res.ok) setSuccess(`Provisioning initiated: ${res.data.status}`);
-    else
-      setError(
-        `Provisioning failed: ${res.data?.detail ?? "Please authenticate first"}`
-      );
-    log("/infrastructure/provision", res);
-  }, [api]);
-
-  const [repoId, setRepoId] = useState<number>(123456789);
-  const [repoName, setRepoName] = useState<string>("octocat/Hello-World");
-  const [branch, setBranch] = useState<string>("main");
-
+  // Provisioning
   const onProvisionWithRepo = useCallback(async () => {
-    setInfo("Starting repository provisioning...");
-    if (!repoId || !repoName || !branch) {
-      setError("Please fill in all repository fields");
-      return;
+    if (!selectedRepoId || !selectedRepoFullName || !branch.trim()) {
+      return setErr("Select repo and branch.");
     }
+    setInfo("Provisioning repo VM…");
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    
     const res = await api.provisionWithRepo({
-      repo_id: Number(repoId),
-      repo_name: repoName.trim(),
-      branch: branch.trim(),
-    });
-    if (res.ok)
-      setSuccess(`Repository provisioning initiated: ${res.data.status}`);
-    else
-      setError(
-        `Repository provisioning failed: ${res.data?.detail ?? "Please authenticate first"}`
-      );
-    log("/infrastructure/provision-with-repo", res);
-  }, [api, repoId, repoName, branch]);
+      repo_id: selectedRepoId,
+      repo_name: selectedRepoFullName,
+      branch: branch.trim()
+    }, auth);
+    if (!res.ok) return setErr(res.data?.detail ?? "Provisioning failed");
+    setOk("Provisioning initiated.");
+  }, [api, selectedRepoId, selectedRepoFullName, branch]);
+
+  const fetchDiagnostics = useCallback(async () => {
+    if (!selectedRepoId || !branch.trim()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    const res = await api.repoStatus({ repo_id: selectedRepoId, branch: branch.trim() }, auth);
+    if (!res.ok) {
+      setDiag(null);
+      return setErr(res.data?.detail ?? "Diagnostics failed");
+    }
+    const d = res.data;
+    const panel: Panel = {
+      status: d.status || "unknown",
+      app_name: d.app_name || "—",
+      machine_id: d.machine_id || "—",
+      region: d.region || "—",
+      tes_internal_url: d.tes_internal_url || "—",
+      cpu_count: d.cpu_count ?? "—",
+      memory_mb: d.memory_mb ?? "—",
+      volume_size_gb: d.volume_size_gb ?? "—",
+      provisioned_at: d.provisioned_at || "—",
+      orchestrator: !!d.has_orchestrator,
+      notes:
+        d.status === "ready" ? "TES health passed" :
+        d.status === "provisioned" ? "Booting; waiting for TES health" :
+        d.status === "failed" ? "Provisioning/health failed" :
+        d.status === "stopped" ? "Machine stopped" : "Unknown",
+      updated_at: new Date().toLocaleTimeString(),
+    };
+    setDiag(panel);
+  }, [api, selectedRepoId, branch]);
+
+  const onRunDiagnostics = useCallback(async () => {
+    setInfo("Running diagnostics…");
+    await fetchDiagnostics();
+    setOk("Diagnostics updated.");
+  }, [fetchDiagnostics]);
+
+  const onStop = useCallback(async () => {
+    if (!selectedRepoId || !branch.trim()) return setErr("Select repo and branch.");
+    setInfo("Stopping VM…");
+    const res = await api.stopRepo({ repo_id: selectedRepoId, branch: branch.trim() });
+    if (!res.ok) return setErr(res.data?.detail ?? "Stop failed");
+    setOk("VM stopped.");
+    setDiag(null);
+  }, [api, selectedRepoId, branch]);
+
+  // Auto-poll while provisioned until ready or stopped
+  useEffect(() => {
+    if (!autoPoll || !selectedRepoId) return;
+    let iv: any;
+    iv = setInterval(() => fetchDiagnostics(), 5000);
+    return () => clearInterval(iv);
+  }, [autoPoll, selectedRepoId, fetchDiagnostics]);
 
   return (
-    <div
-      style={{
-        maxWidth: 940,
-        margin: "2rem auto",
-        padding: "0 1rem",
-        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-      }}
-    >
-      <h1>🎭 GitHub Access: Supabase → ACS → GitHub App</h1>
+    <div className="min-h-screen" style={{ background: "#000" }}>
+      {/* Background gradient and glass container */}
+      <div className="relative max-w-5xl mx-auto px-6 py-10">
+        <h1 className="text-white/90 text-2xl font-medium mb-6">GitHub Connect · Repo Provisioning</h1>
 
-      <div
-        style={{
-          padding: "0.75rem 1rem",
-          borderRadius: 6,
-          margin: "0.5rem 0",
-          fontWeight: 500,
-          background:
-            status.type === "success"
-              ? "#d4edda"
-              : status.type === "error"
-                ? "#f8d7da"
-                : "#d1ecf1",
-          color:
-            status.type === "success"
-              ? "#155724"
-              : status.type === "error"
-                ? "#721c24"
-                : "#0c5460",
-          border: `1px solid ${status.type === "success" ? "#c3e6cb" : status.type === "error" ? "#f5c6cb" : "#bee5eb"}`,
-        }}
-      >
-        {status.message}
+        {/* Toast */}
+        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-4 text-sm text-white/80">
+          {toast.msg}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: Stepper */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Step 1: Configure + Login */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
+              <div className="text-white/90 font-medium mb-3">1 · Authenticate</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-white/50 text-xs">ACS Server</label>
+                  <input className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10"
+                         value={acsBase} onChange={(e) => setAcsBase(e.target.value)} />
+                </div>
+                <div className="flex items-end gap-2">
+                  <button className="px-4 py-2 rounded-lg bg-white text-black" onClick={onLogin}>Login (Supabase)</button>
+                  <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onExchange}>Exchange → ACS</button>
+                </div>
+                <div>
+                  <label className="text-white/50 text-xs">Email</label>
+                  <input className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10"
+                         value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-white/50 text-xs">Password</label>
+                  <input type="password" className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10"
+                         value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Connect GitHub */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
+              <div className="text-white/90 font-medium mb-3">2 · Connect GitHub</div>
+              <div className="flex flex-wrap gap-2">
+                <button className="px-4 py-2 rounded-lg bg-white text-black" onClick={onInstallUrl}>Install App</button>
+                <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onListInstalls}>
+                  My Installations {installCount !== null && <span className="ml-2 text-white/60">({installCount})</span>}
+                </button>
+                <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onListRepos}>My Repos</button>
+              </div>
+              {repos && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-white/50 text-xs">Repository</label>
+                    <select className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10"
+                            value={selectedRepoId ?? ""} onChange={(e) => {
+                              const id = Number(e.target.value);
+                              setSelectedRepoId(id);
+                              const r = repos.find(x => x.id === id);
+                              setSelectedRepoFullName(r?.full_name || "");
+                            }}>
+                      <option value="" disabled>Select repository…</option>
+                      {repos.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-xs">Branch</label>
+                    <input className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10"
+                           value={branch} onChange={(e) => setBranch(e.target.value)} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Step 3: Provision */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
+              <div className="text-white/90 font-medium mb-3">3 · Provision & Control</div>
+              <div className="flex flex-wrap gap-2">
+                <button className="px-4 py-2 rounded-lg bg-white text-black" onClick={onProvisionWithRepo}>Provision With Repo</button>
+                <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onRunDiagnostics}>Run Diagnostics</button>
+                <button className="px-4 py-2 rounded-lg bg-red-600 text-white" onClick={onStop}>Stop VM</button>
+                <label className="ml-auto text-white/60 text-xs flex items-center gap-2">
+                  <input type="checkbox" checked={autoPoll} onChange={(e) => setAutoPoll(e.target.checked)} />
+                  Auto-poll diagnostics
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Diagnostics */}
+          <div className="space-y-6">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
+              <div className="text-white/80 text-sm mb-4">Diagnostics</div>
+              {diag ? (
+                <div className="space-y-3 text-white/80 text-sm">
+                  <Row k="Status" v={
+                    diag.status === "ready" ? "✅ Ready" :
+                    diag.status === "provisioned" ? "⏳ Provisioned" :
+                    diag.status === "stopped" ? "🛑 Stopped" :
+                    diag.status === "failed" ? "❌ Failed" : "❓ Unknown"
+                  } />
+                  <Row k="App Name" v={diag.app_name} />
+                  <Row k="Machine ID" v={diag.machine_id} />
+                  <Row k="Region" v={diag.region} />
+                  <Row k="CPU" v={String(diag.cpu_count)} />
+                  <Row k="Memory (MB)" v={String(diag.memory_mb)} />
+                  <Row k="Volume (GB)" v={String(diag.volume_size_gb)} />
+                  <Row k="Orchestrator" v={diag.orchestrator ? "✅ Available" : "❌ Not available"} />
+                  <Row k="TES URL" v={diag.tes_internal_url} />
+                  <div className="mt-2 text-white/60">{diag.notes}</div>
+                  <div className="text-white/40 text-xs">Updated: {diag.updated_at}</div>
+                </div>
+              ) : (
+                <div className="text-white/50 text-sm">No diagnostics yet. Run Provision or Diagnostics.</div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* Configuration */}
-      <section style={sectionStyle}>
-        <h2>⚙️ Configuration</h2>
-        <div style={inputGroupStyle}>
-          <label>ACS Server URL</label>
-          <input
-            type="url"
-            placeholder="http://localhost:8001"
-            value={acsBase}
-            onChange={(e) => setAcsBase(e.target.value)}
-            style={inputStyle}
-          />
-          <small style={{ color: "#6c757d", fontSize: 12 }}>
-            Local: http://localhost:8001 | Ngrok:
-            https://your-ngrok-url.ngrok-free.app
-          </small>
-        </div>
-        <div style={buttonRow}>
-          <button onClick={updateConfig} style={buttonStyle}>
-            🔄 Update Configuration
-          </button>
-          <button onClick={resetConfig} style={buttonStyle}>
-            🏠 Reset to Local
-          </button>
-        </div>
-      </section>
-
-      {/* Authentication */}
-      <section style={sectionStyle}>
-        <h2>🔐 Authentication</h2>
-        <div style={inputGroupStyle}>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-        <div style={inputGroupStyle}>
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-        <div style={buttonRow}>
-          <button onClick={onRegister} style={buttonStyle}>
-            📝 Supabase Register
-          </button>
-          <button onClick={onLogin} style={buttonStyle}>
-            🔑 Supabase Login
-          </button>
-          <button onClick={onLogout} style={buttonStyle}>
-            🚪 Supabase Logout
-          </button>
-        </div>
-        <div style={buttonRow}>
-          <button onClick={onShowSession} style={buttonStyle}>
-            👁️ Show Supabase Session
-          </button>
-          <button onClick={onExchange} style={buttonStyle}>
-            🔄 Exchange for ACS Cookies
-          </button>
-          <button onClick={onWhoAmI} style={buttonStyle}>
-            👤 ACS: Who Am I
-          </button>
-        </div>
-      </section>
-
-      {/* GitHub */}
-      <section style={sectionStyle}>
-        <h2>🐙 GitHub Integration</h2>
-        <div style={buttonRow}>
-          <button onClick={onOpenGithubAppInstall} style={buttonStyle}>
-            🔗 Connect GitHub (Install App)
-          </button>
-          <button onClick={onListInstalls} style={buttonStyle}>
-            📦 My Installations
-          </button>
-          <button onClick={onListRepos} style={buttonStyle}>
-            📚 My Repos
-          </button>
-        </div>
-      </section>
-
-      {/* Provisioning */}
-      <section style={sectionStyle}>
-        <h2>🏗️ Infrastructure Provisioning</h2>
-        <h3>📚 Provision with Repository (Preferred)</h3>
-        <div style={inputGroupStyle}>
-          <label>Repository ID (number)</label>
-          <input
-            type="number"
-            value={repoId}
-            onChange={(e) => setRepoId(Number(e.target.value))}
-            style={inputStyle}
-          />
-        </div>
-        <div style={inputGroupStyle}>
-          <label>Repository Full Name</label>
-          <input
-            type="text"
-            value={repoName}
-            onChange={(e) => setRepoName(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-        <div style={inputGroupStyle}>
-          <label>Branch</label>
-          <input
-            type="text"
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-        <div style={buttonRow}>
-          <button onClick={onProvisionWithRepo} style={buttonStyle}>
-            🚀 Provision With Repo (preferred)
-          </button>
-        </div>
-
-        <h3>🔒 Legacy App-Per-User Provisioning</h3>
-        <div style={buttonRow}>
-          <button onClick={onProvisionTest} style={buttonStyle}>
-            🧪 Provision (no auth)
-          </button>
-          <button onClick={onProvision} style={buttonStyle}>
-            🔒 Provision (legacy)
-          </button>
-        </div>
-      </section>
-
-      {/* Output */}
-      <section style={sectionStyle}>
-        <h2>📋 Output</h2>
-        <pre style={preStyle}>{JSON.stringify(output, null, 2)}</pre>
-      </section>
     </div>
   );
 }
 
-const sectionStyle: React.CSSProperties = {
-  margin: "2rem 0",
-  padding: "1.5rem",
-  border: "1px solid #e9ecef",
-  borderRadius: 8,
-  background: "#fdfdfd",
-};
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-white/50">{k}</span>
+      <span className="text-white/90">{v}</span>
+    </div>
+  );
+}
 
-const inputGroupStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-  margin: "0.5rem 0",
-};
 
-const inputStyle: React.CSSProperties = {
-  margin: "0.25rem 0",
-  padding: "0.6rem",
-  width: "100%",
-  maxWidth: 420,
-  border: "1px solid #ddd",
-  borderRadius: 4,
-  fontSize: 14,
-};
-
-const buttonRow: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 8,
-  marginTop: 8,
-};
-
-const buttonStyle: React.CSSProperties = {
-  margin: "0.25rem 0",
-  padding: "0.6rem 1rem",
-  background: "#007bff",
-  color: "#fff",
-  border: "none",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontSize: 14,
-};
-
-const preStyle: React.CSSProperties = {
-  background: "#f8f9fa",
-  padding: "1rem",
-  whiteSpace: "pre-wrap",
-  borderRadius: 4,
-  border: "1px solid #e9ecef",
-  fontSize: 12,
-  maxHeight: 400,
-  overflowY: "auto",
-};

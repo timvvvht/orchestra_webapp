@@ -13,7 +13,7 @@ import {
 } from "@/stores/missionControlStore";
 // import { useSessionsSnapshot } from "@/hooks/useSessionsSnapshot";
 // import { usePlansSnapshot } from "@/hooks/usePlansSnapshot";
-// import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
+import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
 // import { useMissionControlHotkeys } from "@/hooks/useMissionControlHotkeys";
 import { getDefaultACSClient } from "@/services/acs";
 import { InfrastructureUtils } from "@/services/acs/infrastructure";
@@ -100,7 +100,7 @@ const MissionControlV2: React.FC = () => {
   const refetch: any = () => {};
 
   // Set up real-time updates and hotkeys
-  // useMissionControlFirehose();
+  useMissionControlFirehose();
   // useMissionControlHotkeys();
 
   // Update store when sessions change
