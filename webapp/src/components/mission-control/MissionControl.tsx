@@ -1,10 +1,4 @@
-import React, {
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useCallback, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -18,10 +12,12 @@ import { ChatUIProvider } from "@/context/ChatUIContext";
 // KeyboardShortcutsProvider removed — no global shortcuts context
 import Header from "./Header";
 import LayoutSplit from "./LayoutSplit";
-import GitHubConnectPanel from "./GitHubConnectPanel";
 import { ProvisioningOverlay } from "./ProvisioningOverlay";
 import { Plan } from "@/types/plans";
-import { useAuth } from "@/auth/AuthContext";
+
+import type { SessionSummary } from "@/services/acs";
+import { getDefaultACSClient } from "@/services/acs";
+import { mapACSSessionsToMCAgent } from "@/utils/mapACSSessionsToMCAgent";
 
 // Animation variants for staggered reveals
 const containerVariants = {
@@ -49,6 +45,17 @@ const itemVariants = {
   },
 };
 
+const fetchAcsSessions = async (): Promise<MissionControlAgent[]> => {
+  const acs = getDefaultACSClient();
+
+  const resp = await acs.sessions.listSessions({
+    limit: 200,
+    includeMessageCount: true,
+  });
+  const list: SessionSummary[] = resp.data.sessions || [];
+  return list.map(mapACSSessionsToMCAgent);
+};
+
 const MissionControl: React.FC = () => {
   // const { isAuthenticated, setShowModal } = useAuth();
   const isAuthenticated = true;
@@ -59,7 +66,6 @@ const MissionControl: React.FC = () => {
   const provisionState = location?.state?.provision;
 
   const {
-    viewMode,
     showNewDraftModal,
     setShowNewDraftModal,
     setSessions,
@@ -67,17 +73,16 @@ const MissionControl: React.FC = () => {
     setPlanRefetchCallback,
     setSessionRefetchCallback,
     sessions: currentSessions,
-    getSelectedAgentCwd,
     initialDraftCodePath,
     setInitialDraftCodePath,
   } = useMissionControlStore();
 
   // Workspace provisioning state
-  const [workspaceStatus, setWorkspaceStatus] = useState<
+  const [workspaceStatus] = useState<
     "idle" | "provisioning" | "active" | "error"
   >("idle");
-  const [progressText, setProgressText] = useState<string>("");
-  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [progressText] = useState<string>("");
+  const [workspaceError] = useState<string | null>(null);
 
   // Fetch sessions data
   // const {
@@ -86,38 +91,49 @@ const MissionControl: React.FC = () => {
   //   error,
   //   refetch: refetchSessions,
   // } = useSessionsSnapshot(viewMode);
-  const sessions = useMissionControlStore((s) => s.sessions);
   const isLoading = false; // still stubbed
   const error = null;
-
-  // Get session IDs for plans fetching
-  const sessionIds = useMemo(() => {
-    const ids = sessions.map((s) => s.id);
-    console.log("[plan] Session IDs for plan fetching:", ids);
-    return ids;
-  }, [sessions]);
 
   // Fetch plans data
   // const { plansBySession, refetch: refetchPlans } =
   //   usePlansSnapshot(sessionIds);
   const plansBySession = {};
-  const refetch: any = () => {};
-  const refetchPlans = useCallback(() => {}, []);
 
   const refetchSessions = useCallback(async () => {
-    // TODO: replace with actual API fetch when ready
-    // For now: no-op to satisfy callback contract
+    try {
+      const fetched = await fetchAcsSessions();
+
+      // merge the fetched sessions with the local sessions (optimistic UI handling)
+      const local = useMissionControlStore.getState().sessions;
+      const fetchedIds = new Set(fetched.map((s) => s.id));
+      const merged = [
+        // Keep local optimistic sessions that ACS doesn't know yet (e.g. just created)
+        ...local.filter((s) => !fetchedIds.has(s.id)),
+        // Append fetched sessions
+        ...fetched,
+      ];
+      useMissionControlStore.getState().setSessions(merged);
+    } catch (error: any) {
+      console.error(
+        "[MissionControl][refetchSessions] Failed to fetch sessions from ACS:",
+        error.message,
+        error.stack || error || "Unknown Error"
+      );
+    }
   }, []);
 
+  // Registration
   useEffect(() => {
     if (import.meta.env.MODE === "test") return;
-    if (
-      useMissionControlStore.getState().sessionRefetchCallback !==
-      refetchSessions
-    ) {
+    const { sessionRefetchCallback } = useMissionControlStore.getState();
+    if (sessionRefetchCallback !== refetchSessions) {
       setSessionRefetchCallback(refetchSessions);
     }
   }, [refetchSessions, setSessionRefetchCallback]);
+
+  useEffect(() => {
+    refetchSessions();
+  }, [refetchSessions]);
 
   // Set up real-time updates and hotkeys
   // useMissionControlFirehose();
@@ -134,27 +150,6 @@ const MissionControl: React.FC = () => {
       setPlans(plansArray);
     }
   }, [plansBySession, setPlans]);
-
-  // Register plan refetch callback (skip in test to prevent loops)
-  useEffect(() => {
-    if (import.meta.env.MODE === "test") return;
-    if (
-      useMissionControlStore.getState().planRefetchCallback !== refetchPlans
-    ) {
-      setPlanRefetchCallback(refetchPlans);
-    }
-  }, [refetchPlans, setPlanRefetchCallback]);
-
-  // Register session refetch callback (skip in test to prevent loops)
-  useEffect(() => {
-    if (import.meta.env.MODE === "test") return;
-    if (
-      useMissionControlStore.getState().sessionRefetchCallback !==
-      refetchSessions
-    ) {
-      //setSessionRefetchCallback(refetchSessions);
-    }
-  }, [refetchSessions, setSessionRefetchCallback]);
 
   // Handle workspace provisioning
   const handleProvisionWorkspace = useCallback(async () => {
