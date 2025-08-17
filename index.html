@@ -65,6 +65,23 @@
     .button-group { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .input-group { display: flex; flex-direction: column; margin: 0.5rem 0; }
     .input-group label { font-weight: 500; margin-bottom: 0.25rem; color: #495057; }
+    .repo-item { 
+      display: flex; 
+      align-items: center; 
+      padding: 0.5rem; 
+      margin: 0.25rem 0; 
+      border: 1px solid #dee2e6; 
+      border-radius: 4px; 
+      background: white;
+      cursor: pointer;
+    }
+    .repo-item:hover { background: #e9ecef; }
+    .repo-item input[type="radio"] { margin-right: 0.75rem; }
+    .repo-info { flex: 1; }
+    .repo-name { font-weight: 500; color: #495057; }
+    .repo-details { font-size: 12px; color: #6c757d; margin-top: 0.25rem; }
+    .auto-poll-active { background: #28a745 !important; }
+    .auto-poll-active:hover { background: #218838 !important; }
   </style>
 </head>
 <body>
@@ -127,7 +144,30 @@
   <div class="section">
     <h2>🏗️ Infrastructure Provisioning</h2>
     
-    <h3>📚 Provision with Repository (Preferred)</h3>
+    <h3>🎯 Repo Selection & Provisioning (New UI)</h3>
+    <div class="button-group">
+      <button id="btnLoadRepos">📚 Load My Repos</button>
+      <button id="btnProvisionSelected">🚀 Provision Selected Repo</button>
+      <button id="btnCheckRepoStatusSelected">📊 Check Selected Repo Status</button>
+      <button id="btnToggleAutoPoll">🔄 Toggle Auto Poll (5s)</button>
+    </div>
+    
+    <div class="input-group">
+      <label for="pollBranch">Branch for Status Polling</label>
+      <input id="pollBranch" type="text" placeholder="main" value="main" />
+      <small style="color: #6c757d; font-size: 12px;">
+        Branch to use for status polling and provisioning selected repo
+      </small>
+    </div>
+    
+    <div id="repoListContainer" style="margin-top: 1rem;">
+      <h4>📋 Available Repositories</h4>
+      <div id="repoList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 4px; padding: 1rem; background: #f8f9fa;">
+        <p style="color: #6c757d; font-style: italic;">Click "Load My Repos" to see your accessible repositories</p>
+      </div>
+    </div>
+
+    <h3>📚 Manual Provision with Repository (Legacy)</h3>
     <div class="input-group">
       <label for="repoId">Repository ID (number)</label>
       <input id="repoId" type="number" placeholder="123456789" value="123456789" />
@@ -144,7 +184,8 @@
     </div>
     
     <div class="button-group">
-      <button id="btnProvisionRepo">🚀 Provision With Repo (preferred)</button>
+      <button id="btnProvisionRepo">🚀 Provision With Repo (legacy)</button>
+      <button id="btnCheckRepoStatus">📊 Check Repo Status (legacy)</button>
     </div>
 
     <h3>🔒 Legacy App-Per-User Provisioning</h3>
@@ -164,9 +205,6 @@
   // Your Supabase project configuration
   const SUPABASE_URL = "https://wurmfjxtyntxnstqbyms.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cm1manh0eW50eG5zdHFieW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3Nzg2NTgsImV4cCI6MjA2MzM1NDY1OH0.jVjPr-AesbxARpPC0YLtHYQy9OGqdEA5FowJPYKwBcc";
-
-    // need to cache the acs token
-
 
   // ACS base URL (configurable)
   let ACS_BASE = "http://localhost:8001/api/v1";
@@ -583,7 +621,291 @@
     }
   }
 
+  async function checkRepoStatus() {
+    updateStatus('Checking repository infrastructure status...', 'info');
+    try {
+      // Get repository details from form
+      const repo_id = Number(document.getElementById('repoId').value);
+      const branch = document.getElementById('branch').value.trim();
+      
+      if (!repo_id || !branch) {
+        updateStatus('Please fill in Repository ID and Branch fields', 'error');
+        return;
+      }
+      
+      // Get Supabase access token for Authorization header
+      const { data: { session } } = await supabase.auth.getSession();
+      const supaToken = session?.access_token;
+      
+      const repoStatusUrl = `${ACS_BASE}/infrastructure/repo-status?repo_id=${repo_id}&branch=${encodeURIComponent(branch)}`;
+      console.info("FETCH:", repoStatusUrl);
+      const res = await fetch(repoStatusUrl, {
+        method: "GET",
+        credentials: "include",
+        headers: supaToken ? { Authorization: `Bearer ${supaToken}` } : {}
+      });
+      
+      const json = await res.json().catch(() => ({}));
+      
+      if (res.ok) {
+        const status = json.status;
+        let statusType = 'info';
+        if (status === 'ready') statusType = 'success';
+        else if (status === 'error') statusType = 'error';
+        else if (status === 'not_found') statusType = 'info';
+        
+        updateStatus(`Repository status: ${status} (repo_id: ${repo_id}, branch: ${branch})`, statusType);
+      } else {
+        updateStatus(`Failed to check repo status: ${json.detail || 'Please authenticate first'}`, 'error');
+      }
+      
+      log({ status: res.status, json }, "Repository Status Check");
+    } catch (err) {
+      updateStatus(`Repository status error: ${err.message}`, 'error');
+      log({error: err.message}, "Repo Status Error");
+    }
+  }
 
+  // New Repo Picker Functions
+  let cachedRepos = []; // Store repos for later use
+  
+  function renderRepoList(repos) {
+    const repoListContainer = document.getElementById('repoList');
+    cachedRepos = repos || []; // Cache the repos for other functions
+    
+    if (!repos || repos.length === 0) {
+      repoListContainer.innerHTML = '<p style="color: #6c757d; font-style: italic;">No repositories found. Make sure you have installed the GitHub App and have access to repositories.</p>';
+      return;
+    }
+    
+    let html = '';
+    repos.forEach((repo, index) => {
+      const repoId = repo.id || repo.repo_id;
+      const repoName = repo.full_name || repo.name;
+      const description = repo.description || 'No description';
+      const isPrivate = repo.private ? '🔒 Private' : '🌍 Public';
+      const updatedAt = repo.updated_at ? new Date(repo.updated_at).toLocaleDateString() : 'Unknown';
+      
+      html += `
+        <div class="repo-item" onclick="selectRepo(${index})">
+          <input type="radio" name="selectedRepo" value="${index}" id="repo_${index}" />
+          <div class="repo-info">
+            <div class="repo-name">${repoName}</div>
+            <div class="repo-details">
+              ID: ${repoId} | ${isPrivate} | Updated: ${updatedAt}
+              <br>${description}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    repoListContainer.innerHTML = html;
+    updateStatus(`Loaded ${repos.length} repositories`, 'success');
+  }
+  
+  function selectRepo(index) {
+    const radio = document.getElementById(`repo_${index}`);
+    if (radio) {
+      radio.checked = true;
+    }
+  }
+
+  async function loadReposIntoPicker() {
+    updateStatus('Loading repositories into picker...', 'info');
+    try {
+      // Get Supabase access token for Authorization header
+      const { data: { session } } = await supabase.auth.getSession();
+      const supaToken = session?.access_token;
+      
+      const reposUrl = `${ACS_BASE}/github/repos`;
+      console.info("FETCH:", reposUrl);
+      const res = await fetch(reposUrl, {
+        method: "GET",
+        credentials: "include",
+        headers: supaToken ? { Authorization: `Bearer ${supaToken}` } : {}
+      });
+      
+      const json = await res.json().catch(() => ({}));
+      
+      if (res.ok) {
+        const repos = json.repositories || [];
+        renderRepoList(repos);
+        updateStatus(`Loaded ${repos.length} repositories into picker`, 'success');
+      } else {
+        updateStatus(`Failed to load repos: ${json.detail || 'Please authenticate first'}`, 'error');
+        renderRepoList([]); // Clear the list
+      }
+      
+      log({ status: res.status, json }, "Load Repos Into Picker");
+    } catch (err) {
+      updateStatus(`Load repos error: ${err.message}`, 'error');
+      log({error: err.message}, "Load Repos Error");
+      renderRepoList([]); // Clear the list on error
+    }
+  }
+
+  function getSelectedRepo() {
+    const selectedRadio = document.querySelector('input[name="selectedRepo"]:checked');
+    if (!selectedRadio) {
+      return null;
+    }
+    
+    const index = parseInt(selectedRadio.value);
+    if (isNaN(index) || index < 0 || index >= cachedRepos.length) {
+      return null;
+    }
+    
+    return cachedRepos[index];
+  }
+
+  async function provisionSelectedRepo() {
+    updateStatus('Provisioning selected repository...', 'info');
+    try {
+      const selectedRepo = getSelectedRepo();
+      if (!selectedRepo) {
+        updateStatus('Please select a repository first', 'error');
+        return;
+      }
+      
+      const branch = document.getElementById('pollBranch').value.trim() || 'main';
+      const repo_id = selectedRepo.id || selectedRepo.repo_id;
+      const repo_name = selectedRepo.full_name || selectedRepo.name;
+      
+      if (!repo_id || !repo_name) {
+        updateStatus('Selected repository is missing required information', 'error');
+        return;
+      }
+      
+      // Auto-fill the legacy form fields for compatibility
+      document.getElementById('repoId').value = repo_id;
+      document.getElementById('repoName').value = repo_name;
+      document.getElementById('branch').value = branch;
+      
+      // Call the existing provisionWithRepo function
+      await provisionWithRepo();
+      
+      log({ 
+        selected_repo: selectedRepo, 
+        branch, 
+        action: 'provision_selected_repo' 
+      }, "Provision Selected Repo");
+      
+    } catch (err) {
+      updateStatus(`Provision selected repo error: ${err.message}`, 'error');
+      log({error: err.message}, "Provision Selected Repo Error");
+    }
+  }
+
+  async function checkRepoStatusOnce() {
+    updateStatus('Checking selected repository status...', 'info');
+    try {
+      const selectedRepo = getSelectedRepo();
+      if (!selectedRepo) {
+        updateStatus('Please select a repository first', 'error');
+        return;
+      }
+      
+      const branch = document.getElementById('pollBranch').value.trim() || 'main';
+      const repo_id = selectedRepo.id || selectedRepo.repo_id;
+      
+      if (!repo_id) {
+        updateStatus('Selected repository is missing ID', 'error');
+        return;
+      }
+      
+      // Get Supabase access token for Authorization header
+      const { data: { session } } = await supabase.auth.getSession();
+      const supaToken = session?.access_token;
+      
+      const repoStatusUrl = `${ACS_BASE}/infrastructure/repo-status?repo_id=${repo_id}&branch=${encodeURIComponent(branch)}`;
+      console.info("FETCH:", repoStatusUrl);
+      const res = await fetch(repoStatusUrl, {
+        method: "GET",
+        credentials: "include",
+        headers: supaToken ? { Authorization: `Bearer ${supaToken}` } : {}
+      });
+      
+      const json = await res.json().catch(() => ({}));
+      
+      if (res.ok) {
+        const status = json.status;
+        let statusType = 'info';
+        if (status === 'ready') statusType = 'success';
+        else if (status === 'error') statusType = 'error';
+        else if (status === 'not_found') statusType = 'info';
+        
+        updateStatus(`Selected repo status: ${status} (${selectedRepo.full_name || selectedRepo.name}#${branch})`, statusType);
+        
+        // Return the status for auto-poll logic
+        return { status, json };
+      } else {
+        updateStatus(`Failed to check selected repo status: ${json.detail || 'Please authenticate first'}`, 'error');
+        return { status: 'error', json };
+      }
+      
+    } catch (err) {
+      updateStatus(`Selected repo status error: ${err.message}`, 'error');
+      log({error: err.message}, "Selected Repo Status Error");
+      return { status: 'error', error: err.message };
+    }
+  }
+
+  // Auto-poll state
+  let autoPollInterval = null;
+  let isAutoPolling = false;
+
+  async function toggleAutoPoll() {
+    const toggleButton = document.getElementById('btnToggleAutoPoll');
+    
+    if (isAutoPolling) {
+      // Stop auto-polling
+      if (autoPollInterval) {
+        clearInterval(autoPollInterval);
+        autoPollInterval = null;
+      }
+      isAutoPolling = false;
+      toggleButton.textContent = '🔄 Toggle Auto Poll (5s)';
+      toggleButton.classList.remove('auto-poll-active');
+      updateStatus('Auto-polling stopped', 'info');
+      
+      log({ action: 'auto_poll_stopped' }, "Auto Poll Toggle");
+    } else {
+      // Start auto-polling
+      const selectedRepo = getSelectedRepo();
+      if (!selectedRepo) {
+        updateStatus('Please select a repository before starting auto-poll', 'error');
+        return;
+      }
+      
+      isAutoPolling = true;
+      toggleButton.textContent = '⏹️ Stop Auto Poll';
+      toggleButton.classList.add('auto-poll-active');
+      updateStatus(`Auto-polling started for ${selectedRepo.full_name || selectedRepo.name} (5s interval)`, 'success');
+      
+      // Start the polling interval
+      autoPollInterval = setInterval(async () => {
+        try {
+          const result = await checkRepoStatusOnce();
+          
+          // Stop polling if status is 'ready'
+          if (result && result.status === 'ready') {
+            updateStatus(`Auto-poll complete: Repository is ready! Stopping auto-poll.`, 'success');
+            toggleAutoPoll(); // This will stop the polling
+          }
+        } catch (err) {
+          console.error('Auto-poll error:', err);
+          // Continue polling even on errors, but log them
+        }
+      }, 5000); // 5 second interval
+      
+      log({ 
+        action: 'auto_poll_started', 
+        repo: selectedRepo.full_name || selectedRepo.name,
+        interval_ms: 5000 
+      }, "Auto Poll Toggle");
+    }
+  }
 
   // Wire up buttons
   document.getElementById('btnUpdateConfig').onclick = updateConfiguration;
@@ -598,6 +920,13 @@
   document.getElementById('btnProvision').onclick = provisionStrict;
   document.getElementById('btnInfraStatus').onclick = checkInfraStatus;
   document.getElementById('btnProvisionRepo').onclick = provisionWithRepo;
+  document.getElementById('btnCheckRepoStatus').onclick = checkRepoStatus;
+  
+  // Wire up new repo picker buttons
+  document.getElementById('btnLoadRepos').onclick = loadReposIntoPicker;
+  document.getElementById('btnProvisionSelected').onclick = provisionSelectedRepo;
+  document.getElementById('btnCheckRepoStatusSelected').onclick = checkRepoStatusOnce;
+  document.getElementById('btnToggleAutoPoll').onclick = toggleAutoPoll;
   
   // Wire up GitHub buttons
   document.getElementById('btnGithubInstall').onclick = githubInstall;
