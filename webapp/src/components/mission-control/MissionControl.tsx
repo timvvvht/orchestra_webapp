@@ -104,6 +104,21 @@ const MissionControl: React.FC = () => {
   const refetch: any = () => {};
   const refetchPlans = useCallback(() => {}, []);
 
+  const refetchSessions = useCallback(async () => {
+    // TODO: replace with actual API fetch when ready
+    // For now: no-op to satisfy callback contract
+  }, []);
+
+  useEffect(() => {
+    if (import.meta.env.MODE === "test") return;
+    if (
+      useMissionControlStore.getState().sessionRefetchCallback !==
+      refetchSessions
+    ) {
+      setSessionRefetchCallback(refetchSessions);
+    }
+  }, [refetchSessions, setSessionRefetchCallback]);
+
   // Set up real-time updates and hotkeys
   // useMissionControlFirehose();
   // useMissionControlHotkeys();
