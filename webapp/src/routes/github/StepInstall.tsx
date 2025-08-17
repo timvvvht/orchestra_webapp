@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../../auth/SupabaseClient";
 import { acsGithubApi, withApiV1 } from "@/services/acsGitHubApi";
 import { CONFIG } from "../../config";
@@ -40,6 +41,10 @@ export default function StepInstall() {
   const [repoName, setRepoName] = useState<string>("");
   const [branch, setBranch] = useState<string>("main");
   const [selectedRepoName, setSelectedRepoName] = useState<string>("");
+  
+  // Install button state
+  const [isInstalling, setIsInstalling] = useState<boolean>(false);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   // Helper to generate unique key for repo+branch combination
   const getRepoKey = useCallback((repo: any, branch?: string) => {
@@ -120,9 +125,72 @@ export default function StepInstall() {
     }
   }
 
-  const openInstall = () => {
-    const url = "https://github.com/apps/orchestra-agents/installations/new";
-    window.open(url, "_blank", "noopener,noreferrer");
+  const openInstall = async () => {
+    setIsInstalling(true);
+    setInstallError(null);
+    setStatus('Requesting GitHub App installation URL...');
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeader = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+      
+      // Log request details
+      console.log('[GitHub Install] Requesting GET /github/install/url');
+      console.log('[GitHub Install] Auth header present:', !!authHeader);
+      console.log('[GitHub Install] Session user:', session?.user?.email || 'No user');
+      
+      const res = await api.installUrl(authHeader);
+      
+      // Log full response details
+      console.log('[GitHub Install] GET /github/install/url response:', res);
+      console.log('[GitHub Install] Response status:', res.status);
+      console.log('[GitHub Install] Response ok:', res.ok);
+      console.log('[GitHub Install] Response data:', res.data);
+      
+      if (!res.ok || !res.data?.install_url) {
+        let userFriendlyMsg;
+        if (res.status === 401 || res.status === 403) {
+          userFriendlyMsg = "Authentication required. Please complete the 'Exchange for ACS Cookies' step first, then try again.";
+        } else if (res.status === 404) {
+          userFriendlyMsg = "GitHub App installation service not found. Please contact support or try again later.";
+        } else if (res.status === 500) {
+          userFriendlyMsg = "Server error occurred. Please try again in a few moments or contact support if the issue persists.";
+        } else if (res.status >= 500) {
+          userFriendlyMsg = "Server is temporarily unavailable. Please try again in a few minutes.";
+        } else {
+          userFriendlyMsg = `Unable to get GitHub installation URL. ${res.data?.detail || `Error ${res.status}`}. Please try again or contact support.`;
+        }
+        
+        console.error('[GitHub Install] Install URL request failed:', {
+          status: res.status,
+          ok: res.ok,
+          data: res.data,
+          userMessage: userFriendlyMsg
+        });
+        setStatus(userFriendlyMsg);
+        setInstallError(userFriendlyMsg);
+        setIsInstalling(false);
+        return;
+      }
+      
+      // Log successful install_url
+      console.log('[GitHub Install] Install URL received:', res.data.install_url);
+      console.log('[GitHub Install] Redirecting to GitHub App installation page');
+      
+      setStatus('Opening GitHub App installation page...');
+      window.location.href = res.data.install_url;
+    } catch (error) {
+      const userFriendlyMsg = "Network connection error. Please check your internet connection and try again. If the problem persists, contact support.";
+      console.error('[GitHub Install] Exception during install URL request:', error);
+      console.error('[GitHub Install] Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        userMessage: userFriendlyMsg
+      });
+      setStatus(userFriendlyMsg);
+      setInstallError(userFriendlyMsg);
+      setIsInstalling(false);
+    }
   };
 
   const listInstallations = async () => {
@@ -505,13 +573,69 @@ export default function StepInstall() {
           <code>{withApiV1(acsBase)}</code>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Button onClick={openInstall}>Connect GitHub (Install App)</Button>
+          <Button onClick={openInstall} disabled={isInstalling}>
+            {isInstalling ? 'Getting Install URL...' : 'Connect GitHub (Install App)'}
+          </Button>
           <Button variant="secondary" onClick={listInstallations}>
             My Installations
           </Button>
           <Button variant="secondary" onClick={listRepos}>
             My Repos
           </Button>
+        </div>
+
+        {/* Install Error UI */}
+        {installError && (
+          <div style={{ 
+            marginTop: 12, 
+            padding: 12, 
+            background: '#f8d7da', 
+            border: '1px solid #f5c6cb', 
+            borderRadius: 6,
+            fontSize: 14,
+            color: '#721c24'
+          }}>
+            ❌ <strong>Installation Error:</strong> {installError}
+            <div style={{ marginTop: 8, fontSize: 12, color: '#856404' }}>
+              💡 Try refreshing the page or check your network connection. Make sure you're authenticated with ACS.
+            </div>
+          </div>
+        )}
+
+        {/* Local Testing Link */}
+        <div style={{ 
+          marginTop: 12, 
+          padding: 8, 
+          background: '#fff3cd', 
+          border: '1px solid #ffeaa7', 
+          borderRadius: 6,
+          fontSize: 12,
+          color: '#856404'
+        }}>
+          🧪 <strong>Local Testing:</strong> <Link 
+            to="/github/connect/install/callback?installation_id=12345&setup_action=install" 
+            style={{ color: '#0969da', textDecoration: 'underline' }}
+          >
+            Test Callback Page
+          </Link> (simulates GitHub redirect)
+        </div>
+
+        {/* Local Testing Link */}
+        <div style={{ 
+          marginTop: 12, 
+          padding: 8, 
+          background: '#fff3cd', 
+          border: '1px solid #ffeaa7', 
+          borderRadius: 6,
+          fontSize: 12,
+          color: '#856404'
+        }}>
+          🧪 <strong>Local Testing:</strong> <Link 
+            to="/github/connect/install/callback?installation_id=12345&setup_action=install" 
+            style={{ color: '#0969da', textDecoration: 'underline' }}
+          >
+            Test Callback Page
+          </Link> (simulates GitHub redirect)
         </div>
 
         {/* Repository List Display */}

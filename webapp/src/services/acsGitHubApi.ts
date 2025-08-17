@@ -43,6 +43,13 @@ export const acsGithubApi = (config: ACSConfig) => {
     },
 
     // GitHub
+    installUrl: async (authorization?: string) => {
+      return getJson(`${API}/github/install/url`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: authorization ? { Authorization: authorization } : {}
+      });
+    },
     listInstallations: async (authorization?: string) => {
       return getJson(`${API}/github/installations`, {
         method: "GET",
