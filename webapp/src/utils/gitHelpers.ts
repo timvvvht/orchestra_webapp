@@ -1,8 +1,17 @@
 /**
  * Git repository helper functions
  */
-import { invoke } from "@tauri-apps/api/core";
+
 import type { RepoStatusEntry } from "./gitTypes";
+import { isTauri } from "./environment";
+
+async function tauriInvoke<T>(cmd: string, args?: any): Promise<T> {
+  if (!isTauri()) {
+    throw new Error("Tauri invoke not available in web environment");
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 
 /**
  * Check if a directory is a Git repository by looking for .git folder
@@ -10,24 +19,29 @@ import type { RepoStatusEntry } from "./gitTypes";
  * @returns Promise<boolean> - true if .git folder exists, false otherwise
  */
 export async function isGitRepo(projectRoot: string): Promise<boolean> {
-  console.log(projectRoot);
-  const gitPath = `${projectRoot.replace(/\/$/, "")}/.git`;
-  console.log(gitPath);
-  return await invoke("file_exists", { path: gitPath });
+  try {
+    const gitPath = `${projectRoot.replace(/\/$/, "")}/.git`;
+    if (!isTauri()) {
+      // In web, we cannot check local FS; assume not a git repo
+      return false;
+    }
+    return await tauriInvoke<boolean>("file_exists", { path: gitPath });
+  } catch (e) {
+    console.warn("[gitHelpers.isGitRepo] Fallback false due to error:", e);
+    return false;
+  }
 }
 
 export async function fetchRepoStatus(cwd: string): Promise<RepoStatusEntry[]> {
+  if (!cwd) throw new Error("No cwd provided");
+  if (!isTauri()) {
+    // Web fallback: no porcelain available
+    return [];
+  }
   try {
-    console.log(`[GitStatus][PORCELAIN] Fetching porcelain status for ${cwd}`);
-    if (!cwd) throw new Error("No cwd provided");
-    const result = await invoke<RepoStatusEntry[]>(
-      "git_repo_status_porcelain",
-      { projectRoot: cwd }
-    );
-    console.log(
-      `[GitStatus][PORCELAIN] Fetching porcelain status result for ${result}`
-    );
-    return result;
+    return await tauriInvoke<RepoStatusEntry[]>("git_repo_status_porcelain", {
+      projectRoot: cwd,
+    });
   } catch (err) {
     throw new Error(`GitStatusFailure: ${String(err)}`);
   }
