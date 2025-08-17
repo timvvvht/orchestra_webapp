@@ -28,7 +28,7 @@ const saveReadMap = (readMap: Record<string, boolean>) => {
     try {
         localStorage.setItem(LS_KEY, JSON.stringify(readMap));
     } catch (error) {
-        console.error('Failed to save read state to localStorage:', error);
+        // Failed to save read state to localStorage
     }
 };
 
@@ -48,7 +48,7 @@ const saveProcessingOrder = (ids: string[]) => {
     try {
         localStorage.setItem(LS_PROCESSING_ORDER, JSON.stringify(ids));
     } catch (error) {
-        console.error('Failed to save processing order to localStorage:', error);
+        // Failed to save processing order to localStorage
     }
 };
 
@@ -204,7 +204,7 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
                     }
                 }
             } catch (error) {
-                console.warn('Failed to migrate collapsed groups state:', error);
+                // Failed to migrate collapsed groups state
             }
         }
 
@@ -217,7 +217,6 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
 
         // Actions
         setSessions: sessions => {
-            console.debug('[missionControlStore][setSessions] Received sessions:', sessions);
             set({ sessions });
 
             // Reconcile processingOrder to remove IDs not present anymore
@@ -225,35 +224,21 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
                 const validIds = new Set(sessions.map(s => s.id));
                 const pruned = state.processingOrder.filter(id => validIds.has(id));
 
-                console.debug('[missionControlStore][setSessions] Processing order:', {
-                    before: state.processingOrder,
-                    after: pruned,
-                    removed: state.processingOrder.filter(id => !validIds.has(id))
-                });
-
                 if (pruned.length !== state.processingOrder.length) {
-                    console.debug('[missionControlStore][setSessions] Saving pruned processing order to localStorage');
                     saveProcessingOrder(pruned);
                 }
 
                 return { processingOrder: pruned };
             });
-
-            console.debug('[missionControlStore][setSessions] Final state:', {
-                sessions,
-                processingOrder: get().processingOrder
-            });
         },
 
         updateSession: (sessionId, updates) => {
-            console.debug(`[missionControlStore][updateSession] Updating session ${sessionId}:`, updates);
             set(state => ({
                 sessions: state.sessions.map(session => (session.id === sessionId ? { ...session, ...updates } : session))
             }));
         },
 
         setBackgroundProcessing: (sessionId, flag) => {
-            console.debug(`[missionControlStore][setBackgroundProcessing] Setting background processing for ${sessionId}:`, flag);
             set(state => ({
                 sessions: state.sessions.map(session => (session.id === sessionId ? { ...session, backgroundProcessing: flag } : session))
             }));
@@ -261,9 +246,6 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
 
         setPlans: plans =>
             set(() => {
-                console.debug('[missionControlStore][setPlans] Setting plans:', plans);
-                console.log('[plan] setPlans called with:', plans);
-
                 // Convert plans array to session_id keyed objects
                 const plansMap = plans.reduce((acc, plan) => {
                     acc[plan.session_id] = plan;
@@ -274,12 +256,8 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
                 const progressMap = plans.reduce((acc, plan) => {
                     const progress = analyzePlanProgressDetailed(plan.markdown);
                     acc[plan.session_id] = progress;
-                    console.log(`[plan] Calculated progress for session ${plan.session_id}:`, progress);
                     return acc;
                 }, {} as Record<string, PlanProgress>);
-
-                // console.log('[plan] Final plans map stored in state:', plansMap);
-                // console.log('[plan] Final progress map stored in state:', progressMap);
 
                 return {
                     plans: plansMap,
@@ -288,39 +266,28 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
             }),
 
         setPlanRefetchCallback: callback => {
-            console.debug('[missionControlStore][setPlanRefetchCallback] Setting plan refetch callback:', !!callback);
             set(state => (state.planRefetchCallback === callback ? state : { planRefetchCallback: callback }));
         },
 
         refetchPlans: () => {
-            console.debug('[missionControlStore][refetchPlans] Triggering plan refetch');
             const { planRefetchCallback } = get();
             if (planRefetchCallback) {
-                console.log('[plan] Triggering plan refetch via callback');
                 planRefetchCallback();
-            } else {
-                console.warn('[plan] No plan refetch callback available');
             }
         },
 
         setSessionRefetchCallback: callback => {
-            console.debug('[missionControlStore][setSessionRefetchCallback] Setting session refetch callback:', !!callback);
             set(state => (state.sessionRefetchCallback === callback ? state : { sessionRefetchCallback: callback }));
         },
 
         refetchSessions: async () => {
-            console.debug('[missionControlStore][refetchSessions] Triggering session refetch');
             const { sessionRefetchCallback } = get();
             if (sessionRefetchCallback) {
-                console.log('[session] Triggering session refetch via callback');
                 await sessionRefetchCallback();
-            } else {
-                console.warn('[session] No session refetch callback available');
             }
         },
 
         refetchSinglePlan: async sessionId => {
-            console.debug(`[missionControlStore][refetchSinglePlan] Refetching plan for session ${sessionId}`);
             if (!sessionId) return;
             try {
                 const { data: plan, error } = await supabase
@@ -329,11 +296,9 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
                     .eq('session_id', sessionId)
                     .maybeSingle();
                 if (error) {
-                    console.warn('[plan] Single fetch error:', error);
                     return;
                 }
                 if (!plan) {
-                    console.warn('[plan] No plan for session', sessionId);
                     return;
                 }
                 const progress = analyzePlanProgressDetailed(plan.markdown);
@@ -341,20 +306,15 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
                     plans: { ...state.plans, [sessionId]: plan },
                     planProgress: { ...state.planProgress, [sessionId]: progress }
                 }));
-                console.log(`[plan] Single plan refetch complete for session ${sessionId}`);
             } catch (e) {
-                console.error('[plan] Single fetch exception:', e);
+                // Error fetching single plan
             }
         },
 
         patchPlanFromToolResult: (sessionId: string, parsed: ParsedPlanResult) =>
             set(state => {
-                console.debug(`[missionControlStore][patchPlanFromToolResult] Patching plan for session ${sessionId}:`, parsed);
-                console.log(`[plan] Patching plan for session ${sessionId} with:`, parsed);
-
                 const currentPlan = state.plans[sessionId];
                 if (!currentPlan) {
-                    console.warn(`[plan] No existing plan found for session ${sessionId}, skipping patch`);
                     return state;
                 }
 
@@ -380,8 +340,6 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
                 // Recalculate progress for this plan
                 const updatedProgress = analyzePlanProgressDetailed(updatedMarkdown);
 
-                console.log('[UI-SSE][planPatched]', 'session=', sessionId, 'newProgress=', updatedProgress);
-
                 return {
                     plans: {
                         ...state.plans,
@@ -395,7 +353,6 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
             }),
 
         setGitStatus: (cwd, counts) => {
-            console.debug(`[missionControlStore][setGitStatus] Setting git status for ${cwd}:`, counts);
             set(state => ({
                 gitStatus: {
                     ...state.gitStatus,
@@ -405,7 +362,6 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
         },
 
         setGitStatusError: (cwd, error) => {
-            console.debug(`[missionControlStore][setGitStatusError] Setting git status error for ${cwd}:`, error);
             set(state => {
                 const newErrors = { ...state.gitStatusErrors };
                 if (error) {
@@ -418,22 +374,18 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
         },
 
         setViewMode: mode => {
-            console.debug(`[missionControlStore][setViewMode] Setting view mode:`, mode);
             set({ viewMode: mode });
         },
 
         setSelectedSession: sessionId => {
-            console.debug(`[missionControlStore][setSelectedSession] Setting selected session:`, sessionId);
             set({ selectedSession: sessionId });
         },
 
         setCwdFilter: cwd => {
-            console.debug(`[missionControlStore][setCwdFilter] Setting cwd filter:`, cwd);
             set({ cwdFilter: cwd });
         },
 
         toggleGroupCollapsed: group => {
-            console.debug(`[missionControlStore][toggleGroupCollapsed] Toggling group ${group}`);
             set(state => ({
                 collapsedGroups: {
                     ...state.collapsedGroups,
@@ -443,42 +395,29 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
         },
 
         setShowNewDraftModal: show => {
-            console.debug(`[missionControlStore][setShowNewDraftModal] Setting show new draft modal:`, show);
             set({ showNewDraftModal: show });
         },
 
         setInitialDraftCodePath: path => {
-            console.debug(`[missionControlStore][setInitialDraftCodePath] Setting initial draft code path:`, path);
             set({ initialDraftCodePath: path });
         },
 
         // Read state actions
         markSessionRead: sessionId =>
             set(state => {
-                console.debug(`[missionControlStore][markSessionRead] Marking session ${sessionId} as read`);
-                const wasUnread = state.readMap[sessionId] !== true;
                 const updatedReadMap = { ...state.readMap, [sessionId]: true };
                 saveReadMap(updatedReadMap);
-                if (wasUnread) {
-                    console.log('[UI] Session manually marked as read:', sessionId);
-                }
                 return { readMap: updatedReadMap };
             }),
 
         markSessionUnread: sessionId =>
             set(state => {
-                console.debug(`[missionControlStore][markSessionUnread] Marking session ${sessionId} as unread`);
-                const wasRead = state.readMap[sessionId] === true;
                 const updatedReadMap = { ...state.readMap, [sessionId]: false };
                 saveReadMap(updatedReadMap);
-                if (wasRead) {
-                    console.log('[UI] Session manually marked as UNREAD:', sessionId);
-                }
                 return { readMap: updatedReadMap };
             }),
 
         isSessionUnread: sessionId => {
-            // console.debug(`[missionControlStore][isSessionUnread] Checking if session ${sessionId} is unread`);
             const readMap = get().readMap;
             // If session is not in readMap, it's unread (default state)
             return readMap[sessionId] !== true;
@@ -487,27 +426,22 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
         // Processing order actions
         ensureInProcessingOrder: (sessionId: string) =>
             set(state => {
-                // console.debug(`[missionControlStore][ensureInProcessingOrder] Ensuring session ${sessionId} is in processing order`);
                 if (state.processingOrder.includes(sessionId)) return {} as Partial<MissionControlState>;
                 const updated = [...state.processingOrder, sessionId];
                 saveProcessingOrder(updated);
-                console.log('[UI] Session added to processing order:', sessionId, `(position: ${updated.length})`);
                 return { processingOrder: updated };
             }),
 
         removeFromProcessingOrder: (sessionId: string) =>
             set(state => {
-                console.debug(`[missionControlStore][removeFromProcessingOrder] Removing session ${sessionId} from processing order`);
                 if (!state.processingOrder.includes(sessionId)) return {} as Partial<MissionControlState>;
                 const updated = state.processingOrder.filter(id => id !== sessionId);
                 saveProcessingOrder(updated);
-                console.log('[UI] Session removed from processing order:', sessionId);
                 return { processingOrder: updated };
             }),
 
         reconcileProcessingOrder: () =>
             set(state => {
-                console.debug(`[missionControlStore][reconcileProcessingOrder] Reconciling processing order`);
                 const validIds = new Set(state.sessions.map(s => s.id));
                 const updated = state.processingOrder.filter(id => validIds.has(id));
                 if (updated.length !== state.processingOrder.length) {
@@ -519,30 +453,25 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
 
         // Ambient indicator actions
         setLastCheckpointSaved: (timestamp: string | null) => {
-            console.debug(`[missionControlStore][setLastCheckpointSaved] Setting last checkpoint saved:`, timestamp);
             set({ lastCheckpointSaved: timestamp });
         },
 
         setIsAutoSaving: (saving: boolean) => {
-            console.debug(`[missionControlStore][setIsAutoSaving] Setting auto saving:`, saving);
             set({ isAutoSaving: saving });
         },
 
         // Computed getters
         getFilteredSessions: () => {
-            console.debug(`[missionControlStore][getFilteredSessions] Getting filtered sessions`);
             const { sessions, cwdFilter } = get();
             return sessions.filter(session => !cwdFilter || (session.base_dir ?? baseDirFromCwd(session.agent_cwd)) === cwdFilter);
         },
 
         getSortedSessions: () => {
-            console.debug(`[missionControlStore][getSortedSessions] Getting sorted sessions`);
             const filteredSessions = get().getFilteredSessions();
             return sortSessionsByActivity(filteredSessions);
         },
 
         getGroupedSessions: () => {
-            console.debug(`[missionControlStore][getGroupedSessions] Getting grouped sessions`);
             const filteredSessions = get().getFilteredSessions();
 
             // Define processing statuses
@@ -610,7 +539,6 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
         },
 
         getSelectedAgentCwd: () => {
-            console.debug(`[missionControlStore][getSelectedAgentCwd] Getting selected agent cwd`);
             const { selectedSession, sessions } = get();
             return sessions.find(s => s.id === selectedSession)?.agent_cwd || null;
         }
