@@ -737,7 +737,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         });
       } catch (error: any) {
         console.error(
-          `[NewTastkModal][sendCore] Failed to add ${name} to recent projects: `,
+          `[NewTaskModal][sendCore] Failed to add ${name} to recent projects: `,
           error.message || "Unknown error"
         );
       }

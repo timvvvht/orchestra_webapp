@@ -23,7 +23,7 @@ export const LeftRail: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { toggleFilePanel } = useMainLayout();
-  const { user, logout, setShowModal } = useAuth();
+  const { isAuthenticated, user, logout, setShowModal } = useAuth();
 
   // Detect platform on mount
   useEffect(() => {
@@ -141,9 +141,6 @@ export const LeftRail: React.FC = () => {
         open ? "w-[200px]" : "w-[68px]"
       )}
     >
-      {/* Empty space for traffic lights */}
-      <div className="h-10 w-full"></div>
-
       {/* Nav Items */}
       <nav className="flex flex-col py-3 space-y-1 px-1.5">
         {navItems.map((item) => (
@@ -213,7 +210,7 @@ export const LeftRail: React.FC = () => {
       <div className="px-2 pt-1 pb-3 border-t border-white/10 mt-auto space-y-1">
         {/* Debug Link */}
 
-        {/* Settings Link */}
+        {/* Settings Link 
         <NavLink
           to="/settings"
           className={({ isActive }) =>
@@ -229,7 +226,7 @@ export const LeftRail: React.FC = () => {
         >
           {({ isActive }) => (
             <>
-              {/* Icon with colored glow for active state */}
+              // Icon with colored glow for active state 
               <span
                 className={clsx(
                   "flex justify-center items-center w-10 h-10 shrink-0",
@@ -247,7 +244,7 @@ export const LeftRail: React.FC = () => {
                 />
               </span>
 
-              {/* Label */}
+              // Label 
               <span
                 className={clsx(
                   "text-sm tracking-wide whitespace-nowrap font-medium",
@@ -260,10 +257,10 @@ export const LeftRail: React.FC = () => {
               </span>
             </>
           )}
-        </NavLink>
+        </NavLink>*/}
 
         {/* Logout Button - Only show when user is authenticated */}
-        {user && (
+        {isAuthenticated && (
           <button
             onClick={handleLogout}
             className={clsx(
