@@ -36,8 +36,8 @@ class ChatErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-center justify-center h-full bg-red-500/10 border border-red-500/20">
-          <div className="text-center p-4">
+        <div className="flex items-start justify-center min-h-[100vh] bg-red-500/10 border border-red-500/20">
+          <div className="text-center p-4 mt-10">
             <p className="text-red-400 mb-2">Chat Component Error</p>
             <p className="text-white/60 text-sm">{this.state.error?.message}</p>
             <button
