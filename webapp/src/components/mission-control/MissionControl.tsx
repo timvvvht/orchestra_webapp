@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { motion } from "framer-motion";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   useMissionControlStore,
   type MissionControlAgent,
@@ -24,6 +25,7 @@ import { ChatUIProvider } from "@/context/ChatUIContext";
 import Header from "./Header";
 import LayoutSplit from "./LayoutSplit";
 import GitHubConnectPanel from "./GitHubConnectPanel";
+import { ProvisioningOverlay } from "./ProvisioningOverlay";
 import { Plan } from "@/types/plans";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -55,6 +57,10 @@ const itemVariants = {
 
 const MissionControlV2: React.FC = () => {
   const { isAuthenticated, setShowModal } = useAuth();
+  const location = useLocation() as any;
+  const navigate = useNavigate();
+  const provisionState = location?.state?.provision;
+  
   const {
     viewMode,
     showNewDraftModal,
@@ -377,6 +383,21 @@ const MissionControlV2: React.FC = () => {
             {/* Layout Split */}
             <LayoutSplit />
           </motion.div>
+
+          {/* Provisioning Overlay */}
+          {provisionState && (
+            <ProvisioningOverlay
+              repo_id={provisionState.repo_id}
+              repo_full_name={provisionState.repo_full_name}
+              branch={provisionState.branch}
+              acs_base={provisionState.acs_base}
+              onDone={(status, details) => {
+                // Clear the state so overlay disappears (replace state keeps same URL)
+                navigate(".", { replace: true, state: null });
+                // TODO: optionally initiate a new session with the initial prompt here
+              }}
+            />
+          )}
 
           {/* New Task Modal */}
           {showNewDraftModal && (

@@ -29,7 +29,7 @@ export default function AuthCallback() {
           }
           if (data.session) {
             console.log("Authentication successful:", data.session.user.email);
-            navigate("/mission-control");
+            navigate("/start");
             return;
           }
         }
@@ -38,7 +38,7 @@ export default function AuthCallback() {
         const { data } = await supabase.auth.getSession();
         if (data.session) {
           console.log("Authentication successful:", data.session.user.email);
-          navigate("/mission-control");
+          navigate("/start");
         } else {
           console.log("No session found");
           navigate("/");
@@ -54,8 +54,8 @@ export default function AuthCallback() {
   return (
     <div className="flex items-center justify-center min-h-screen">
       <span className="text-lg text-gray-600">
-        Redirecting to Mission Control..., if nothing happens please click{" "}
-        <a href="/mission-control">here</a>
+        Redirecting to Start Chat..., if nothing happens please click{" "}
+        <a href="/start">here</a>
       </span>
     </div>
   );
