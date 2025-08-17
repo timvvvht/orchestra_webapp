@@ -196,10 +196,8 @@ import {
   ThinkBlockDisplay,
   AssistantMessageWithFileOps,
 } from "./UnifiedTimelineRenderer";
-import ToolStatusPill from "./content-parts/ToolStatusPill";
 import { LexicalChatInput } from "./LexicalChatInput";
 import { MobileChatInput } from "./MobileChatInput";
-import TouchMessage from "./TouchMessage";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
 import ChatEmptyState from "./ChatEmptyState";
@@ -233,7 +231,6 @@ import { supabase } from "@/auth/SupabaseClient";
 // Approval imports
 import { ApprovalPanel } from "@/components/approval/ApprovalPanel";
 
-import { MessageTestControls } from "./MessageTestControls";
 import { httpApi } from "@/api/httpApi";
 
 // Lazy render constants
@@ -301,7 +298,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const isDesktop = useBreakpoint();
 
   // Performance monitoring
-  usePerformanceMonitor("ChatMainCanonicalLegacy");
+  usePerformanceMonitor();
 
   // Debug overlay - track container size via ResizeObserver
   const containerRef = useRef<HTMLDivElement>(null);
@@ -404,7 +401,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const [localIsLoading, setLocalIsLoading] = useState(false);
 
   // Get loading state from chat context (for startConversation operations)
-  const contextIsLoading = chatUI.isLoading || false;
+  const contextIsLoading = false; // chatUI doesn't have isLoading property
 
   // Combined loading state - true if either local or context is loading
   const isLoading = localIsLoading || contextIsLoading;
@@ -1284,9 +1281,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         <div className="flex-shrink-0">
           <ChatHeader
             sessionId={sessionId}
-            onOpenAgentSelector={() => {}}
-            // Pass down refined mode props
-            refinedMode={refinedMode}
             onToggleRefinedMode={setRefinedMode}
             hasMessages={messages.length > 0}
             // Pass down stream debug overlay props
@@ -1337,7 +1331,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
       {/* Message Display Area - Apple style with generous spacing */}
       <ScrollArea
-        ref={scrollAreaRef}
         className={cn(
           "flex-1 flex-shrink overflow-y-auto overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full",
           renderContext === "mission-control" && "mission-control-scroll-area"
@@ -1354,7 +1347,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         >
           <ChatMessageList
             data-testid="chat-message-list"
-            messages={displayMessages}
+            messages={displayMessages as any}
             mergedMessageGroups={mergedMessageGroups}
             refinedMode={refinedMode}
             isDesktop={isDesktop}
@@ -1366,7 +1359,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               getOptimizedFileOperationsForResponse
             }
             shouldUseUnifiedRendering={shouldUseUnifiedRendering}
-            renderUnifiedTimelineEvent={(event, index, events) =>
+            renderUnifiedTimelineEvent={(event: any, index: any, events: any) =>
               renderUnifiedTimelineEvent(
                 event,
                 index,
@@ -1414,32 +1407,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             renderContext === "mission-control" && "mission-control-input-area"
           )}
         >
-          {/* Stop Generating Button */}
-          <div className="px-4 py-2 border-b border-white/5">
-            <Button
-              onClick={handleStopGenerating}
-              variant="outline"
-              size="sm"
-              className="bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30"
-            >
-              <Square className="w-3 h-3 mr-2" />
-              Stop generating
-            </Button>
-          </div>
-
-          {isDesktop ? (
-            <LexicalChatInput
-              onSendMessage={handleSubmit}
-              disabled={isWaitingForAI}
-              placeholder="Message"
-            />
-          ) : (
-            <MobileChatInput
-              onSendMessage={handleSubmit}
-              disabled={isTyping || isLoading || isWaitingForAI}
-              placeholder="Message"
-            />
-          )}
+          <MobileChatInput
+            onSendMessage={handleSubmit}
+            disabled={isTyping || isLoading || isWaitingForAI}
+            placeholder="Message"
+          />
         </div>
       )}
 
@@ -1732,7 +1704,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
 // Memoize the component to prevent unnecessary re-renders when parent updates
 // but the actual props that matter to this component haven't changed
-export const ChatMainCanonicalLegacy = React.memo(
+const ChatMainCanonicalLegacy = React.memo(
   ChatMainCanonicalLegacyComponent,
   (prevProps, nextProps) => {
     // Only re-render if the props that actually matter have changed
@@ -1743,3 +1715,5 @@ export const ChatMainCanonicalLegacy = React.memo(
     );
   }
 );
+
+export default ChatMainCanonicalLegacy;
