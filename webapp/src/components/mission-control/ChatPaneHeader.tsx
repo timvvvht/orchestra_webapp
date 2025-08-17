@@ -26,6 +26,7 @@ import { SCMManager } from "@/services/scm/SCMManager";
 import { getDefaultACSClient } from "@/services/acs";
 import { useMissionControlArchive } from "@/hooks/useMissionControlArchive";
 import SubmitGitHubPRButton from "../chat-interface/SubmitGitHubPRButton";
+import { GitHubPRModal } from "../modals/PullRequestModal";
 
 interface ChatPaneHeaderProps {
   sessionId: string;
@@ -36,7 +37,6 @@ interface ChatPaneHeaderProps {
 }
 
 interface ExtendedDiffStats extends DiffStats {
-  earliestHash?: string;
   latestHash?: string;
 }
 
@@ -50,6 +50,7 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
   const [diffStats, setDiffStats] = useState<ExtendedDiffStats | null>(null);
   const [isLoadingDiff, setIsLoadingDiff] = useState(false);
   const [checkpointCount, setCheckpointCount] = useState(0);
+  const [showPRModal, setShowPRModal] = useState<boolean>(false);
   const { archiveSession } = useMissionControlArchive();
 
   // Auto-load diff stats when session is complete
@@ -113,7 +114,7 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
 
   const handleGitHubPRButtonPress = () => {
     console.log("[ChatPaneHeader] Opening PR Creation Modal");
-    return;
+    setShowPRModal(true);
   };
 
   const handleArchive = async () => {
@@ -320,6 +321,14 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
           </div>
         </div>
       </div>
+      {showPRModal && (
+        <GitHubPRModal
+          sessionId={sessionId}
+          onClose={() => {
+            setShowPRModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };
