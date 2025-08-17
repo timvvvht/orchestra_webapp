@@ -21,6 +21,12 @@ import { useAuth } from "@/auth/AuthContext";
 import { toast } from "sonner";
 import { ProjectSelectionModal } from "@/components/modals/ProjectSelectionModal";
 
+interface ViewMode {
+    icon?: any
+    title: string
+    
+}
+
 const AgentListPanel: React.FC = () => {
   const listRef = useRef<HTMLDivElement>(null);
   const {
@@ -39,8 +45,11 @@ const AgentListPanel: React.FC = () => {
   const { archiveSession, unarchiveSession } = useMissionControlArchive();
   const drafts = getDraftsArray();
   const groupedSessions = getGroupedSessions();
-  const [isOpeningModal, setIsOpeningModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
+
+
+  const viewModes = [
+  ]
 
   // Split idle sessions into unread and read
   const unreadIdle = groupedSessions.idle.filter((agent) =>
