@@ -49,7 +49,7 @@ const fetchAcsSessions = async (): Promise<MissionControlAgent[]> => {
   const acs = getDefaultACSClient();
 
   const resp = await acs.sessions.listSessions({
-    limit: 200,
+    limit: 100,
     includeMessageCount: true,
   });
   const list: SessionSummary[] = resp.data.sessions || [];

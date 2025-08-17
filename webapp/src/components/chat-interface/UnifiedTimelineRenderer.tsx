@@ -121,3 +121,20 @@ export const AssistantMessageWithFileOps: React.FC<AssistantMessageProps> = ({
     </div>
   );
 };
+
+export function DynamicToolStatusPill({ toolCalls, isStreaming }: { toolCalls: Array<{ name: string }>; isStreaming?: boolean }) {
+  if (!toolCalls || toolCalls.length === 0) return null;
+  const label = toolCalls.length === 1 ? toolCalls[0].name.replace(/_/g, ' ') : `${toolCalls.length} tools`;
+  return (
+    <div className="text-xs text-white/70">
+      {isStreaming ? 'Running: ' : ''}{label}
+    </div>
+  );
+}
+
+export function FileOperationsSummary({ operations }: { operations: any[] }) {
+  if (!operations || operations.length === 0) return null;
+  return (
+    <div className="text-xs text-white/60">{operations.length} file operation(s)</div>
+  );
+}

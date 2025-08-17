@@ -140,7 +140,7 @@ const getHumanReadableActivity = (
 } => {
   const role = agent.latest_message_role;
   const content = agent.latest_message_content;
-  console.log(`Role: ${role} - Content: ${content}`);
+  // console.log(`Role: ${role} - Content: ${content}`);
 
   // Special states
   if (agent.status === "creating") {
