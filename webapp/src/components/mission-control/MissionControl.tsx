@@ -18,6 +18,7 @@ import { Plan } from "@/types/plans";
 import type { SessionSummary } from "@/services/acs";
 import { getDefaultACSClient } from "@/services/acs";
 import { mapACSSessionsToMCAgent } from "@/utils/mapACSSessionsToMCAgent";
+import { useAuth } from "@/auth/AuthContext";
 
 // Animation variants for staggered reveals
 const containerVariants = {
@@ -63,9 +64,7 @@ interface MissionControlProps {
 const MissionControl: React.FC<MissionControlProps> = ({
   repo,
 }: MissionControlProps) => {
-  // const { isAuthenticated, setShowModal } = useAuth();
-  const isAuthenticated = true;
-  const setShowModal = () => {};
+  const { isAuthenticated, setShowModal, booted, user } = useAuth();
 
   const sessions = useMissionControlStore((s) => s.sessions);
 
@@ -105,6 +104,10 @@ const MissionControl: React.FC<MissionControlProps> = ({
   // const { plansBySession, refetch: refetchPlans } =
   //   usePlansSnapshot(sessionIds);
   const plansBySession = {};
+
+  useEffect(() => {
+    if (booted && user?.id) refetchSessions();
+  }, [booted, user?.id]);
 
   const refetchSessions = useCallback(async () => {
     try {
@@ -273,6 +276,22 @@ const MissionControl: React.FC<MissionControlProps> = ({
     [setSessions, currentSessions]
   );
 
+  if (!booted) {
+    return (
+      <div className="h-full w-full bg-black flex items-center justify-center">
+        <div className="flex items-center gap-1">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-1 h-1 rounded-full bg-white/40 animate-pulse"
+              style={{ animationDelay: `${i * 150}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="h-full w-full bg-black flex items-center justify-center">
@@ -281,7 +300,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
             Please sign in to use Mission Control
           </div>
           <button
-            onClick={() => setShowModal()}
+            onClick={() => setShowModal(true)}
             className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-white/90 transition"
           >
             Sign in
