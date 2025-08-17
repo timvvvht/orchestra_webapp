@@ -260,7 +260,7 @@ export const MergeWorktreeButton: React.FC<MergeWorktreeButtonProps> = ({
 
   return (
     <>
-      <div className="inline-flex items-stretch gap-1">
+      <div className="inline-flex items-stretch gap-1" id="MergeWorkTreeButton">
         <Button
           variant={variant}
           size={size}
