@@ -1,3 +1,4 @@
+import LeftRail from "@/components/LeftTail";
 import React, {
   createContext,
   useContext,
@@ -138,7 +139,13 @@ export const MainLayoutProvider: React.FC<MainLayoutProviderProps> = ({
 
   return (
     <MainLayoutContext.Provider value={value}>
-      {children}
+      <div
+        className="min-h-screen min-w-screen text-white flex max-h-screen"
+        id="main-layout-provider"
+      >
+        <LeftRail />
+        <div className="flex-1 overflow-scroll">{children}</div>
+      </div>
     </MainLayoutContext.Provider>
   );
 };

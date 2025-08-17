@@ -10,14 +10,11 @@ export default function AppShell() {
     <HeaderProvider>
       <MainLayoutProvider>
         <div
-          className="min-h-screen bg-black min-w-screen text-white flex"
+          className="min-h-screen bg-black min-w-full text-white flex"
           id="app-shell"
         >
-          {/* Persistent left navigation */}
-          <LeftRail />
-
           {/* Main routed content */}
-          <div className="flex-1 flex flex-col min-h-0 pt-1">
+          <div className="flex flex-1 flex-col min-h-0 pt-1">
             <UserProfile />
             <Outlet />
           </div>
