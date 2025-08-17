@@ -57,6 +57,7 @@ export async function hydrateSession(sessionId: string): Promise<void> {
         .order("timestamp", { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
+      console.log("[historyBridge] Chat Messages: ", rawRows);
       if (error) {
         console.error("[HistoryBridge] Error fetching messages:", error);
         throw error;

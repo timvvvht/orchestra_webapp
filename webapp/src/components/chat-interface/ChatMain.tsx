@@ -1510,7 +1510,10 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                           .eq("session_id", sessionId)
                           .order("timestamp", { ascending: true })
                           .limit(10);
-
+                        console.log(
+                          "inline data: ",
+                          JSON.stringify(data, null, 2)
+                        );
                         if (!error && data) {
                           setDebugData((prev) => ({
                             ...prev,

@@ -19,6 +19,7 @@ const ViewModeSlider: React.FC = () => {
       {VIEW_MODES.map((vm: ViewModeOption) => {
         return (
           <ViewModeSliderOption
+            key={vm.slug}
             onClick={() => setViewMode(vm.slug)}
             active={useMissionControlStore.getState().viewMode === vm.slug}
             ViewModeOption={vm}
