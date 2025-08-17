@@ -29,7 +29,7 @@ export class ACSSessionService {
     ): Promise<APIResponse<SessionListResponse>> {
         const { limit, includeMessageCount, ...requestOptions } = options || {};
 
-        const query = this.client.constructor.buildQuery({
+        const query = ACSClient.buildQuery({
             limit,
             include_message_count: includeMessageCount
         });
@@ -202,7 +202,6 @@ export class ACSSessionService {
                 updates: updates,
                 resultStatus: result?.status,
                 resultData: result?.data,
-                resultSuccess: result?.success,
                 timestamp: new Date().toISOString()
             });
             
@@ -213,10 +212,10 @@ export class ACSSessionService {
                 endpoint: endpoint,
                 updates: updates,
                 error: error,
-                errorMessage: error?.message,
-                errorResponse: error?.response,
-                errorResponseData: error?.response?.data,
-                errorStatus: error?.response?.status,
+                errorMessage: (error as any)?.message,
+                errorResponse: (error as any)?.response,
+                errorResponseData: (error as any)?.response?.data,
+                errorStatus: (error as any)?.response?.status,
                 timestamp: new Date().toISOString()
             });
             

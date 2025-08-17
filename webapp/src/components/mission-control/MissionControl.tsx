@@ -61,6 +61,8 @@ const MissionControl: React.FC = () => {
   const isAuthenticated = true;
   const setShowModal = () => {};
 
+  const sessions = useMissionControlStore((s) => s.sessions);
+
   const location = useLocation() as any;
   const navigate = useNavigate();
   const provisionState = location?.state?.provision;
