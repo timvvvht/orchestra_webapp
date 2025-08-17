@@ -60,6 +60,9 @@ interface EventStore extends EventState {
 function isCanonicalStoreEnabled(): boolean {
   const value = import.meta.env.VITE_CANONICAL_STORE;
   const enabled = value === "1" || value === "true";
+  console.log(
+    `🏴 [EventStore] Canonical store enabled: ${enabled} (VITE_CANONICAL_STORE=${value})`
+  );
   return enabled;
 }
 
@@ -75,13 +78,32 @@ export const useEventStore = create<EventStore>()(
       // Core dispatch action
       dispatch: (action: Action) => {
         if (!isCanonicalStoreEnabled()) {
+          console.log(
+            `⚠️ [EventStore] Canonical store disabled, ignoring action:`,
+            action.type
+          );
           return;
         }
 
+        const dispatchId = `dispatch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`🔄 [EventStore] [${dispatchId}] Dispatching action:`, {
+          type: action.type,
+          eventId: "event" in action ? action.event?.id : undefined,
+          eventCount: "events" in action ? action.events?.length : undefined,
+        });
+
         set((state) => {
+          const beforeState = {
+            eventCount: state.order.length,
+            sessionCount: state.bySession.size,
+            toolPairCount: state.toolIx.size,
+          };
+
           // When using immer middleware, we need to mutate the draft, not return a new state
           // The reducer returns a new state, so we need to copy its properties
           const newState = eventReducer(state, action);
+
+          console.log("[eventStores][eventReducer] newState:", newState);
 
           // Copy all properties from newState to the draft state
           state.byId = newState.byId;
@@ -89,21 +111,74 @@ export const useEventStore = create<EventStore>()(
           state.bySession = newState.bySession;
           state.toolIx = newState.toolIx;
           state.resume = newState.resume;
+
+          const afterState = {
+            eventCount: state.order.length,
+            sessionCount: state.bySession.size,
+            toolPairCount: state.toolIx.size,
+          };
+
+          console.log(`✅ [EventStore] [${dispatchId}] Action processed:`, {
+            before: beforeState,
+            after: afterState,
+            changes: {
+              eventsDelta: afterState.eventCount - beforeState.eventCount,
+              sessionsDelta: afterState.sessionCount - beforeState.sessionCount,
+              toolPairsDelta:
+                afterState.toolPairCount - beforeState.toolPairCount,
+            },
+          });
         });
       },
 
       // Convenience methods
       addEvent: (event: CanonicalEvent) => {
+        const eventId = `store_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`📦 [EventStore] [${eventId}] Adding single event:`, {
+          id: event.id,
+          kind: event.kind,
+          role: event.role,
+          sessionId: event.sessionId,
+          partial: event.partial,
+          source: event.source,
+        });
         get().dispatch({ type: "UPSERT", event });
+        console.log(`✅ [EventStore] [${eventId}] Event added successfully`);
       },
 
       addEvents: (events: CanonicalEvent[]) => {
-        if (events.length === 0) return;
+        if (events.length === 0) {
+          console.log(`⚠️ [EventStore] Skipping empty events batch`);
+          return;
+        }
+
+        const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`📦 [EventStore] [${batchId}] Adding events batch:`, {
+          count: events.length,
+          eventIds: events.map((e) => e.id),
+          sessionIds: [...new Set(events.map((e) => e.sessionId))],
+        });
+
         get().dispatch({ type: "UPSERT_BATCH", events });
+        console.log(
+          `✅ [EventStore] [${batchId}] Events batch added successfully`
+        );
       },
 
       clearAll: () => {
+        console.log(`🧽 [EventStore] Clearing all events from store`);
+        const state = get();
+        const eventCount = state.order.length;
+        const sessionCount = state.bySession.size;
+
+        console.log(`🧽 [EventStore] Before clear:`, {
+          eventCount,
+          sessionCount,
+          toolPairCount: state.toolIx.size,
+        });
+
         get().dispatch({ type: "CLEAR_ALL" });
+        console.log(`✅ [EventStore] All events cleared successfully`);
       },
 
       removeEvent: (eventId: string) => {
@@ -111,10 +186,25 @@ export const useEventStore = create<EventStore>()(
       },
 
       // Selectors
-      getAllEvents: () => eventSelectors.getAllEvents(get()),
-      getEventById: (id: string) => eventSelectors.getEventById(get(), id),
-      getEventsForSession: (sessionId: string) =>
-        eventSelectors.getEventsForSession(get(), sessionId),
+      getAllEvents: () => {
+        const events = eventSelectors.getAllEvents(get());
+        console.log(
+          `🔍 [EventStore] getAllEvents returning ${events.length} events`
+        );
+        return events;
+      },
+      getEventById: (id: string) => {
+        const event = eventSelectors.getEventById(get(), id);
+        console.log(`🔍 [EventStore] getEventById(${id}) found:`, !!event);
+        return event;
+      },
+      getEventsForSession: (sessionId: string) => {
+        const events = eventSelectors.getEventsForSession(get(), sessionId);
+        console.log(
+          `🔍 [EventStore] getEventsForSession(${sessionId}) returning ${events.length} events`
+        );
+        return events;
+      },
       getSessionIds: () => eventSelectors.getSessionIds(get()),
       getSessionEventCount: (sessionId: string) =>
         eventSelectors.getSessionEventCount(get(), sessionId),

@@ -175,6 +175,13 @@ export function convertEventsToMessages(events: any[]): ChatMessage[] {
     }
   }
   
+  console.log(`✅ [EventConversion] [${conversionId}] Conversion completed:`, {
+    inputEvents: events.length,
+    outputMessages: messages.length,
+    messageTypes: messages.map(m => m.role),
+    skippedEvents: events.length - messages.length
+  });
+  
   return messages;
 }
 

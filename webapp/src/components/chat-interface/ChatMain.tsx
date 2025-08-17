@@ -294,7 +294,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   hideHeader = false,
   hideInput = false,
 }) => {
-
   // Performance monitoring
   usePerformanceMonitor();
 
@@ -522,24 +521,48 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Load events from canonical store
   const loadEvents = useCallback(() => {
+    const loadId = `load_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     if (!sessionId) {
+      console.log(
+        `⚠️ [ChatMain] [${loadId}] No sessionId provided, skipping event load`
+      );
       return;
     }
+
+    console.log(
+      `📦 [ChatMain] [${loadId}] Loading events for session: ${sessionId}`
+    );
 
     const state = useEventStore.getState();
 
     // Try session ID first, then 'unknown'
     let eventIds = state.bySession.get(sessionId) || [];
+    console.log(
+      `🔍 [ChatMain] [${loadId}] Found ${eventIds.length} events for session ${sessionId}`
+    );
+
     if (eventIds.length === 0 && state.bySession.has("unknown")) {
       eventIds = state.bySession.get("unknown") || [];
+      console.log(
+        `🔍 [ChatMain] [${loadId}] Fallback to 'unknown' session: ${eventIds.length} events`
+      );
     }
 
     const events = eventIds.map((id) => state.byId.get(id)).filter(Boolean);
+    console.log(
+      `🔍 [ChatMain] [${loadId}] Retrieved ${events.length} valid events from store`
+    );
 
     // Convert to messages
+    console.log(`🔄 [ChatMain] [${loadId}] Converting events to messages...`);
     const convertedMessages = convertEventsToMessages(events);
+    console.log(
+      `✅ [ChatMain] [${loadId}] Converted to ${convertedMessages.length} messages`
+    );
 
     setMessages(convertedMessages);
+    console.log(`✅ [ChatMain] [${loadId}] Messages set in component state`);
   }, [sessionId]);
 
   // Auto-scroll functions - handleScroll moved below after mergedMessages is defined
@@ -928,8 +951,15 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Track message updates
   useEffect(() => {
-    // Monitor when messages change
-  }, [messages]);
+    const updateId = `update_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`📝 [ChatMain] [${updateId}] Messages updated:`, {
+      sessionId: sessionId,
+      messageCount: messages.length,
+      messageIds: messages.map((m) => m.id),
+      roles: messages.map((m) => m.role),
+      streamingCount: messages.filter((m) => m.isStreaming).length,
+    });
+  }, [messages, sessionId]);
 
   // ✅ ROBUST: Check if session is idle using new centralized store
   const idleNow = useSessionStatusStore((state) =>
@@ -1150,7 +1180,12 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Handle message submission
   const handleSubmit = async (message: string) => {
-    console.log("💥💥💥💥💥💥💥💥💥💥 Submitting message:", message);
+    const submitId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`🚀 [ChatMain] [${submitId}] Message submission started:`, {
+      messageLength: message?.length || 0,
+      sessionId: sessionId,
+      userId: auth.user?.id,
+    });
     if (!message.trim()) return;
 
     // If a custom onSubmit handler is provided, use it instead of the default logic

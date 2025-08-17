@@ -26,9 +26,6 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ messages, className =
           </div>
         </div>
       ))}
-      <div className="text-xs text-gray-400 italic text-center">
-        Message list (webapp stub)
-      </div>
     </div>
   );
 };

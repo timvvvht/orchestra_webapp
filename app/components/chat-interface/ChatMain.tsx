@@ -1098,6 +1098,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     return mergedMessages.slice(-renderLimit);
   }, [mergedMessages, renderLimit]);
 
+
   // Auto-scroll functions - now defined after mergedMessages is available
   const handleScroll = useCallback(
     (event: any) => {

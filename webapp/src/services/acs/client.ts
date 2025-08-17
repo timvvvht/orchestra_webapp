@@ -143,51 +143,74 @@ export class ACSClient {
     data?: any,
     options: RequestOptions = {}
   ): Promise<APIResponse<T>> {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const url = this.buildUrl(endpoint);
     const requestOptions = this.buildRequestOptions(method, data, options);
 
-    console.log(`[ACSClient] 🚀 ${method} ${url}`, {
-      headers: requestOptions.headers,
-      body: data ? JSON.stringify(data, null, 2) : undefined,
+    console.log(`🚀 [ACSClient] [${requestId}] Starting ${method} request to ${url}`);
+    console.log(`📤 [ACSClient] [${requestId}] Request headers:`, requestOptions.headers);
+    console.log(`📤 [ACSClient] [${requestId}] Request body:`, data ? JSON.stringify(data, null, 2) : 'No body');
+    console.log(`📤 [ACSClient] [${requestId}] Request options:`, {
+      method: requestOptions.method,
+      timeout: this.config.timeout,
+      retries: this.config.retries
     });
 
     let lastError: Error;
     const maxRetries = options.retries ?? this.config.retries;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      console.log(`🔄 [ACSClient] [${requestId}] Attempt ${attempt + 1}/${maxRetries + 1}`);
+      
       try {
+        console.log(`📡 [ACSClient] [${requestId}] Calling fetch()...`);
+        const fetchStartTime = Date.now();
         const response = await fetch(url, requestOptions);
+        const fetchDuration = Date.now() - fetchStartTime;
 
-        console.log(`[ACSClient] 📥 Fetch response:`, response);
-        console.log(`[ACSClient] 🔍 Response type:`, typeof response);
-        console.log(`[ACSClient] 📋 Response headers:`, response?.headers);
+        console.log(`📥 [ACSClient] [${requestId}] Fetch completed in ${fetchDuration}ms`);
+        console.log(`📥 [ACSClient] [${requestId}] Response status: ${response.status} ${response.statusText}`);
+        console.log(`📥 [ACSClient] [${requestId}] Response ok: ${response.ok}`);
+        console.log(`📥 [ACSClient] [${requestId}] Response headers:`, Object.fromEntries(response.headers.entries()));
+        console.log(`📥 [ACSClient] [${requestId}] Response type: ${response.type}`);
+        console.log(`📥 [ACSClient] [${requestId}] Response URL: ${response.url}`);
 
+        console.log(`🔄 [ACSClient] [${requestId}] Processing response...`);
         const result = await this.handleResponse<T>(response);
 
-        console.log(`[ACSClient] ✅ Response:`, result);
+        console.log(`✅ [ACSClient] [${requestId}] Request successful!`);
+        console.log(`✅ [ACSClient] [${requestId}] Final result:`, result);
 
         return result;
       } catch (error) {
         lastError = error as Error;
 
-        console.warn(`[ACSClient] ⚠️ Attempt ${attempt + 1} failed:`, error);
+        console.error(`❌ [ACSClient] [${requestId}] Attempt ${attempt + 1} failed:`, {
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : undefined
+        });
 
         // Don't retry on authentication errors or client errors (4xx)
         if (error instanceof ACSError && error.status_code < 500) {
+          console.error(`❌ [ACSClient] [${requestId}] Client error (${error.status_code}), not retrying`);
           throw error;
         }
 
         // Don't retry on the last attempt
         if (attempt === maxRetries) {
+          console.error(`❌ [ACSClient] [${requestId}] Max retries reached, giving up`);
           break;
         }
 
         // Fixed delay between retries - no exponential backoff
         const delay = 2000; // Fixed 2-second delay
+        console.log(`⏳ [ACSClient] [${requestId}] Waiting ${delay}ms before retry...`);
         await this.sleep(delay);
       }
     }
 
+    console.error(`💥 [ACSClient] [${requestId}] All attempts failed, throwing error`);
     throw lastError!;
   }
 
@@ -198,9 +221,9 @@ export class ACSClient {
     endpoint: string,
     options?: RequestOptions
   ): Promise<APIResponse<T>> {
-    console.log(`[ACSClient] GET ${endpoint}`);
+    console.log(`🔍 [ACSClient] GET request initiated for ${endpoint}`);
     const response = await this.request<T>("GET", endpoint, undefined, options);
-    console.log(`[ACSClient] GET ${endpoint} response:`, response);
+    console.log(`🔍 [ACSClient] GET request completed for ${endpoint}:`, response);
     return response;
   }
 
@@ -209,7 +232,11 @@ export class ACSClient {
     data?: any,
     options?: RequestOptions
   ): Promise<APIResponse<T>> {
-    return this.request<T>("POST", endpoint, data, options);
+    console.log(`📝 [ACSClient] POST request initiated for ${endpoint}`);
+    console.log(`📝 [ACSClient] POST data:`, data);
+    const response = await this.request<T>("POST", endpoint, data, options);
+    console.log(`📝 [ACSClient] POST request completed for ${endpoint}:`, response);
+    return response;
   }
 
   async put<T = any>(
@@ -379,46 +406,49 @@ export class ACSClient {
    * Handle fetch response and convert to APIResponse
    */
   private async handleResponse<T>(response: Response): Promise<APIResponse<T>> {
-    console.log(`🔄 ACS Response handling started`);
+    const responseId = `resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`🔄 [ACSClient] [${responseId}] Response handling started`);
     const timestamp = new Date().toISOString();
     const headers: Record<string, string> = {};
 
     // Guard against undefined response
     if (!response || !response.headers) {
-      console.log(
-        `❌ ACS Invalid response object received`,
-        JSON.stringify(response, null, 2)
-      );
+      console.error(`❌ [ACSClient] [${responseId}] Invalid response object received:`, response);
       throw new ACSError("Invalid response object", 0, "NETWORK_ERROR");
     }
 
-    console.log(
-      `📋 ACS Response status: ${response.status} ${response.statusText}`
-    );
+    console.log(`📋 [ACSClient] [${responseId}] Response status: ${response.status} ${response.statusText}`);
+    console.log(`📋 [ACSClient] [${responseId}] Response OK: ${response.ok}`);
 
     // Convert Headers to plain object
-    console.log(`🏷️ ACS Processing response headers`);
+    console.log(`🏷️ [ACSClient] [${responseId}] Processing response headers`);
     response.headers.forEach((value, key) => {
       headers[key] = value;
     });
+    console.log(`🏷️ [ACSClient] [${responseId}] Headers processed:`, Object.keys(headers));
 
     let data: T;
     const contentType = response.headers.get("content-type");
-    console.log(`📄 ACS Content-Type: ${contentType || "not specified"}`);
+    console.log(`📄 [ACSClient] [${responseId}] Content-Type: ${contentType || "not specified"}`);
 
     try {
       if (contentType?.includes("application/json")) {
-        console.log(`🔄 ACS Parsing JSON response`);
+        console.log(`🔄 [ACSClient] [${responseId}] Parsing JSON response`);
         data = await response.json();
+        console.log(`✅ [ACSClient] [${responseId}] JSON parsed successfully:`, {
+          dataType: typeof data,
+          dataKeys: typeof data === 'object' && data ? Object.keys(data as any) : []
+        });
       } else {
-        console.log(`🔄 ACS Parsing text response`);
+        console.log(`🔄 [ACSClient] [${responseId}] Parsing text response`);
         data = (await response.text()) as unknown as T;
+        console.log(`✅ [ACSClient] [${responseId}] Text parsed successfully, length: ${(data as any)?.length || 0}`);
       }
-      console.log(`✅ ACS Response parsed successfully`);
     } catch (error) {
-      console.log(
-        `❌ ACS Failed to parse response: ${(error as Error).message}`
-      );
+      console.error(`❌ [ACSClient] [${responseId}] Failed to parse response:`, {
+        error: error instanceof Error ? error.message : error,
+        contentType: contentType
+      });
       throw new ACSError(
         `Failed to parse response: ${(error as Error).message}`,
         0,
@@ -427,27 +457,29 @@ export class ACSClient {
     }
 
     if (!response.ok) {
-      console.log(`⚠️ ACS Non-OK response detected: ${response.status}`);
+      console.error(`⚠️ [ACSClient] [${responseId}] Non-OK response detected: ${response.status}`);
       // Try to extract error details from response
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       let errorDetail: string | undefined;
 
       if (typeof data === "object" && data !== null) {
         const errorObj = data as any;
+        console.log(`🔍 [ACSClient] [${responseId}] Analyzing error response:`, errorObj);
+        
         if (errorObj.detail) {
           errorDetail =
             typeof errorObj.detail === "string"
               ? errorObj.detail
               : JSON.stringify(errorObj.detail);
-          console.log(`🔍 ACS Error detail found: ${errorDetail}`);
+          console.log(`🔍 [ACSClient] [${responseId}] Error detail found: ${errorDetail}`);
         } else if (errorObj.message) {
           errorDetail = errorObj.message;
-          console.log(`🔍 ACS Error message found: ${errorDetail}`);
+          console.log(`🔍 [ACSClient] [${responseId}] Error message found: ${errorDetail}`);
         } else if (errorObj.error) {
           errorDetail = errorObj.error;
-          console.log(`🔍 ACS Error key found: ${errorDetail}`);
+          console.log(`🔍 [ACSClient] [${responseId}] Error key found: ${errorDetail}`);
         } else {
-          console.log(`🔍 ACS No structured error info found in response`);
+          console.log(`🔍 [ACSClient] [${responseId}] No structured error info found in response`);
         }
       }
 
@@ -459,12 +491,18 @@ export class ACSClient {
       const statusCode =
         response.status ??
         (typeof (data as any)?.status === "number" ? (data as any).status : 500);
-      console.log(`❌ ACS Throwing error: ${errorMessage} (${statusCode})`);
+      console.error(`❌ [ACSClient] [${responseId}] Throwing error: ${errorMessage} (${statusCode})`);
       const acsError = new ACSError(errorMessage, statusCode, errorDetail);
       throw acsError;
     }
 
-    console.log(`✅ ACS Response handled successfully`);
+    console.log(`✅ [ACSClient] [${responseId}] Response handled successfully:`, {
+      status: response.status,
+      dataType: typeof data,
+      headerCount: Object.keys(headers).length,
+      timestamp
+    });
+    
     return {
       data,
       status: response.status,

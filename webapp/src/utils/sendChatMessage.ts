@@ -175,6 +175,8 @@ type ConverseResponse = {
 export async function sendChatMessage(
   params: SendChatMessageParams
 ): Promise<SendChatMessageResult> {
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
   const {
     sessionId,
     message,
@@ -187,17 +189,31 @@ export async function sendChatMessage(
     overrides = {}, // Default to empty object
   } = params;
 
-  console.log("📤 [sendChatMessage] Received params:", params);
+  console.log(`🚀 [sendChatMessage] [${messageId}] Starting message send process`);
+  console.log(`📤 [sendChatMessage] [${messageId}] Session ID: ${sessionId}`);
+  console.log(`📤 [sendChatMessage] [${messageId}] User ID: ${userId}`);
+  console.log(`📤 [sendChatMessage] [${messageId}] Agent Config: ${agentConfigName}`);
+  console.log(`📤 [sendChatMessage] [${messageId}] Message length: ${message?.length || 0}`);
+  console.log(`📤 [sendChatMessage] [${messageId}] Full params:`, params);
 
-  if (!message) return { success: false, error: "Message is empty" };
+  if (!message) {
+    console.error(`❌ [sendChatMessage] [${messageId}] Message is empty`);
+    return { success: false, error: "Message is empty" };
+  }
 
   const trimmedMessage = message.trim();
-  if (!trimmedMessage) return { success: false, error: "Message is empty" };
+  if (!trimmedMessage) {
+    console.error(`❌ [sendChatMessage] [${messageId}] Message is empty after trim`);
+    return { success: false, error: "Message is empty" };
+  }
 
   if (!sessionId || !userId) {
+    console.error(`❌ [sendChatMessage] [${messageId}] Missing required IDs:`, { sessionId: !!sessionId, userId: !!userId });
     toast.error("Please sign in to send messages");
     return { success: false, error: "Missing session or user ID" };
   }
+
+  console.log(`✅ [sendChatMessage] [${messageId}] Validation passed`);
 
   // Register tools (defaults to core tools if not specified)
   const toolsToRegister = params.tools || [
@@ -206,12 +222,14 @@ export async function sendChatMessage(
     "str_replace_editor",
   ];
 
-  console.log("🔧 [sendChatMessage] Registering tools:", toolsToRegister);
+  console.log(`🔧 [sendChatMessage] [${messageId}] Registering tools:`, toolsToRegister);
   try {
+    const toolRegStartTime = Date.now();
     await registerToolsByNames(sessionId, toolsToRegister);
-    console.log("✅ [sendChatMessage] Tools registered successfully");
+    const toolRegDuration = Date.now() - toolRegStartTime;
+    console.log(`✅ [sendChatMessage] [${messageId}] Tools registered successfully in ${toolRegDuration}ms`);
   } catch (error) {
-    console.error("❌ [sendChatMessage] Failed to register tools:", error);
+    console.error(`❌ [sendChatMessage] [${messageId}] Failed to register tools:`, error);
     // Don't throw - tool registration failure shouldn't break message sending
     toast.error("Some tools may not be available", {
       description: "Continuing with message send",
@@ -219,10 +237,12 @@ export async function sendChatMessage(
   }
 
   // Mark session as awaiting when user sends a new message
+  console.log(`🔄 [sendChatMessage] [${messageId}] Marking session as awaiting`);
   useSessionStatusStore.getState().markAwaiting(sessionId);
 
   try {
     // 1) Optimistic event insert for UI responsiveness
+    console.log(`📝 [sendChatMessage] [${messageId}] Creating optimistic user message`);
     const userMessage: ChatMessageType = {
       id: `user-${Date.now()}`,
       sessionId,
@@ -231,6 +251,14 @@ export async function sendChatMessage(
       createdAt: Date.now(),
       isStreaming: false,
     };
+    
+    console.log(`📝 [sendChatMessage] [${messageId}] User message created:`, {
+      id: userMessage.id,
+      sessionId: userMessage.sessionId,
+      contentLength: userMessage.content[0].text.length
+    });
+    
+    console.log(`📝 [sendChatMessage] [${messageId}] Adding to event store...`);
     useEventStore.getState().addEvent({
       id: userMessage.id,
       kind: "message",
@@ -241,38 +269,51 @@ export async function sendChatMessage(
       partial: false,
       source: "sse" as const, // could be 'local' if you want to distinguish
     });
-    console.log(
-      "✅ [sendChatMessage] Added optimistic user message to event store"
-    );
+    console.log(`✅ [sendChatMessage] [${messageId}] Optimistic user message added to event store`);
 
     // 2) Resolve working directory fallback
+    console.log(`📁 [sendChatMessage] [${messageId}] Resolving working directory...`);
     const agentCwdOverride = acsOverrides?.agent_cwd_override;
     let effectiveAgentCwd = agentCwdOverride;
+    
+    console.log(`📁 [sendChatMessage] [${messageId}] Agent CWD override:`, agentCwdOverride);
+    
     if (!effectiveAgentCwd && sessionData?.agent_cwd) {
       effectiveAgentCwd = sessionData.agent_cwd;
-      console.log(
-        "📁 [sendChatMessage] Using fallback agent_cwd from session data:",
-        effectiveAgentCwd
-      );
+      console.log(`📁 [sendChatMessage] [${messageId}] Using fallback agent_cwd from session data:`, effectiveAgentCwd);
     }
+    
     if (!effectiveAgentCwd) {
-      console.warn("⚠️ [sendChatMessage] No agent_cwd_override provided", {
+      console.warn(`⚠️ [sendChatMessage] [${messageId}] No agent_cwd_override provided`, {
         sessionId: sessionId.slice(0, 8) + "...",
         hasAcsOverrides: !!acsOverrides,
         hasSessionData: !!sessionData,
       });
+    } else {
+      console.log(`✅ [sendChatMessage] [${messageId}] Effective agent CWD:`, effectiveAgentCwd);
     }
 
     // 3) Resolve template variables and BYOK preference defaults
+    console.log(`🔧 [sendChatMessage] [${messageId}] Resolving template variables and BYOK preferences...`);
+    
     const resolvedTemplateVars =
       params.templateVariables ||
       ((await createACSTemplateVariables()) as unknown as {
         [key: string]: string;
       });
+    
+    console.log(`🔧 [sendChatMessage] [${messageId}] Template variables resolved:`, {
+      provided: !!params.templateVariables,
+      count: Object.keys(resolvedTemplateVars).length
+    });
+    
     const resolvedUseStoredKeys =
       params.useStoredKeys ?? useBYOKStore.getState().useStoredKeysPreference;
+    
+    console.log(`🔧 [sendChatMessage] [${messageId}] BYOK preference:`, resolvedUseStoredKeys);
 
     // 4) Build final ACS body for /acs/converse
+    console.log(`🔨 [sendChatMessage] [${messageId}] Building ACS converse payload...`);
     const body = buildConversePayload(
       {
         ...params,
@@ -281,14 +322,24 @@ export async function sendChatMessage(
       },
       effectiveAgentCwd
     );
+    
+    console.log(`🔨 [sendChatMessage] [${messageId}] Payload built:`, {
+      agent_config_name: body.agent_config_name,
+      session_id: body.session_id,
+      user_id: body.user_id,
+      prompt_length: body.prompt?.length || 0,
+      has_overrides: !!body.overrides,
+      auto_mode: body.auto_mode,
+      model_auto_mode: body.model_auto_mode
+    });
 
     // 5) POST to ACS Converse using httpApi
     const ACS_BASE =
       import.meta.env.VITE_ACS_BASE_URL || "http://localhost:8000";
     const url = `${ACS_BASE}/acs/converse`;
 
-    console.log(ACS_BASE);
-    console.log(`URL:::::: ${url}`);
+    console.log(`🌐 [sendChatMessage] [${messageId}] ACS Base URL: ${ACS_BASE}`);
+    console.log(`🌐 [sendChatMessage] [${messageId}] Full URL: ${url}`);
 
     // Optional: Attach Authorization header if you have a JWT; if so, remove user_id from body
     const headers: Record<string, string> = {
@@ -296,44 +347,73 @@ export async function sendChatMessage(
     };
 
     const hasJwt: boolean = false;
+    console.log(`🔐 [sendChatMessage] [${messageId}] JWT authentication: ${hasJwt}`);
 
     if (hasJwt) {
       // add to header and remove user_id from body
+      console.log(`🔐 [sendChatMessage] [${messageId}] Would add JWT to headers`);
     }
 
-    console.log(
-      "📡 [sendChatMessage] POST /acs/converse with redacted body:",
-      JSON.stringify({ ...body, prompt: `len(${body.prompt.length})` }, null, 2)
+    console.log(`📡 [sendChatMessage] [${messageId}] Preparing POST request to ACS`);
+    console.log(`📡 [sendChatMessage] [${messageId}] Headers:`, headers);
+    console.log(`📡 [sendChatMessage] [${messageId}] Body (redacted):`, 
+      JSON.stringify({ ...body, prompt: `[${body.prompt.length} chars]` }, null, 2)
     );
 
+    console.log(`🚀 [sendChatMessage] [${messageId}] Sending POST request to ACS...`);
+    const requestStartTime = Date.now();
+    
     // Use httpApi for the POST request
     const res = await httpApi.POST<ConverseResponse>(url, {
       headers,
       body,
     });
+    
+    const requestDuration = Date.now() - requestStartTime;
+    console.log(`📥 [sendChatMessage] [${messageId}] ACS request completed in ${requestDuration}ms`);
 
+    console.log(`🔍 [sendChatMessage] [${messageId}] Checking ACS response...`);
+    console.log(`🔍 [sendChatMessage] [${messageId}] Response status:`, res?.status);
+    console.log(`🔍 [sendChatMessage] [${messageId}] Response ok:`, res?.ok);
+    
     if (!res || !res.ok) {
       const errText = res?.rawBody || res?.statusText || "";
+      console.error(`❌ [sendChatMessage] [${messageId}] ACS request failed:`, {
+        status: res?.status,
+        statusText: res?.statusText,
+        rawBody: res?.rawBody,
+        error: errText
+      });
       throw new Error(`ACS converse error ${res?.status ?? "?"}: ${errText}`);
     }
 
     const data = res.data;
-    console.log("✅ [sendChatMessage] ACS accepted message", {
+    console.log(`✅ [sendChatMessage] [${messageId}] ACS accepted message successfully!`);
+    console.log(`✅ [sendChatMessage] [${messageId}] ACS response data:`, {
       session_id: data.session_id,
       suspended: data.conversation_suspended,
       cwd: data.current_agent_cwd,
+      response_messages_count: data.response_messages?.length || 0,
+      final_text_response: data.final_text_response ? '[present]' : '[null]'
     });
 
     // 6) Update status to reflect successful send to ACS
+    console.log(`🔄 [sendChatMessage] [${messageId}] Updating session status to awaiting`);
     useSessionStatusStore.getState().markAwaiting(sessionId);
 
+    console.log(`✅ [sendChatMessage] [${messageId}] Message send process completed successfully!`);
     return {
       success: true,
       userMessageId: userMessage.id,
     };
   } catch (error) {
-    console.error("❌ [sendChatMessage] Failed to send message:", error);
+    console.error(`💥 [sendChatMessage] [${messageId}] Failed to send message:`, {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    });
     toast.error("Failed to send message");
+    console.log(`🔄 [sendChatMessage] [${messageId}] Marking session as error`);
     useSessionStatusStore.getState().markError(sessionId);
     return {
       success: false,

@@ -12,9 +12,13 @@ async function _request<T = unknown>(
   url: string,
   options: ApiRequestOptions = {}
 ): Promise<HTTPBaseReturnType<T>> {
+  const requestId = `http_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const { headers = {}, body, params } = options;
-  // Logging request start
-  console.log(`[httpApi] ${method} ${url}`, { params, body, headers });
+  
+  console.log(`🌐 [httpApi] [${requestId}] Starting ${method} request to ${url}`);
+  console.log(`🌐 [httpApi] [${requestId}] Headers:`, headers);
+  console.log(`🌐 [httpApi] [${requestId}] Body:`, body ? JSON.stringify(body, null, 2) : 'No body');
+  console.log(`🌐 [httpApi] [${requestId}] Params:`, params);
   try {
     // Build query string for GET requests
     let fullUrl = url;
@@ -36,30 +40,55 @@ async function _request<T = unknown>(
       fetchOptions.body = JSON.stringify(body);
     }
 
+    console.log(`🚀 [httpApi] [${requestId}] Sending fetch request to: ${fullUrl}`);
+    const fetchStartTime = Date.now();
+    
     const response = await fetch(fullUrl, fetchOptions);
+    const fetchDuration = Date.now() - fetchStartTime;
+    
+    console.log(`📥 [httpApi] [${requestId}] Response received in ${fetchDuration}ms:`, {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      url: response.url
+    });
+    
     const rawBody = await response.clone().text();
+    console.log(`📥 [httpApi] [${requestId}] Raw response body length: ${rawBody.length}`);
+    
     let data: T;
     try {
       const contentType = response.headers.get("content-type");
+      console.log(`📥 [httpApi] [${requestId}] Content-Type: ${contentType}`);
+      
       if (contentType && contentType.includes("application/json")) {
+        console.log(`🔄 [httpApi] [${requestId}] Parsing JSON response...`);
         data = await response.clone().json();
+        console.log(`✅ [httpApi] [${requestId}] JSON parsed successfully`);
       } else {
+        console.log(`🔄 [httpApi] [${requestId}] Using raw text response`);
         data = rawBody as any;
       }
     } catch (e) {
+      console.error(`❌ [httpApi] [${requestId}] Failed to parse response:`, e);
       data = rawBody as any;
     }
     if (!response.ok) {
-      console.error(
-        `[httpApi] HTTP ${response.status} error for ${method} ${url}:`,
-        rawBody
-      );
+      console.error(`❌ [httpApi] [${requestId}] HTTP ${response.status} error for ${method} ${url}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        rawBody: rawBody.substring(0, 500) + (rawBody.length > 500 ? '...' : ''),
+        headers: Object.fromEntries(response.headers.entries())
+      });
       throw new Error(`HTTP ${response.status}: ${rawBody}`);
     }
-    // Logging request success
-    console.log(`[httpApi] Success ${method} ${url}`, {
+    
+    console.log(`✅ [httpApi] [${requestId}] Request successful:`, {
+      method,
+      url,
       status: response.status,
-      data,
+      dataType: typeof data,
+      dataSize: JSON.stringify(data).length
     });
     return {
       status: response.status,
@@ -71,7 +100,12 @@ async function _request<T = unknown>(
       ok: response.ok,
     };
   } catch (err) {
-    console.error(`[httpApi] Error in ${method} ${url}:`, err);
+    console.error(`💥 [httpApi] [${requestId}] Request failed:`, {
+      method,
+      url,
+      error: err instanceof Error ? err.message : err,
+      stack: err instanceof Error ? err.stack : undefined
+    });
     throw err;
   }
 }

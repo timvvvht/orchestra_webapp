@@ -13,6 +13,7 @@ import { isTauri } from "@/utils/environment";
 import PlanPane from "./PlanPane";
 import ChatPaneHeader from "./ChatPaneHeader";
 import CheckpointsPane from "./CheckpointsPane";
+import ChatMainCanonicalLegacy from "@/components/chat-interface/ChatMain";
 
 // Simple Error Boundary for debugging
 class ChatErrorBoundary extends React.Component<
