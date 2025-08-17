@@ -15,7 +15,7 @@ const UserProfile: React.FC = () => {
 	}
 
 	return (
-		<div style={{ padding: '1rem', color: '#070' }}>
+		<div className='!bg-white rounded-full text-black'>
 			<div>
 				<strong>Logged in as:</strong> {user.email || user.name || 'Unknown User'}
 			</div>

@@ -14,7 +14,6 @@ const rootEl = document.getElementById("app")!;
 createRoot(rootEl).render(
   <StrictMode>
     <AuthProvider>
-      <UserProfile />
       <Suspense
         fallback={
           <div className="min-h-screen bg-black flex items-center justify-center">

@@ -135,7 +135,7 @@ export const LeftRail: React.FC = () => {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       className={clsx(
-        "flex flex-col shrink-0 select-none h-full z-10",
+        "flex flex-col shrink-0 select-none min-h-full z-10",
         "transition-all duration-300 ease-in-out overflow-hidden",
         "bg-transparent ",
         open ? "w-[200px]" : "w-[68px]"
