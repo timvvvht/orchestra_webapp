@@ -25,6 +25,7 @@ import { supabase } from "@/auth/SupabaseClient";
 import { SCMManager } from "@/services/scm/SCMManager";
 import { getDefaultACSClient } from "@/services/acs";
 import { useMissionControlArchive } from "@/hooks/useMissionControlArchive";
+import SubmitGitHubPRButton from "../chat-interface/SubmitGitHubPRButton";
 
 interface ChatPaneHeaderProps {
   sessionId: string;
@@ -110,6 +111,11 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
     }
   };
 
+  const handleGitHubPRButtonPress = () => {
+    console.log("[ChatPaneHeader] Opening PR Creation Modal");
+    return;
+  };
+
   const handleArchive = async () => {
     try {
       await archiveSession(sessionId);
@@ -122,7 +128,10 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
   const canMerge = isComplete && agent.agent_cwd && !agent.isFinalized;
 
   return (
-    <div className="flex-shrink-0 border-b border-white/[0.06] bg-black/50 backdrop-blur-sm">
+    <div
+      className="flex-shrink-0 border-b border-white/[0.06] bg-black/50 backdrop-blur-sm"
+      id="ChatPaneHeader"
+    >
       <div className="px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Left: Session Info + Status */}
@@ -235,6 +244,14 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
                 )}
               </button>
             </div>
+
+            {/* Submit PR Button (Stub) */}
+            {sessionId && (
+              <SubmitGitHubPRButton
+                sessionId={sessionId}
+                onClick={handleGitHubPRButtonPress}
+              />
+            )}
 
             {/* Merge Button - Prominent when ready */}
             <AnimatePresence>
