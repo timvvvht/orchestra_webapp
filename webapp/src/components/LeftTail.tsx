@@ -137,7 +137,7 @@ export const LeftRail: React.FC = () => {
       className={clsx(
         "flex flex-col shrink-0 select-none min-h-full z-10",
         "transition-all duration-300 ease-in-out overflow-hidden",
-        "bg-transparent ",
+        "bg-transparent min-h-full max-h-screen",
         open ? "w-[200px]" : "w-[68px]"
       )}
     >
