@@ -29,6 +29,7 @@ import NewMessagesIndicator from "./NewMessagesIndicator";
 // import { Label } from "@/components/ui/label";
 import { cn } from "cn-utility";
 import { toast } from "sonner";
+import { Square } from "lucide-react";
 // import { Virtuoso } from 'react-virtuoso';
 
 // Import Mission Control specific styles
@@ -762,8 +763,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         const recentEventIds = sessionEvents.slice(-5); // Check last 5 events
         for (const eventId of recentEventIds) {
           const event = store.byId.get(eventId);
-          if (event?.timestamp) {
-            const eventTime = new Date(event.timestamp).getTime();
+          if (event?.createdAt) {
+            const eventTime = new Date(event.createdAt).getTime();
             mostRecentEventTime = Math.max(mostRecentEventTime, eventTime);
           }
         }
@@ -1100,6 +1101,13 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     sessionId ? s.getStatus(sessionId) === "awaiting" : false
   );
 
+  // Handle stop generating
+  const handleStopGenerating = useCallback(() => {
+    // stub implementation for now, TODO send request to acs/converse/cancel
+    console.log("🛑 [ChatMain] Stop generating");
+    
+  }, [sessionId]);
+
   // Recompute groups based on displayMessages for lazy rendering
   const mergedMessageGroups = useMemo(() => {
     if (!displayMessages.length) {
@@ -1407,6 +1415,21 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             renderContext === "mission-control" && "mission-control-input-area"
           )}
         >
+          {/* Stop Generating Button */}
+          {isWaitingForAI && (
+            <div className="px-4 py-2 border-b border-white/5">
+              <Button
+                onClick={handleStopGenerating}
+                variant="outline"
+                size="sm"
+                className="bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30"
+              >
+                <Square className="w-3 h-3 mr-2" />
+                Stop generating
+              </Button>
+            </div>
+          )}
+          
           {isDesktop ? (
             <LexicalChatInput
               onSubmit={handleSubmit}

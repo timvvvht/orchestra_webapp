@@ -39,69 +39,6 @@ export class ACSCoreService {
   }
 
   /**
-   * Internal: Build a compliant ACSConverseRequest with only supported fields.
-   * Note: agentCwd is mapped into overrides.agent_cwd_override to match backend contract.
-   */
-  private buildConverseRequest(params: {
-    userId?: string;
-    sessionId?: string | null;
-    message: string;
-    agentConfigName: string;
-    templateVariables?: CoreTemplateVars | Record<string, string>;
-    modelApiKeys?: Record<string, string>;
-    useStoredKeys?: boolean;
-    overrides?: AgentConfigOverrides | Record<string, any>;
-    agentCwd?: string;
-    autoMode?: boolean;
-    isBackgroundSession?: boolean;
-  }): ACSConverseRequest {
-    const {
-      userId,
-      sessionId,
-      message,
-      agentConfigName,
-      templateVariables,
-      modelApiKeys,
-      useStoredKeys,
-      overrides,
-      agentCwd,
-      autoMode,
-      isBackgroundSession,
-    } = params;
-
-    // Ensure agent_cwd_override is placed under overrides, not top-level
-    const mergedOverrides = {
-      ...(overrides || {}),
-      ...(agentCwd ? { agent_cwd_override: agentCwd } : {}),
-    };
-
-    const pruned = this.pruneOverrides(mergedOverrides);
-
-    const request: ACSConverseRequest = {
-      ...(userId ? { user_id: userId } : {}),
-      session_id: sessionId || null,
-      prompt: message,
-      agent_config_name: agentConfigName,
-      ...(typeof autoMode === "boolean" ? { auto_mode: autoMode } : {}),
-      ...(pruned ? { overrides: pruned } : {}),
-      ...(templateVariables
-        ? { template_variables: templateVariables as any }
-        : {}),
-      ...(typeof useStoredKeys === "boolean"
-        ? { use_stored_keys: useStoredKeys }
-        : {}),
-      ...(modelApiKeys && Object.keys(modelApiKeys).length
-        ? { model_api_keys: modelApiKeys }
-        : {}),
-      ...(typeof isBackgroundSession === "boolean"
-        ? { is_background_session: isBackgroundSession }
-        : {}),
-    };
-
-    return request;
-  }
-
-  /**
    * Main conversation endpoint - send a message and get AI response
    * This is the primary interface for chat interactions
    */
@@ -207,7 +144,7 @@ export class ACSCoreService {
       console.warn(
         '⚠️ [ACSCoreService] Detected string "undefined" or "null" as sessionId, converting to null'
       );
-      validSessionId = null;
+      validSessionId = undefined;
     }
 
     const request: ACSConverseRequest = {
