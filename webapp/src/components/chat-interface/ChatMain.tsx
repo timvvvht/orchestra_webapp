@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/ScrollArea";
 import { Button } from "@/components/ui/Button";
 import ChatScrollAnchor from "./ChatScrollAnchor";
 import NewMessagesIndicator from "./NewMessagesIndicator";
+import SessionDetailDebug from "./SessionDetailDebug";
 // import { Switch } from "@/components/ui/switch";
 // import { Label } from "@/components/ui/label";
 import { cn } from "cn-utility";
@@ -233,6 +234,7 @@ import { supabase } from "@/auth/SupabaseClient";
 import { ApprovalPanel } from "@/components/approval/ApprovalPanel";
 
 import { MessageTestControls } from "./MessageTestControls";
+import { httpApi } from "@/api/httpApi";
 
 // Lazy render constants
 const INITIAL_RENDER_BATCH = 15;
@@ -1105,7 +1107,17 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const handleStopGenerating = useCallback(() => {
     // stub implementation for now, TODO send request to acs/converse/cancel
     console.log("🛑 [ChatMain] Stop generating");
-    
+    // send a POST request to acs/converse/cancel
+    const ACS_BASE =
+      import.meta.env.VITE_ACS_BASE_URL || "http://localhost:8000";
+    const url = `${ACS_BASE}/acs/converse`;
+    httpApi.POST(url, {
+      headers: {},
+      body: {
+        session_id: sessionId,
+      },
+      params: {},
+    });
   }, [sessionId]);
 
   // Recompute groups based on displayMessages for lazy rendering
@@ -1219,12 +1231,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     }
   };
 
-  // Handle keyboard shortcuts (optional - ChatInput handles Enter key internally)
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // ChatInput component now handles Enter key submission internally
-    // This is just for any additional keyboard shortcuts if needed
-  };
-
   // Handle message forking
   const handleFork = async (messageId: string) => {
     toast.info("Forking not yet implemented in canonical mode");
@@ -1252,14 +1258,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Empty state - Apple style
   if (!sessionId) {
-    return (
-      <ChatEmptyState
-        onNewChatClick={() => setIsNewChatModalOpen(true)}
-        isNewChatModalOpen={isNewChatModalOpen}
-        onCloseNewChatModal={() => setIsNewChatModalOpen(false)}
-        chatUI={chatUI}
-      />
-    );
+    return <ChatEmptyState onStartChat={() => setIsNewChatModalOpen(true)} />;
   }
 
   return (
@@ -1308,7 +1307,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
       {/* Session Details Debug Component */}
       <div className="flex-shrink-0">
-        <SessionDetailsDebug />
+        <SessionDetailDebug />
       </div>
 
       {/* Tool Approval Panel - Shows pending tool approvals for user interaction */}
@@ -1324,14 +1323,14 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         />
       </div>
 
-      {/* Debug overlay */}
-      <StreamDebugOverlay isOpen={streamDebugOverlayOpen} />
+      {/* Debug overlay 
+      <StreamDebugOverlay isOpen={streamDebugOverlayOpen} />*/}
 
-      {/* Hydration debug overlay */}
+      {/* Hydration debug overlay 
       <HydrationDebugOverlay
         open={hydrationDebugOverlayOpen}
         onClose={() => setHydrationDebugOverlayOpen(false)}
-      />
+      />*/}
 
       {/* Pending Tools Debug Overlay */}
       {/* <PendingToolsDebugOverlay /> */}
@@ -1416,35 +1415,29 @@ const ChatMainCanonicalLegacyComponent: React.FC<
           )}
         >
           {/* Stop Generating Button */}
-          {isWaitingForAI && (
-            <div className="px-4 py-2 border-b border-white/5">
-              <Button
-                onClick={handleStopGenerating}
-                variant="outline"
-                size="sm"
-                className="bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30"
-              >
-                <Square className="w-3 h-3 mr-2" />
-                Stop generating
-              </Button>
-            </div>
-          )}
-          
+          <div className="px-4 py-2 border-b border-white/5">
+            <Button
+              onClick={handleStopGenerating}
+              variant="outline"
+              size="sm"
+              className="bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30"
+            >
+              <Square className="w-3 h-3 mr-2" />
+              Stop generating
+            </Button>
+          </div>
+
           {isDesktop ? (
             <LexicalChatInput
-              onSubmit={handleSubmit}
-              onKeyDown={handleKeyDown}
-              isTyping={isTyping}
-              isLoading={isLoading}
+              onSendMessage={handleSubmit}
               disabled={isWaitingForAI}
               placeholder="Message"
             />
           ) : (
             <MobileChatInput
-              onSubmit={handleSubmit}
+              onSendMessage={handleSubmit}
               disabled={isTyping || isLoading || isWaitingForAI}
               placeholder="Message"
-              isTyping={isTyping}
             />
           )}
         </div>
@@ -1463,9 +1456,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
       {/* New Chat Modal */}
       <NewChatModal
-        isVisible={isNewChatModalOpen}
+        isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
-        chat={chatUI}
+        //chat={chatUI}
       />
 
       {/* Debug Panel */}
@@ -1739,7 +1732,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
 // Memoize the component to prevent unnecessary re-renders when parent updates
 // but the actual props that matter to this component haven't changed
-const ChatMainCanonicalLegacy = React.memo(
+export const ChatMainCanonicalLegacy = React.memo(
   ChatMainCanonicalLegacyComponent,
   (prevProps, nextProps) => {
     // Only re-render if the props that actually matter have changed
@@ -1750,5 +1743,3 @@ const ChatMainCanonicalLegacy = React.memo(
     );
   }
 );
-
-export default ChatMainCanonicalLegacy;
