@@ -6,9 +6,8 @@ import {
   ArrowRight,
   Save,
   GitBranch,
-  Archive,
 } from "lucide-react";
-import { useMissionControlStore } from "@/stores/missionControlStore";
+import { useMissionControlStore, ViewMode } from "@/stores/missionControlStore";
 import { useDraftStore } from "@/stores/draftStore";
 import { useMissionControlArchive } from "@/hooks/useMissionControlArchive";
 import AgentGroup from "./AgentGroup";
@@ -16,22 +15,21 @@ import DraftCard from "./DraftCard";
 import AgentCard from "./AgentCard";
 import CwdFilterDropdown from "./CwdFilterDropdown";
 import { motion } from "framer-motion";
-import { isTauri } from "@/utils/environment";
 import { useAuth } from "@/auth/AuthContext";
 import { toast } from "sonner";
 import { ProjectSelectionModal } from "@/components/modals/ProjectSelectionModal";
+import ViewModeSlider from "./agent-list/view-mode-slider/ViewModeSlider";
 
-interface ViewMode {
-    icon?: any
-    title: string
-    
+export interface ViewModeOption {
+  icon?: any;
+  title: string;
+  slug: ViewMode;
 }
 
 const AgentListPanel: React.FC = () => {
   const listRef = useRef<HTMLDivElement>(null);
   const {
     viewMode,
-    setViewMode,
     getGroupedSessions,
     collapsedGroups,
     selectedSession,
@@ -46,10 +44,6 @@ const AgentListPanel: React.FC = () => {
   const drafts = getDraftsArray();
   const groupedSessions = getGroupedSessions();
   const [showProjectModal, setShowProjectModal] = useState(false);
-
-
-  const viewModes = [
-  ]
 
   // Split idle sessions into unread and read
   const unreadIdle = groupedSessions.idle.filter((agent) =>
@@ -80,41 +74,13 @@ const AgentListPanel: React.FC = () => {
       >
         {/* Sticky Filters Bar */}
         <div className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm border-b border-white/10">
-          <div className="px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="px-6 py-3 flex items-center ">
+            <div className="flex items-center gap-3 justify-between w-full">
               {/* Directory Filter */}
               <CwdFilterDropdown />
 
               {/* View Mode Toggle */}
-              <div className="flex items-center bg-white/[0.02] backdrop-blur-sm rounded-lg p-0.5 border border-white/[0.06]">
-                <button
-                  onClick={() => setViewMode("active")}
-                  className={`
-                    px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200
-                    ${
-                      viewMode === "active"
-                        ? "bg-white/[0.08] text-white/90 shadow-sm"
-                        : "text-white/50 hover:text-white/70 hover:bg-white/[0.03]"
-                    }
-                  `}
-                >
-                  Active
-                </button>
-                <button
-                  onClick={() => setViewMode("archived")}
-                  className={`
-                    px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-1.5
-                    ${
-                      viewMode === "archived"
-                        ? "bg-white/[0.08] text-white/90 shadow-sm"
-                        : "text-white/50 hover:text-white/70 hover:bg-white/[0.03]"
-                    }
-                  `}
-                >
-                  <Archive className="w-3 h-3" />
-                  Archived
-                </button>
-              </div>
+              <ViewModeSlider />
             </div>
           </div>
         </div>
