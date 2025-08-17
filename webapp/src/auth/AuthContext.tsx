@@ -361,12 +361,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginGitHub = async (): Promise<AuthResult> => {
     try {
+      // https://github.com/login/oauth/authorize?client_id=timvvvht.ai%40gmail.com&redirect_uri=https%3A%2F%2Fwurmfjxtyntxnstqbyms.supabase.co%2Fauth%2Fv1%2Fcallback&response_type=code&scope=user%3Aemail&state=eyJhbGciOiJIUzI1NiIsImtpZCI6IlRQRjRvTGNPVU5ZTm9IT1ciLCJ0eXAiOiJKV1QifQ.eyJleHAiOjE3NTU0NTYwMTIsInNpdGVfdXJsIjoiaHR0cDovL2xvY2FsaG9zdDo1MTczL2F1dGgvY2FsbGJhY2siLCJpZCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMCIsImZ1bmN0aW9uX2hvb2tzIjpudWxsLCJwcm92aWRlciI6ImdpdGh1YiIsInJlZmVycmVyIjoiaHR0cDovL2xvY2FsaG9zdDo1MTczLyIsImZsb3dfc3RhdGVfaWQiOiIifQ.2MHkPqKGXhet5xBKnxH4-Ioj7WpB7KQ8mDQqCBRfxd4
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
       });
+      //options: {
+      //redirectTo: `${window.location.origin}/auth/callback`,
+      //},
       if (error) {
         console.error("GitHub login error:", error);
         return { success: false, error: error.message };
