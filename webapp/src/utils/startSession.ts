@@ -2,10 +2,11 @@
 import { supabase } from "@/services/supabase/client"; // adjust to your actual client import
 import { getCurrentUserId } from "@/services/supabase/authService"; // if you have a helper
 import { buildSessionMetadata } from "@/utils/buildSessionMetadata"; // ensure this constructs display fields
+import { ACSClient } from "@/services/acs";
 
 export async function startSession(...) {
   // 1) Create ACS session
-  const createRes = await acsClient.sessions.createSession({
+  const createRes = await ACSClient.sessions.createSession({
     name,
     agent_config_id,
     // ...other fields
