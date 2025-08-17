@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo, useState } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -56,7 +56,13 @@ const fetchAcsSessions = async (): Promise<MissionControlAgent[]> => {
   return list.map(mapACSSessionsToMCAgent);
 };
 
-const MissionControl: React.FC = () => {
+interface MissionControlProps {
+  repo: any;
+}
+
+const MissionControl: React.FC<MissionControlProps> = ({
+  repo,
+}: MissionControlProps) => {
   // const { isAuthenticated, setShowModal } = useAuth();
   const isAuthenticated = true;
   const setShowModal = () => {};
@@ -72,7 +78,6 @@ const MissionControl: React.FC = () => {
     setShowNewDraftModal,
     setSessions,
     setPlans,
-    setPlanRefetchCallback,
     setSessionRefetchCallback,
     sessions: currentSessions,
     initialDraftCodePath,
