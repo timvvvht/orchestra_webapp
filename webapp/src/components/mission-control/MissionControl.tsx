@@ -86,12 +86,9 @@ const MissionControl: React.FC = () => {
   //   error,
   //   refetch: refetchSessions,
   // } = useSessionsSnapshot(viewMode);
-  const sessions: any[] = [];
-  const isLoading = false;
+  const sessions = useMissionControlStore((s) => s.sessions);
+  const isLoading = false; // still stubbed
   const error = null;
-  const refetchSessions: () => Promise<void> = useCallback(() => {
-    return Promise.resolve();
-  }, []);
 
   // Get session IDs for plans fetching
   const sessionIds = useMemo(() => {
@@ -110,17 +107,6 @@ const MissionControl: React.FC = () => {
   // Set up real-time updates and hotkeys
   // useMissionControlFirehose();
   // useMissionControlHotkeys();
-
-  // Update store when sessions change
-  useEffect(() => {
-    const current = useMissionControlStore.getState().sessions;
-    const sameLength = current.length === sessions.length;
-    const sameIds =
-      sameLength && current.every((s, i) => s.id === sessions[i]?.id);
-    if (!sameIds) {
-      setSessions(sessions);
-    }
-  }, [sessions, setSessions]);
 
   // Update store when plans change
   useEffect(() => {
