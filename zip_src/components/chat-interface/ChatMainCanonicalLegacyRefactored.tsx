@@ -1,85 +1,91 @@
 /**
  * ChatMainCanonicalLegacyRefactored - Refactored version of the main chat interface
- * 
+ *
  * This is a refactored version that breaks down the monolithic ChatMainCanonicalLegacy
  * component into smaller, more manageable pieces:
- * 
+ *
  * - Custom hooks for state management (useChatSession, useChatScrolling, useChatSSE)
  * - Layout components (ChatContainer, ChatDebugOverlay)
  * - Better separation of concerns and improved maintainability
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
 
 // UI Components
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 // Chat Components
-import ChatHeader from '@/components/chat-interface/ChatHeader';
-import SessionDetailsDebug from '@/components/chat-interface/SessionDetailsDebug';
-import ApprovalPanel from '@/components/chat-interface/ApprovalPanel';
-import StreamDebugOverlay from '@/components/chat-interface/StreamDebugOverlay';
-import HydrationDebugOverlay from '@/components/chat-interface/HydrationDebugOverlay';
-import ChatMessageList from '@/components/chat-interface/ChatMessageList';
-import ChatTypingIndicator from '@/components/chat-interface/ChatTypingIndicator';
-import ChatScrollAnchor from '@/components/chat-interface/ChatScrollAnchor';
-import NewMessagesIndicator from '@/components/chat-interface/NewMessagesIndicator';
-import ChatInput from '@/components/chat-interface/ChatInput';
-import MobileChatInput from '@/components/chat-interface/MobileChatInput';
-import AgentProfile from '@/components/chat-interface/AgentProfile';
-import NewChatModal from '@/components/chat-interface/NewChatModal';
+import ChatHeader from "@/components/chat-interface/ChatHeader";
+import SessionDetailsDebug from "@/components/chat-interface/SessionDetailsDebug";
+import ApprovalPanel from "@/components/chat-interface/ApprovalPanel";
+import StreamDebugOverlay from "@/components/chat-interface/StreamDebugOverlay";
+import HydrationDebugOverlay from "@/components/chat-interface/HydrationDebugOverlay";
+import ChatMessageList from "@/components/chat-interface/ChatMessageList";
+import ChatTypingIndicator from "@/components/chat-interface/ChatTypingIndicator";
+import ChatScrollAnchor from "@/components/chat-interface/ChatScrollAnchor";
+import NewMessagesIndicator from "@/components/chat-interface/NewMessagesIndicator";
+import ChatInput from "@/components/chat-interface/ChatInput";
+import MobileChatInput from "@/components/chat-interface/MobileChatInput";
+import AgentProfile from "@/components/chat-interface/AgentProfile";
+import NewChatModal from "@/components/chat-interface/NewChatModal";
 
 // Extracted Components and Hooks
-import { ChatContainer } from './components/ChatContainer';
-import { useChatSession } from './hooks/useChatSession';
-import { useChatScrolling } from './hooks/useChatScrolling';
-import { useChatSSE } from './hooks/useChatSSE';
+import { ChatContainer } from "./components/ChatContainer";
+import { useChatSession } from "./hooks/useChatSession";
+import { useChatScrolling } from "./hooks/useChatScrolling";
+import { useChatSSE } from "./hooks/useChatSSE";
 
 // Stores and Utils
-import { useSessionStatusStore } from '@/stores/sessionStatusStore';
-import { useChatUI } from '@/contexts/ChatUIContext';
-import { useSelections } from '@/contexts/SelectionsContext';
-import { useAuth } from '@/hooks/useAuth';
-import { useBYOKStore } from '@/stores/byokStore';
-import { useACSClient } from '@/hooks/useACSClient';
-import { usePendingToolsStore } from '@/stores/pendingToolsStore';
+import { useSessionStatusStore } from "@/stores/sessionStatusStore";
+import { useChatUI } from "@/contexts/ChatUIContext";
+import { useSelections } from "@/contexts/SelectionsContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useBYOKStore } from "@/stores/byokStore";
+import { useACSClient } from "@/hooks/useACSClient";
+import { usePendingToolsStore } from "@/stores/pendingToolsStore";
 
 // Utils
-import { formatMessageDate, shouldGroupMessages } from '@/utils/chat';
-import { isOptimizedFinalAssistantMessage, getOptimizedFileOperationsForResponse } from '@/utils/messageOptimization';
-import { shouldUseUnifiedRendering, renderUnifiedTimelineEvent } from '@/utils/unifiedRendering';
-import { mergeMessageGroups } from '@/utils/messageGrouping';
+import { formatMessageDate, shouldGroupMessages } from "@/utils/chat";
+import {
+  isOptimizedFinalAssistantMessage,
+  getOptimizedFileOperationsForResponse,
+} from "@/utils/messageOptimization";
+import {
+  shouldUseUnifiedRendering,
+  renderUnifiedTimelineEvent,
+} from "@/utils/unifiedRendering";
+import { mergeMessageGroups } from "@/utils/messageGrouping";
 
 interface ChatMainCanonicalLegacyRefactoredProps {
   sidebarCollapsed: boolean;
   sessionId?: string;
 }
 
-const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefactoredProps> = ({
-  sidebarCollapsed,
-  sessionId: propSessionId
-}) => {
+const ChatMainCanonicalLegacyRefactored: React.FC<
+  ChatMainCanonicalLegacyRefactoredProps
+> = ({ sidebarCollapsed, sessionId: propSessionId }) => {
   // Breakpoint detection
-  const isDesktop = useBreakpoint('md');
+  const isDesktop = useBreakpoint("md");
 
   // External stores and contexts
   const { user } = useAuth();
   const { preferBYOK } = useBYOKStore();
-  const { connectStreaming, disconnectStreaming, sseConnected, onSSEEvent } = useACSClient();
+  const { connectStreaming, disconnectStreaming, sseConnected, onSSEEvent } =
+    useACSClient();
   const { sendMessage } = useChatUI();
   const { selectedAgent, selectedModel } = useSelections();
 
   // Custom hooks for extracted functionality
-  const { 
-    sessionId, 
-    messages, 
-    setMessages, 
-    localIsLoading, 
-    setLocalIsLoading, 
-    loadEvents 
+  const {
+    sessionId,
+    messages,
+    setMessages,
+    localIsLoading,
+    setLocalIsLoading,
+    loadEvents,
   } = useChatSession({ propSessionId });
 
   const {
@@ -96,11 +102,11 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
   } = useChatScrolling({ sessionId, messages });
 
   // SSE event processing
-  useChatSSE({ 
-    sessionId, 
-    sseConnected, 
-    disconnectStreaming, 
-    loadEvents 
+  useChatSSE({
+    sessionId,
+    sseConnected,
+    disconnectStreaming,
+    loadEvents,
   });
 
   // Local UI state
@@ -108,7 +114,8 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [refinedMode, setRefinedMode] = useState(false);
   const [streamDebugOverlayOpen, setStreamDebugOverlayOpen] = useState(false);
-  const [hydrationDebugOverlayOpen, setHydrationDebugOverlayOpen] = useState(false);
+  const [hydrationDebugOverlayOpen, setHydrationDebugOverlayOpen] =
+    useState(false);
   const [toolDebugOpen, setToolDebugOpen] = useState(false);
   const [eventTapDebugOpen, setEventTapDebugOpen] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -119,8 +126,8 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
   }>({ supabaseData: [], storeData: [], loading: false });
 
   // Session status and typing indicator
-  const idleNow = useSessionStatusStore(
-    state => (sessionId ? state.getStatus(sessionId) === 'idle' : true)
+  const idleNow = useSessionStatusStore((state) =>
+    sessionId ? state.getStatus(sessionId) === "idle" : true
   );
 
   const isTyping = useMemo(() => {
@@ -130,8 +137,8 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
     }
 
     // Check if any message is currently streaming
-    const hasStreamingMessage = messages.some(m => m.isStreaming);
-    
+    const hasStreamingMessage = messages.some((m) => m.isStreaming);
+
     // Show typing if there are streaming messages
     return hasStreamingMessage;
   }, [messages, sessionId, idleNow]);
@@ -148,7 +155,7 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
   // ✅ WATCHDOG: Mark session as idle if no streaming messages detected
   useEffect(() => {
     const interval = setInterval(() => {
-      const stillTyping = messages.some(m => m.isStreaming);
+      const stillTyping = messages.some((m) => m.isStreaming);
       if (!stillTyping && sessionId) {
         useSessionStatusStore.getState().markIdle(sessionId);
       }
@@ -163,7 +170,7 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
 
     try {
       setLocalIsLoading(true);
-      
+
       // Connect to streaming if not already connected
       if (!sseConnected) {
         await connectStreaming();
@@ -175,13 +182,13 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
         sessionId,
         agentId: selectedAgent?.id,
         modelId: selectedModel?.id,
-        preferBYOK
+        preferBYOK,
       });
 
       // Mark session as awaiting response
       useSessionStatusStore.getState().markAwaiting(sessionId);
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error("Failed to send message:", error);
     } finally {
       setLocalIsLoading(false);
     }
@@ -193,7 +200,7 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
 
   const handleFork = (messageId: string) => {
     // Handle message forking
-    console.log('Fork message:', messageId);
+    console.log("Fork message:", messageId);
   };
 
   return (
@@ -232,9 +239,9 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
 
       {/* Debug Overlays */}
       <StreamDebugOverlay isOpen={streamDebugOverlayOpen} />
-      <HydrationDebugOverlay 
-        open={hydrationDebugOverlayOpen} 
-        onClose={() => setHydrationDebugOverlayOpen(false)} 
+      <HydrationDebugOverlay
+        open={hydrationDebugOverlayOpen}
+        onClose={() => setHydrationDebugOverlayOpen(false)}
       />
 
       {/* Message Display Area */}
@@ -254,10 +261,18 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
             formatMessageDate={formatMessageDate}
             shouldGroupMessages={shouldGroupMessages}
             isOptimizedFinalAssistantMessage={isOptimizedFinalAssistantMessage}
-            getOptimizedFileOperationsForResponse={getOptimizedFileOperationsForResponse}
+            getOptimizedFileOperationsForResponse={
+              getOptimizedFileOperationsForResponse
+            }
             shouldUseUnifiedRendering={shouldUseUnifiedRendering}
             renderUnifiedTimelineEvent={(event, index, events) =>
-              renderUnifiedTimelineEvent(event, index, events, false, refinedMode)
+              renderUnifiedTimelineEvent(
+                event,
+                index,
+                events,
+                false,
+                refinedMode
+              )
             }
           />
 
@@ -265,7 +280,10 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
           <ChatTypingIndicator
             isVisible={isLoading || isWaitingForAI || false}
             agentName="AI Assistant"
-            showThinkingState={messages.length > 0 && messages[messages.length - 1].thinking || false}
+            showThinkingState={
+              (messages.length > 0 && messages[messages.length - 1].thinking) ||
+              false
+            }
           />
 
           {/* Chat Scroll Anchor */}
@@ -312,7 +330,7 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
           <AgentProfile
             isOpen={isProfileOpen}
             onClose={() => setIsProfileOpen(false)}
-            agentId={'canonical-agent'}
+            agentId={"canonical-agent"}
           />
         )}
       </AnimatePresence>
@@ -348,30 +366,34 @@ const ChatMainCanonicalLegacyRefactored: React.FC<ChatMainCanonicalLegacyRefacto
             <div className="flex-1 overflow-auto p-4">
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-white mb-2">Session Info</h4>
+                  <h4 className="text-sm font-medium text-white mb-2">
+                    Session Info
+                  </h4>
                   <div className="text-xs text-gray-300 font-mono">
                     Session ID: {sessionId}
                     <br />
                     Messages: {messages.length}
                     <br />
-                    Loading: {isLoading ? 'Yes' : 'No'}
+                    Loading: {isLoading ? "Yes" : "No"}
                     <br />
-                    Typing: {isTyping ? 'Yes' : 'No'}
+                    Typing: {isTyping ? "Yes" : "No"}
                     <br />
-                    SSE Connected: {sseConnected ? 'Yes' : 'No'}
+                    SSE Connected: {sseConnected ? "Yes" : "No"}
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium text-white mb-2">Scroll State</h4>
+                  <h4 className="text-sm font-medium text-white mb-2">
+                    Scroll State
+                  </h4>
                   <div className="text-xs text-gray-300 font-mono">
-                    At Bottom: {isAtBottom ? 'Yes' : 'No'}
+                    At Bottom: {isAtBottom ? "Yes" : "No"}
                     <br />
-                    Anchor Visible: {anchorVisible ? 'Yes' : 'No'}
+                    Anchor Visible: {anchorVisible ? "Yes" : "No"}
                     <br />
                     New Messages: {newMessageCount}
                     <br />
-                    Scrolled Up: {hasScrolledUp ? 'Yes' : 'No'}
+                    Scrolled Up: {hasScrolledUp ? "Yes" : "No"}
                   </div>
                 </div>
               </div>

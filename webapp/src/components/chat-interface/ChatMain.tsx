@@ -294,8 +294,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   hideHeader = false,
   hideInput = false,
 }) => {
-  // Responsive breakpoint detection
-  const isDesktop = useBreakpoint();
 
   // Performance monitoring
   usePerformanceMonitor();
@@ -763,7 +761,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         for (const eventId of recentEventIds) {
           const event = store.byId.get(eventId);
           if (event?.createdAt) {
-            const eventTime = new Date(event.createdAt).getTime();
+            const eventTime = new Date(event.timestamp).getTime();
             mostRecentEventTime = Math.max(mostRecentEventTime, eventTime);
           }
         }
@@ -1350,7 +1348,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             messages={displayMessages as any}
             mergedMessageGroups={mergedMessageGroups}
             refinedMode={refinedMode}
-            isDesktop={isDesktop}
+            isDesktop={false}
             handleFork={handleFork}
             formatMessageDate={formatMessageDate}
             shouldGroupMessages={shouldGroupMessages}
