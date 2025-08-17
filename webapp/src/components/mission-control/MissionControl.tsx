@@ -53,6 +53,11 @@ const MissionControl: React.FC = () => {
   // const { isAuthenticated, setShowModal } = useAuth();
   const isAuthenticated = true;
   const setShowModal = () => {};
+
+  const location = useLocation() as any;
+  const navigate = useNavigate();
+  const provisionState = location?.state?.provision;
+
   const {
     viewMode,
     showNewDraftModal,

@@ -655,6 +655,8 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       const agentConfigName =
         selectedAgentConfig?.ai_config?.model_id || "General";
 
+      console.log("[NewTaskModal][sendCore] Agent Config: ", agentConfigName);
+
       // Truncate content for title
       const MAX_TITLE_LENGTH = 60;
       const truncatedContent =
@@ -688,10 +690,27 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         backgroundProcessing: true,
       };
 
+      console.log(
+        "[NewTaskModal][sendCore] Session Data Created:",
+        sessionData
+      );
+
       // Insert session into store
       const store = useMissionControlStore.getState();
-      const currentSessions = store.sessions;
+      const currentSessions = useMissionControlStore.getState().sessions;
       store.setSessions([sessionData, ...currentSessions]);
+
+      console.debug(
+        "[NewTaskModal][sendCore] currentSessions: ",
+        JSON.stringify(useMissionControlStore.getState().sessions, null, 2)
+      );
+
+      if (currentSessions.length === 0) {
+        console.error(
+          "[NewTaskModal][coreSend] Session Not Created!\nSession Details: ",
+          sessionData
+        );
+      }
 
       // Notify parent
       if (onSessionCreated) {
@@ -702,13 +721,26 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       toast.success("Task created", {
         description: "Orchestra is preparing your workspace...",
       });
+      console.log(
+        "[NewTaskModal][sendCore] Task Created!\nOrchestra is preparing your workspace..."
+      );
+
+      const pathTrim = codePath.trim();
+      const name = pathTrim.split(/[\\\/]/).pop() || pathTrim;
 
       // Add to recent projects
       try {
-        const pathTrim = codePath.trim();
-        const name = pathTrim.split(/[\\\/]/).pop() || pathTrim;
-        recentProjectsManager.add({ name, path: pathTrim });
-      } catch {}
+        recentProjectsManager.add({
+          name,
+          path: pathTrim,
+          lastAccessed: Date.now(),
+        });
+      } catch (error: any) {
+        console.error(
+          `[NewTastkModal][sendCore] Failed to add ${name} to recent projects: `,
+          error.message || "Unknown error"
+        );
+      }
 
       // Clear any prefill hint
       try {
@@ -734,7 +766,6 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         firstMessage: remappedContent,
         enableWorktrees: enableWorktrees, // Use user preference
         skipWorkspacePreparation: !enableWorktrees,
-        modelMode: "auto", // Always auto
         autoMode: true,
         modelAutoMode: true,
         roleModelOverrides: AUTO_MODE_PRESETS.best, // Always use best preset
