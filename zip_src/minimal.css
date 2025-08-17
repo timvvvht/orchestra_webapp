@@ -1,0 +1,193 @@
+/* Import theme variables */
+@import './themes.css';
+
+/* Import toast system styles */
+@import './components/ui/toast/toast.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme transition helper */
+.theme-transition {
+  transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out;
+}
+
+@layer base {
+  * {
+    @apply border-neutral-200;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+  }
+  
+  /* Prevent scroll lock on small screens - only apply on desktop */
+  @media (min-width: 768px) {
+    html, body, #root {
+      overflow: hidden;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+  }
+  body {
+    /* Use CSS variables for base styling */
+    background-color: var(--color-surface-0);
+    color: var(--color-text-normal);
+    font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif);
+  }
+  
+  /* Basic scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-scrollbar-thumb);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-scrollbar-thumb-hover);
+  }
+  
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-scrollbar-thumb) transparent;
+  }
+  
+  /* Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold tracking-tight;
+  }
+  h1 {
+    @apply text-36 leading-[1.2];
+  }
+  h2 {
+    @apply text-30 leading-[1.2];
+  }
+  h3 {
+    @apply text-24 leading-[1.2];
+  }
+  h4 {
+    @apply text-20 leading-[1.2];
+  }
+  h5, h6 {
+    @apply text-16 leading-[1.2];
+  }
+  p, li, td, th, input, textarea, select, button {
+    @apply text-16 leading-[1.5];
+  }
+  code, pre {
+    @apply font-mono text-14 leading-[1.5];
+  }
+  small {
+    @apply text-14 leading-[1.5];
+  }
+}
+
+@layer components {
+  /* Basic UI components */
+  .card {
+    @apply rounded-lg bg-white p-6 shadow-sm border border-neutral-200;
+  }
+  
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium shadow
+    bg-brand-500 hover:bg-brand-600 active:bg-brand-700
+    text-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all duration-150;
+  }
+  
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium
+    bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300
+    text-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-300 transition-all duration-150;
+  }
+  
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium
+    bg-transparent hover:bg-neutral-100 active:bg-neutral-200
+    text-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-300 transition-all duration-150;
+  }
+  
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium shadow
+    bg-danger-500 hover:bg-danger-600 active:bg-danger-700
+    text-white focus:outline-none focus:ring-2 focus:ring-danger-300 transition-all duration-150;
+  }
+  
+  .input-standard {
+    @apply w-full h-10 px-3 rounded-md border border-neutral-300
+    bg-white/80 placeholder:text-neutral-500 focus:ring-2 focus:ring-brand-400 focus:border-transparent transition-all duration-150;
+  }
+}
+
+/* Search Modal Enhancements */
+@layer base {
+  :root {
+    --search-modal-backdrop: 0 0 0 / 0.8;
+    --search-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+  
+  .dark {
+    --search-modal-backdrop: 0 0 0 / 0.9;
+    --search-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Smooth scrollbar for search results */
+.search-results-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+.search-results-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.search-results-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-results-scroll::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.search-results-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Snippet highlighting for search results */
+.snippet-highlight em {
+  font-style: normal;
+  @apply font-semibold text-primary;
+}
+
+/* Debug interface animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.3s ease-out;
+}

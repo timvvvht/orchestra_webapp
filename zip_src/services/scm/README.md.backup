@@ -1,0 +1,106 @@
+# Orchestra SCM Service
+
+Git-based Source Control Management layer for Orchestra, based on VS Code's battle-tested Git extension core logic.
+
+## Overview
+
+This service provides local-only Git-based SCM functionality for Orchestra workspaces:
+
+- **One .orchestra/ repo per workspace** (user CWD), auto-managed
+- **Core features**: Create checkpoint (commit), revert, diff, and history inspection
+- **Local-only operation** - never touches real git repos or syncs upstream
+- **Foundation for future advanced SCM features**
+
+## Architecture
+
+### Files Copied from VS Code Git Extension
+
+- `git.ts` - Git process wrapper and core Git operations
+- `repository.ts` - Repository model and high-level Git operations  
+- `decorators.ts` - Utility decorators (memoize, throttle, sequentialize, debounce)
+- `util.ts` - Utility functions for file operations, path handling, etc.
+- `types.ts` - TypeScript type definitions (from git.d.ts)
+
+### Orchestra-Specific Files
+
+- `SCMManager.ts` - Main service class that manages workspace repositories
+- `index.ts` - Main exports for the service
+
+## Key Components
+
+### SCMManager
+
+The main service class that:
+- Manages map of CWD → Repository (one per workspace)
+- Maintains .orchestra/ hidden Git repository, initialized on first-use
+- Caches Repository instance(s) in-process for efficient repeated operations
+
+#### API Methods
+
+- `getRepoForCwd(cwd): Repository` - Get or create repository for workspace
+- `checkpoint(cwd, message): sha` - Create checkpoint (commit)
+- `diffBetween(cwd, baseSha, targetSha): diffText` - Get diff between commits
+- `revert(cwd, sha): void` - Revert workspace to commit
+- `getHistory(cwd): Commit[]` - Get commit history
+- `getFileAtCommit(cwd, sha, filePath): string` - Get file content at commit
+
+## Integration Points
+
+### LocalToolOrchestrator Integration
+
+Every tool execution should trigger:
+1. Pre-checkpoint: `SCMManager.checkpoint(cwd, 'Before: tool X')`
+2. Post-checkpoint: `SCMManager.checkpoint(cwd, 'After: tool X')`
+3. Timeline emission: `diffBetween` results for UI display
+
+### Monaco DiffEditor Integration
+
+- SCMManager exposes `getFileAtCommit` to supply each side of diff on demand
+- UI calls SCM APIs to request content for display
+
+### Tauri Bridge (Future)
+
+SCM operations can be exposed to Tauri as native commands if needed for performance:
+- `scm_checkpoint`
+- `scm_diff` 
+- `scm_revert`
+- `scm_history`
+
+## Next Steps
+
+1. **Replace VS Code Dependencies**: Update imports to use Orchestra/Node.js equivalents
+2. **Integration Testing**: Test with LocalToolOrchestrator
+3. **Monaco Integration**: Connect diff viewing to Monaco DiffEditor
+4. **Error Handling**: Robust error handling and recovery
+5. **Performance Optimization**: Optimize for large workspaces
+
+## Local-Only Guarantee
+
+This SCM implementation:
+- ✅ Only operates on .orchestra/ hidden directories
+- ✅ Never touches real user Git repositories
+- ✅ Never syncs with upstream/remote repositories
+- ✅ Provides complete workspace history isolation
+- ✅ Safe for experimentation and rollback
+
+## File Structure
+
+```
+/Users/tim/Code/orchestra/src/services/scm/
+├── SCMManager.ts      # Main service class (Orchestra-specific)
+├── git.ts             # Git process wrapper (from VS Code)
+├── repository.ts      # Repository model (from VS Code)
+├── decorators.ts      # Utility decorators (from VS Code)
+├── util.ts           # Utility functions (from VS Code)
+├── types.ts          # Type definitions (from VS Code git.d.ts)
+├── index.ts          # Main exports
+└── README.md         # This file
+```
+
+## Status
+
+✅ **COMPLETED**: File copying and basic structure
+🔄 **IN PROGRESS**: Dependency adaptation for Orchestra
+⏳ **PENDING**: Integration with LocalToolOrchestrator
+⏳ **PENDING**: Monaco DiffEditor integration
+⏳ **PENDING**: Tauri bridge implementation

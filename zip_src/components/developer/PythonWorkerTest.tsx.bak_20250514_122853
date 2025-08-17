@@ -1,0 +1,291 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
+
+// Matches Rust struct ChatMessagePayload in chat_types.rs
+interface ChatMessage {
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: Array<{ type: 'text'; text: string } | { type: 'tool_use'; tool_use_id: string; name: string; input: any } | { type: 'tool_result'; tool_use_id: string; content: any; is_error?: boolean }>;
+    name?: string;
+}
+
+// Define the expected structure of the event payload from backend
+interface AgentEventPayload {
+    type: 'RawTestOutput' | 'RawTestError' | 'chunk' | 'done' | 'final_message_history' | 'tool_call' | 'tool_result' | 'error' | string; // Added snake_case and tool types
+    sessionId: string; 
+    data?: any; 
+    output_string?: string; 
+    error_message?: string; 
+    delta?: string; 
+    history?: ChatMessage[]; 
+    current_messages?: ChatMessage[]; 
+}
+
+export function PythonWorkerTestConsole() {
+    const [targetSessionId, setTargetSessionId] = useState<string>('');
+    const [rawInput, setRawInput] = useState<string>('');
+    const [consoleLog, setConsoleLog] = useState<string[]>([]); 
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]); 
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isStartingSession, setIsStartingSession] = useState<boolean>(false);
+    const [sendMode, setSendMode] = useState<'raw' | 'message'>('message');
+
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+
+    const appendToConsoleLog = useCallback((message: string, type: 'INFO' | 'ERROR' | 'WORKER_OUT' | 'WORKER_ERR' | 'FRONTEND' | 'DEBUG' | 'WARN' = 'INFO') => {
+        setConsoleLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] [${type}] ${message}`]);
+    }, []);
+
+    useEffect(() => {
+        if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+    }, [chatMessages, consoleLog]);
+
+    const handleStartNewSession = async () => {
+        appendToConsoleLog("Attempting to start a new test session...", 'FRONTEND');
+        setIsStartingSession(true);
+        try {
+            const newSessionId = await invoke<string>('start_new_test_session');
+            setTargetSessionId(newSessionId);
+            setChatMessages([]); 
+            setConsoleLog([]); 
+            appendToConsoleLog(`New session started with ID: ${newSessionId}`, 'FRONTEND');
+            setRawInput('');
+        } catch (error) {
+            appendToConsoleLog(`Failed to start new session: ${error}`, 'ERROR');
+        } finally {
+            setIsStartingSession(false);
+        }
+    };
+
+    useEffect(() => {
+        let unlisten: UnlistenFn | undefined;
+
+        async function setupAgentEventListener() {
+            if (!targetSessionId.trim()) {
+                return;
+            }
+
+            appendToConsoleLog(`DEBUG: Setting up listener for target_sid: ${targetSessionId}`, 'DEBUG');
+            unlisten = await listen<AgentEventPayload>('agent_event', (event) => {
+                appendToConsoleLog(`DEBUG: Raw Event Received: type=${event.payload.type}, event_sid=${event.payload.sessionId}, target_sid=${targetSessionId}`, 'DEBUG'); 
+                
+                if (event.payload.sessionId !== targetSessionId) { // CORRECTED to event.payload.sessionId (camelCase)
+                    appendToConsoleLog(`DEBUG: Session ID mismatch. Event SID: ${event.payload.sessionId}, Target SID: ${targetSessionId}. Ignoring event.`, 'WARN');
+                    return;
+                }
+                
+                appendToConsoleLog(`DEBUG: Event SID matches target. Processing type: ${event.payload.type}`, 'DEBUG');
+
+                switch (event.payload.type) {
+                    case 'RawTestOutput':
+                        appendToConsoleLog(event.payload.output_string || '', 'WORKER_OUT');
+                        break;
+                    case 'RawTestError':
+                        appendToConsoleLog(event.payload.error_message || 'Unknown worker error', 'WORKER_ERR');
+                        break;
+                    case 'MessageChunk':
+                        appendToConsoleLog('DEBUG: Entered MessageChunk case.', 'DEBUG');
+                        if (!event.payload.delta || event.payload.delta.trim() === '') {
+                            appendToConsoleLog('DEBUG: MessageChunk event received, but delta is empty or undefined. Skipping UI update.', 'WARN');
+                            break; 
+                        }
+                        appendToConsoleLog(`DEBUG: CHUNK: Delta content: "${event.payload.delta.substring(0,50)}..."`, 'DEBUG');
+
+                        setChatMessages(prevMessages => {
+                            appendToConsoleLog('DEBUG: CHUNK: Inside setChatMessages callback.', 'DEBUG');
+                            const lastMessage = prevMessages[prevMessages.length - 1];
+                            
+                            if (lastMessage && lastMessage.role === 'assistant') {
+                                appendToConsoleLog('DEBUG: CHUNK: Found existing last message by assistant. Attempting to append.', 'DEBUG');
+                                const lastContentPart = lastMessage.content[lastMessage.content.length -1];
+                                
+                                if (lastContentPart && lastContentPart.type === 'text') {
+                                    appendToConsoleLog('DEBUG: CHUNK: Appending to last text part of assistant message.', 'DEBUG');
+                                    const updatedMessages = [...prevMessages];
+                                    updatedMessages[prevMessages.length - 1] = {
+                                        ...lastMessage,
+                                        content: [
+                                            ...lastMessage.content.slice(0, -1),
+                                            { ...lastContentPart, text: lastContentPart.text + (event.payload.delta || '') }
+                                        ]
+                                    };
+                                    return updatedMessages;
+                                } else {
+                                    appendToConsoleLog('DEBUG: CHUNK: Adding new text part to existing assistant message.', 'DEBUG');
+                                    const updatedMessages = [...prevMessages];
+                                     updatedMessages[prevMessages.length - 1] = {
+                                        ...lastMessage,
+                                        content: [
+                                            ...lastMessage.content,
+                                            { type: 'text', text: (event.payload.delta || '') }
+                                        ]
+                                    };
+                                    return updatedMessages;
+                                }
+                            } else {
+                                if (!lastMessage) {
+                                    appendToConsoleLog('DEBUG: CHUNK: No previous messages. Creating new assistant message.', 'DEBUG');
+                                } else {
+                                    appendToConsoleLog(`DEBUG: CHUNK: Last message role is '${lastMessage.role}'. Creating new assistant message.`, 'DEBUG');
+                                }
+                                return [
+                                    ...prevMessages,
+                                    { role: 'assistant', content: [{ type: 'text', text: event.payload.delta || '' }] }
+                                ];
+                            }
+                        });
+                        appendToConsoleLog('DEBUG: CHUNK: Called setChatMessages.', 'DEBUG');
+                        break;
+                    case 'FinalMessageHistory':
+                        appendToConsoleLog(`Received FinalMessageHistory. Updating chat display. Items: ${event.payload.history?.length || event.payload.current_messages?.length || 0}`, 'INFO');
+                        const history = event.payload.history || event.payload.current_messages;
+                        if (history) {
+                            setChatMessages(history);
+                        } else {
+                            appendToConsoleLog('FinalMessageHistory received, but history/current_messages field is missing or empty.', 'ERROR');
+                        }
+                        break;
+                    case 'Done':
+                        appendToConsoleLog('Worker indicated: Done.', 'INFO');
+                        break;
+                    case 'Error':
+                         appendToConsoleLog(`Worker Error: ${event.payload.error_message || event.payload.data || 'Unknown error'}`, 'ERROR');
+                        break;
+                    default:
+                         appendToConsoleLog(`DEBUG: Unhandled event type in switch: ${event.payload.type} Data: ${JSON.stringify(event.payload.data)}`, 'WARN');
+                        break;
+                }
+            });
+        }
+
+        setupAgentEventListener();
+
+        return () => {
+            if (unlisten) {
+                unlisten();
+                if (targetSessionId.trim()) {
+                    appendToConsoleLog(`DEBUG: Stopped listening for events on target_sid: ${targetSessionId}`, 'DEBUG');
+                }
+            }
+        };
+    }, [targetSessionId, appendToConsoleLog]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!targetSessionId.trim()) {
+            appendToConsoleLog("Target Session ID is required.", 'ERROR');
+            return;
+        }
+        if (!rawInput.trim()) {
+            appendToConsoleLog("Input is empty, not sending.", 'INFO');
+            return;
+        }
+
+        const mode = sendMode === 'raw' ? 'raw input' : 'message';
+        const currentInput = rawInput;
+        setRawInput(''); 
+
+        if (sendMode === 'message') {
+            appendToConsoleLog(`Sending ${mode} (session: ${targetSessionId}): "${currentInput}"`, 'FRONTEND');
+            const userMessage: ChatMessage = {
+                role: 'user',
+                content: [{ type: 'text', text: currentInput }],
+            };
+            setChatMessages(prev => [...prev, userMessage]);
+        } else {
+             appendToConsoleLog(`Sending ${mode} (session: ${targetSessionId}): "${currentInput}"`, 'FRONTEND');
+        }
+
+        setIsLoading(true);
+        try {
+            if (sendMode === 'raw') {
+                await invoke('send_raw_to_worker', { sessionId: targetSessionId, rawInput: currentInput });
+            } else {
+                await invoke('send_message', { sid: targetSessionId, text: currentInput });
+            }
+        } catch (error) {
+            appendToConsoleLog(`Invoke failed: ${error}`, 'ERROR');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const renderContentPart = (part: ChatMessage['content'][0], index: number) => {
+        if (part.type === 'text') {
+            return <span key={index}>{part.text}</span>;
+        } else if (part.type === 'tool_use') {
+            return <div key={index} style={{ marginTop: '5px', padding:'5px', border:'1px solid #eee', borderRadius:'3px', background:'#f9f9f9'}}>Tool Call: {part.name} (ID: {part.tool_use_id}) <pre style={{fontSize:'11px', whiteSpace:'pre-wrap', wordBreak:'break-all'}}>{JSON.stringify(part.input, null, 2)}</pre></div>;
+        } else if (part.type === 'tool_result') {
+             return <div key={index} style={{ marginTop: '5px', padding:'5px', border:'1px solid #e0e0e0', borderRadius:'3px', background: part.is_error ? '#ffebee' : '#e8f5e9'}}>Tool Result (for {part.tool_use_id}): <pre style={{fontSize:'11px', whiteSpace:'pre-wrap', wordBreak:'break-all'}}>{JSON.stringify(part.content, null, 2)}</pre></div>;
+        }
+        return <span key={index}>[Unsupported content part]</span>;
+    };
+
+    return (
+        <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '800px', margin: 'auto', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 40px)' }}>
+            <h2>Python Worker Test Console</h2>
+            
+            <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <button onClick={handleStartNewSession} disabled={isStartingSession} style={{ padding: '10px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: isStartingSession ? 'not-allowed' : 'pointer', opacity: isStartingSession ? 0.7 : 1 }}>
+                    {isStartingSession ? 'Starting...' : 'Start New Test Session'}
+                </button>
+                <input type="text" value={targetSessionId} onChange={(e) => setTargetSessionId(e.target.value)} placeholder="Target Session ID" style={{ padding: '10px', width: '250px', border: '1px solid #ccc', borderRadius: '4px' }} disabled={isStartingSession} />
+                <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto', backgroundColor: '#f0f0f0', padding: '4px', borderRadius: '4px' }}>
+                    <button onClick={() => setSendMode('message')} style={{ padding: '6px 10px', border: 'none', borderRadius: '3px', backgroundColor: sendMode === 'message' ? '#007bff' : 'transparent', color: sendMode === 'message' ? 'white' : '#333', cursor: 'pointer' }}>Message</button>
+                    <button onClick={() => setSendMode('raw')} style={{ padding: '6px 10px', border: 'none', borderRadius: '3px', backgroundColor: sendMode === 'raw' ? '#007bff' : 'transparent', color: sendMode === 'raw' ? 'white' : '#333', cursor: 'pointer' }}>Raw Input</button>
+                </div>
+            </div>
+
+            <div ref={chatContainerRef} style={{ flexGrow: 1, border: '1px solid #ddd', padding: '10px', marginBottom: '10px', overflowY: 'auto', background: '#f9f9f9', borderRadius: '4px' }}>
+                {chatMessages.length === 0 && <div style={{textAlign:'center', color:'#aaa'}}>No messages yet. Send a message to start.</div>}
+                {chatMessages.map((msg, index) => (
+                    <div key={index} style={{ marginBottom: '10px', textAlign: msg.role === 'user' ? 'right' : 'left', }}>
+                        <div style={{ display: 'inline-block', padding: '8px 12px', borderRadius: '15px', backgroundColor: msg.role === 'user' ? '#007bff' : (msg.role === 'tool' ? '#e0e0e0' : '#e9e9eb'), color: msg.role === 'user' ? 'white' : (msg.role === 'tool' ? '#333' : 'black'), maxWidth: '70%', textAlign: 'left', }}>
+                            <strong style={{fontSize:'12px', display:'block', marginBottom:'3px'}}>{msg.role === 'assistant' ? 'Assistant' : msg.role === 'user' ? 'You' : msg.role === 'tool' ? `Tool (${msg.name || 'N/A'})` : 'System'}:</strong>
+                            {Array.isArray(msg.content) ? msg.content.map(renderContentPart) : <span>{String(msg.content)}</span>}
+                        </div>
+                    </div>
+                ))}
+            </div>
+            
+            {consoleLog.length > 0 && (
+                 <details style={{marginBottom:'10px'}} open> 
+                    <summary style={{cursor:'pointer', color:'#555', fontSize:'12px'}}>Console Log ({consoleLog.length})</summary>
+                    <pre style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #eee', padding: '8px', background: '#fafafa', whiteSpace: 'pre-wrap', wordBreak: 'break-all', borderRadius: '4px', fontSize: '11px', color: '#333' }}>
+                        {consoleLog.join('\n')}
+                    </pre>
+                </details>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '10px' }}>
+                <textarea
+                    value={rawInput}
+                    onChange={(e) => setRawInput(e.target.value)}
+                    placeholder={sendMode === 'raw' ? "Enter raw string for worker..." : "Type your message..."}
+                    rows={2}
+                    style={{ flexGrow: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '4px', resize:'none' }}
+                    disabled={!targetSessionId.trim() || isStartingSession || isLoading}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSubmit(e as any);
+                        }
+                    }}
+                />
+                <button type="submit" disabled={isLoading || !targetSessionId.trim() || isStartingSession || !rawInput.trim()} style={{ padding: '10px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (isLoading || !targetSessionId.trim() || isStartingSession || !rawInput.trim()) ? 'not-allowed' : 'pointer', opacity: (isLoading || !targetSessionId.trim() || isStartingSession || !rawInput.trim()) ? 0.7 : 1 }}>
+                    {isLoading ? 'Sending...' : 'Send'}
+                </button>
+            </form>
+        </div>
+    );
+}
+
+export default function PythonWorkerTestPage() {
+    return (
+        <div className="container mx-auto"> 
+            <PythonWorkerTestConsole />
+        </div>
+    );
+}

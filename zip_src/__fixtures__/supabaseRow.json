@@ -1,0 +1,67 @@
+[
+  {
+    "id": "msg_user_001",
+    "session_id": "session_example_456",
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Can you help me find all TypeScript files in my project?"
+      }
+    ],
+    "timestamp": "2024-01-15T10:30:00.000Z",
+    "model_used": null,
+    "tool_call_id": null,
+    "responding_to_tool_use_id": null
+  },
+  {
+    "id": "msg_assistant_002",
+    "session_id": "session_example_456",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "I'll help you search for TypeScript files in your project."
+      },
+      {
+        "type": "tool_use",
+        "tool_use_id": "tool_search_789",
+        "tool_name": "search_files",
+        "tool_input": {
+          "pattern": "*.ts",
+          "exclude_patterns": ["node_modules", "dist"],
+          "max_results": 50
+        }
+      }
+    ],
+    "timestamp": "2024-01-15T10:30:01.000Z",
+    "model_used": "claude-3-sonnet-20240229",
+    "tool_call_id": "tool_search_789",
+    "responding_to_tool_use_id": null
+  },
+  {
+    "id": "msg_tool_result_003",
+    "session_id": "session_example_456",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "tool_output",
+        "tool_use_id_for_output": "tool_search_789",
+        "output": {
+          "files": [
+            "src/types/events.ts",
+            "src/adapters/RowMapper.ts",
+            "src/adapters/SseParser.ts",
+            "src/components/playground/EventPlaygroundPanel.tsx"
+          ],
+          "total_count": 4
+        },
+        "status": "ok"
+      }
+    ],
+    "timestamp": "2024-01-15T10:30:02.000Z",
+    "model_used": "claude-3-sonnet-20240229",
+    "tool_call_id": null,
+    "responding_to_tool_use_id": "tool_search_789"
+  }
+]

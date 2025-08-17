@@ -1,0 +1,284 @@
+:root {
+  /* Base Colors */
+  --color-base-00: #ffffff;
+  --color-base-05: #fcfcfc;
+  --color-base-10: #f5f5f7;
+  --color-base-20: #e9e9eb;
+  --color-base-25: #dedede;
+  --color-base-30: #d1d1d6;
+  --color-base-35: #bcbcc0;
+  --color-base-40: #9d9da3;
+  --color-base-50: #6e6e73;
+  --color-base-60: #48484a;
+  --color-base-70: #363639;
+  --color-base-80: #242426;
+  --color-base-90: #1c1c1e;
+  --color-base-100: #000000;
+  
+  /* Accent Colors */
+  --color-accent-primary: #2e9cde;
+  --color-accent-secondary: #6954df;
+  --color-accent-success: #34ba69;
+  --color-accent-warning: #f59e0b;
+  --color-accent-danger: #ef4444;
+  --color-accent-info: #2e9cde;
+  --color-accent-magenta: #de7bda; /* Special highlight */
+  
+  /* UI Component Colors */
+  --color-surface-0: var(--color-base-00);
+  --color-surface-1: var(--color-base-05);
+  --color-surface-2: var(--color-base-10);
+  --color-surface-3: var(--color-base-20);
+  
+  /* Text Colors */
+  --color-text-normal: var(--color-base-100);
+  --color-text-muted: var(--color-base-50);
+  --color-text-faint: var(--color-base-40);
+  --color-text-on-accent: white;
+  
+  /* Border Colors */
+  --color-border-default: var(--color-base-20);
+  --color-border-strong: var(--color-base-30);
+  --color-border-faint: var(--color-base-10);
+  
+  /* Component-Specific Colors */
+  --color-sidebar-bg: var(--color-surface-1);
+  --color-sidebar-border: var(--color-border-default);
+  --color-sidebar-text: var(--color-text-normal);
+  --color-sidebar-text-muted: var(--color-text-muted);
+  
+  --color-header-bg: var(--color-surface-0);
+  --color-header-border: var(--color-border-default);
+  --color-header-text: var(--color-text-normal);
+  
+  --color-card-bg: var(--color-surface-0);
+  --color-card-border: var(--color-border-default);
+  
+  --color-button-primary-bg: var(--color-accent-primary);
+  --color-button-primary-text: var(--color-text-on-accent);
+  --color-button-primary-hover: #2563eb; /* brand-600 */
+  
+  --color-button-secondary-bg: var(--color-surface-2);
+  --color-button-secondary-text: var(--color-text-normal);
+  --color-button-secondary-hover: var(--color-base-20);
+  
+  /* Input Controls */
+  --color-input-bg: var(--color-surface-0);
+  --color-input-border: var(--color-border-default);
+  --color-input-text: var(--color-text-normal);
+  --color-input-placeholder: var(--color-text-muted);
+  --color-input-focus-ring: var(--color-accent-primary);
+  
+  /* Chat Interface */
+  --color-message-user-bg: var(--color-accent-primary);
+  --color-message-user-text: var(--color-text-on-accent);
+  --color-message-agent-bg: var(--color-surface-2);
+  --color-message-agent-text: var(--color-text-normal);
+  
+  /* Scrollbars */
+  --color-scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --color-scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+  
+  /* Effects */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Fonts */
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'SF Pro Rounded', system-ui, sans-serif;
+  --font-mono: 'SF Mono', Menlo, monospace;
+
+  /* Orchestra Toast System - Design Tokens */
+  --blue-primary: #0077ED;
+  --blue-secondary: #0071E3;
+  --emerald-success: rgba(16, 185, 129, 0.05);
+  --amber-warning: rgba(245, 158, 11, 0.05);
+  --red-danger: rgba(239, 68, 68, 0.05);
+  
+  /* Animation Timing */
+  --duration-fast: 150ms;
+  --duration-smooth: 300ms;
+  --duration-gentle: 500ms;
+  --ease-smooth: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-water: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: ease-out;
+
+  /* CodeMirror Syntax Highlighting - Light Theme (Defaults) */
+  --code-comment: rgb(150, 153, 163);
+  --code-string: rgb(51, 99, 92);
+  --code-number: rgb(150, 80, 39);
+  --code-keyword: rgb(90, 74, 120);
+  --code-function: rgb(52, 84, 138);
+  --code-operator: rgb(15, 75, 110);
+  --code-property: rgb(52, 84, 138); /* For variables/properties */
+  --code-background: rgb(195, 197, 201); /* For inline code / code block bg */
+}
+
+/* Dark theme */
+[data-theme="dark"],
+html[data-theme="dark"] body,
+body[data-theme="dark"] {
+  /* Base colors - inverted from light theme */
+  --color-base-00: #151613;
+  --color-base-05: rgba(39, 39, 36, 0.85); /* Glassy sidebar with matte black base */
+  --color-base-10: #363639;
+  --color-base-20: #48484a;
+  --color-base-25: #6e6e73;
+  --color-base-30: #9d9da3;
+  --color-base-35: #bcbcc0;
+  --color-base-40: #707070; /* Faint text for dark mode */
+  --color-base-50: #A0A0A0; /* Muted text for dark mode */
+  --color-base-60: #f5f5f7;
+  --color-base-70: #fcfcfc;
+  --color-base-80: #ffffff;
+  --color-base-90: #ffffff;
+  --color-base-100: #EAEAEA; /* Main text for dark mode */
+  
+  /* Scrollbar - lighter for dark theme */
+  --color-scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+
+  /* CodeMirror Syntax Highlighting - Dark Theme */
+  --code-comment: rgb(86, 95, 137);
+  --code-string: rgb(158, 206, 106);
+  --code-number: rgb(255, 158, 100);
+  --code-keyword: rgb(187, 154, 247);
+  --code-function: rgb(122, 162, 247);
+  --code-operator: rgb(125, 207, 255);
+  --code-property: rgb(122, 162, 247);
+  --code-background: rgb(36, 40, 59);
+}
+
+/* Forest theme */
+[data-theme="forest"],
+html[data-theme="forest"] body,
+body[data-theme="forest"] {
+  /* Base colors with green tint */
+  --color-base-00: #f8faf7;
+  --color-base-05: #f0f4ef;
+  --color-base-10: #e8efe6;
+  --color-base-20: #d1e0ce;
+  --color-base-25: #b9cbb5;
+  --color-base-30: #a1b79c;
+  --color-base-35: #8aa384;
+  --color-base-40: #738f6c;
+  --color-base-50: #5c7a54;
+  --color-base-60: #46653d;
+  --color-base-70: #304f26;
+  --color-base-80: #1a3a0f;
+  --color-base-90: #0d2505;
+  --color-base-100: #051000;
+  
+  /* Accent colors - forest themed */
+  --color-accent-primary: #4ade80;
+  --color-accent-secondary: #a3e635;
+  
+  /* Component overrides */
+  --color-sidebar-bg: #e8efe6;
+  --color-sidebar-border: #d1e0ce;
+  --color-header-bg: #f8faf7;
+  --color-header-border: #e8efe6;
+}
+
+/* Sakura theme */
+[data-theme="sakura"],
+html[data-theme="sakura"] body,
+body[data-theme="sakura"] {
+  /* Base colors with pink tint */
+  --color-base-00: #fff9fb;
+  --color-base-05: #fef2f5;
+  --color-base-10: #fde6ec;
+  --color-base-20: #f9d0dc;
+  --color-base-25: #f5b9cc;
+  --color-base-30: #f1a3bc;
+  --color-base-35: #ed8cac;
+  --color-base-40: #e9769c;
+  --color-base-50: #e5608c;
+  --color-base-60: #e1497c;
+  --color-base-70: #dd336c;
+  --color-base-80: #d91c5c;
+  --color-base-90: #c5194f;
+  --color-base-100: #b01642;
+  
+  /* Accent colors - sakura themed */
+  --color-accent-primary: #ec4899;
+  --color-accent-secondary: #d946ef;
+  
+  /* Component overrides */
+  --color-sidebar-bg: #fef2f5;
+  --color-sidebar-border: #fde6ec;
+  --color-header-bg: #fff9fb;
+  --color-header-border: #fef2f5;
+}
+
+/* Sleek Dark theme */
+[data-theme="sleek-dark"],
+html[data-theme="sleek-dark"] body,
+body[data-theme="sleek-dark"] {
+  /* Base colors */
+  --color-base-00: #121212;
+  --color-base-05: #1e1e1e;
+  --color-base-10: #252525;
+  --color-base-20: #2c2c2c;
+  --color-base-25: #323232;
+  --color-base-30: #3f3f3f;
+  --color-base-35: #5a5a5a;
+  --color-base-40: #727272;
+  --color-base-50: #a0a0a0;
+  --color-base-60: #d4d4d4;
+  --color-base-70: #e8e8e8;
+  --color-base-80: #f5f5f5;
+  --color-base-90: #ffffff;
+  --color-base-100: #ffffff;
+  
+  /* Accent colors */
+  --color-accent-primary: #4f8eff;
+  --color-accent-secondary: #9d5cff;
+  --color-accent-success: #2dd4bf;
+  --color-accent-warning: #f59e0b;
+  --color-accent-danger: #f43f5e;
+  --color-accent-info: #38bdf8;
+  
+  /* Text colors */
+  --color-text-normal: var(--color-base-70);
+  --color-text-muted: var(--color-base-40);
+  --color-text-faint: var(--color-base-35);
+  
+  /* Component overrides */
+  --color-sidebar-bg: var(--color-base-05);
+  --color-sidebar-border: var(--color-base-25);
+  --color-header-bg: var(--color-base-00);
+  --color-header-border: var(--color-base-25);
+  --color-card-bg: var(--color-base-05);
+  --color-card-border: var(--color-base-25);
+  
+  /* Input fields */
+  --color-input-bg: var(--color-base-10);
+  --color-input-border: var(--color-base-30);
+  
+  /* Button hover states */
+  --color-button-primary-hover: #3b72db;
+  
+  /* Scrollbar */
+  --color-scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.6);
+
+  /* Surface colors - explicitly set */
+  --color-surface-0: var(--color-base-00);
+  --color-surface-1: var(--color-base-05);
+  --color-surface-2: var(--color-base-10);
+  --color-surface-3: var(--color-base-20);
+}

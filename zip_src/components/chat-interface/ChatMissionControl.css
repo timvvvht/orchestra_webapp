@@ -1,0 +1,594 @@
+/**
+ * ChatMissionControl.css - Styles for chat interface in Mission Control context
+ * 
+ * These styles ensure proper layout behavior when the chat is used within
+ * the Mission Control split screen interface, preventing layout issues
+ * where the input area gets pushed down during scrolling.
+ */
+
+/* Main container adjustments for Mission Control context */
+.mission-control-chat {
+  /* Ensure full height utilization in split screen */
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  
+  /* Prevent any overflow issues */
+  overflow: hidden !important;
+  
+  /* Ensure proper flex behavior */
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+}
+
+.chat-mission-control-wrapper {
+  /* Ensure the wrapper takes full height and constrains properly */
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  
+  /* Ensure proper containment within mission control split screen */
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Override any conflicting styles from the main chat component */
+.chat-mission-control-wrapper > div {
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Ensure the scroll area within mission control context behaves properly */
+.chat-mission-control-wrapper .scroll-area,
+.chat-mission-control-wrapper [data-radix-scroll-area-viewport] {
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Ensure the chat input stays anchored at the bottom */
+.chat-mission-control-wrapper .flex-shrink-0:last-child {
+  position: sticky;
+  bottom: 0;
+  background: inherit;
+  z-index: 10;
+  flex-shrink: 0 !important;
+}
+
+/* Prevent horizontal overflow in mission control context */
+.chat-mission-control-wrapper pre,
+.chat-mission-control-wrapper code {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  word-wrap: break-word !important;
+}
+
+/* Ensure wide content like tables or code blocks are contained */
+.chat-mission-control-wrapper table,
+.chat-mission-control-wrapper .code-block,
+.chat-mission-control-wrapper .tool-result {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+}
+
+/* Hide the original chat header in mission control context since we have our own */
+.chat-mission-control-wrapper .chat-header {
+  display: none !important;
+}
+
+/* Ensure proper spacing and padding adjustments for mission control */
+.chat-mission-control-wrapper .px-6.md\:px-12 {
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+/* Adjust message container padding for tighter mission control layout */
+.chat-mission-control-wrapper .pt-8.pb-8 {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+/* Ensure typing indicator and other elements don't interfere with layout */
+.chat-mission-control-wrapper .typing-indicator {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure scroll anchor doesn't interfere with input positioning */
+.chat-mission-control-wrapper .scroll-anchor {
+  position: relative;
+  height: 1px;
+  margin-bottom: 0;
+}
+
+/* Mission control specific responsive adjustments */
+@media (max-width: 768px) {
+  .chat-mission-control-wrapper .px-6.md\:px-12 {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* Ensure debug overlays don't interfere with mission control layout */
+.chat-mission-control-wrapper .debug-overlay {
+  position: absolute;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Specific fixes for flexbox behavior in mission control context */
+.chat-mission-control-wrapper .flex-1.flex.flex-col {
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+/* Ensure message list container doesn't exceed bounds */
+.chat-mission-control-wrapper [data-testid="chat-message-list"] {
+  max-height: 100%;
+  overflow-y: visible;
+}
+
+/* Fix for scroll area viewport in mission control */
+.chat-mission-control-wrapper [data-radix-scroll-area-viewport] {
+  height: auto !important;
+  max-height: 100% !important;
+}
+
+/* ===== NEW CONDITIONAL STYLING SYSTEM ===== */
+
+/* Ensure Mission Control split screen containers work properly */
+.mission-control-split {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure the chat content container in Mission Control takes full height */
+.mission-control-split .flex-1.h-full {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure the inner wrapper div also behaves correctly */
+.mission-control-split .h-full.max-h-full.overflow-hidden {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Force proper height calculation for Mission Control chat container */
+.mission-control-split .mission-control-chat {
+  /* Override any conflicting height calculations */
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  
+  /* Ensure it takes available space */
+  flex: 1 !important;
+  flex-grow: 1 !important;
+  flex-shrink: 1 !important;
+  flex-basis: 0 !important;
+}
+
+/* Ensure proper height inheritance chain */
+.mission-control-split .mission-control-chat > * {
+  min-height: 0 !important;
+}
+
+/* Fix any potential height issues with the scroll area */
+.mission-control-split .mission-control-scroll-area {
+  /* Force proper height calculation */
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  
+  /* Ensure it grows to fill available space */
+  flex: 1 !important;
+  flex-grow: 1 !important;
+  flex-shrink: 1 !important;
+  flex-basis: 0 !important;
+}
+
+/* Scroll area specific styling for Mission Control */
+.mission-control-scroll-area {
+  /* Ensure proper height containment */
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  
+  /* Prevent horizontal overflow in narrow split screen */
+  overflow-x: hidden !important;
+  
+  /* Ensure proper flex behavior */
+  flex: 1 !important;
+  flex-shrink: 1 !important;
+}
+
+/* Viewport adjustments for Mission Control scroll area */
+.mission-control-scroll-area [data-radix-scroll-area-viewport] {
+  /* Ensure viewport takes full height */
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  
+  /* Prevent horizontal scrolling */
+  overflow-x: hidden !important;
+  
+  /* Ensure proper flex behavior */
+  flex: 1 !important;
+}
+
+/* Input area styling for Mission Control */
+.mission-control-input-area {
+  /* Ensure input stays at bottom and doesn't get pushed down */
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 10 !important;
+  
+  /* Prevent input from being affected by scroll */
+  flex-shrink: 0 !important;
+  
+  /* Add subtle background to separate from messages */
+  background: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  
+  /* Add subtle border */
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ===== FLEX-BASED MARKDOWN CONTAINMENT ===== */
+
+/* Base message container - flex-based containment */
+.mission-control-chat .chat-message {
+  /* Flex container for responsive content */
+  display: flex !important;
+  flex-direction: column !important;
+  
+  /* Aggressive word breaking and wrapping */
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  
+  /* More conservative width for mission control split screen - use smaller of 70% or 800px */
+  max-width: min(70%, 800px) !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  
+  /* Flex properties for responsive behavior */
+  flex-shrink: 1 !important;
+}
+
+/* All direct children of messages - flex-responsive */
+.mission-control-chat .chat-message > * {
+  /* Flex-based width management */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  box-sizing: border-box !important;
+  
+  /* Aggressive text wrapping */
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+/* Specific constraints for timeline and think block components in mission control */
+.mission-control-chat .relative.w-fit {
+  /* Apply same conservative width to timeline components */
+  max-width: min(70%, 800px) !important;
+}
+
+/* ===== CODE BLOCKS - FLEX CONDENSED ===== */
+
+/* Inline code elements - condensed */
+.mission-control-chat code:not(pre code) {
+  /* Aggressive wrapping for inline code */
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  overflow-wrap: break-word !important;
+  
+  /* Flex properties */
+  display: inline !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* Code blocks - condensed, no scrolling */
+.mission-control-chat pre,
+.mission-control-chat pre code,
+.mission-control-chat .code-block {
+  /* Flex container for code blocks */
+  display: block !important;
+  
+  /* Aggressive text wrapping - no scrolling */
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-all !important;
+  
+  /* Flex-based width management */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  
+  /* No horizontal overflow */
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Syntax highlighted code blocks - condensed */
+.mission-control-chat .hljs,
+.mission-control-chat [class*="language-"] {
+  /* Flex-based containment */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  
+  /* Aggressive wrapping */
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-all !important;
+  
+  /* No scrolling */
+  overflow-x: hidden !important;
+}
+
+/* ===== TABLES - FLEX CONDENSED ===== */
+
+/* Table containers - flex-based responsive */
+.mission-control-chat table {
+  /* Flex table layout */
+  display: table !important;
+  table-layout: fixed !important;
+  width: 100% !important;
+  
+  /* Flex properties */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  
+  /* No horizontal overflow */
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Table cells - condensed and flexible */
+.mission-control-chat td,
+.mission-control-chat th {
+  /* Aggressive text wrapping in cells */
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  
+  /* Flexible cell sizing */
+  max-width: 0 !important; /* Forces equal distribution */
+  min-width: 0 !important;
+  
+  /* Text wrapping */
+  white-space: normal !important;
+  
+  /* Padding for readability */
+  padding: 0.25rem !important;
+  
+  /* No overflow */
+  overflow: hidden !important;
+}
+
+/* ===== LISTS - CONDENSED INDENTATION ===== */
+
+/* Unordered and ordered lists - minimal indentation */
+.mission-control-chat ul,
+.mission-control-chat ol {
+  /* Flex properties */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  
+  /* Minimal indentation for narrow space */
+  padding-left: 1rem !important;
+  margin-left: 0 !important;
+  
+  /* No horizontal overflow */
+  overflow-x: hidden !important;
+}
+
+/* List items - condensed */
+.mission-control-chat li {
+  /* Flex properties */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  
+  /* Aggressive text wrapping */
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+/* Nested lists - even more condensed */
+.mission-control-chat li ul,
+.mission-control-chat li ol {
+  padding-left: 0.5rem !important; /* Very minimal nested indent */
+}
+
+/* ===== OTHER ELEMENTS - FLEX CONDENSED ===== */
+
+/* Blockquotes - condensed */
+.mission-control-chat blockquote {
+  /* Flex properties */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  
+  /* Aggressive text wrapping */
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  
+  /* Minimal padding for narrow space */
+  padding-left: 0.5rem !important;
+  margin-left: 0.25rem !important;
+  
+  /* No overflow */
+  overflow-x: hidden !important;
+}
+
+/* Links - aggressive URL breaking */
+.mission-control-chat a {
+  /* Break long URLs aggressively */
+  word-break: break-all !important;
+  overflow-wrap: break-word !important;
+  
+  /* Flex properties */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  
+  /* Inline behavior */
+  display: inline !important;
+}
+
+/* Images and media - responsive scaling */
+.mission-control-chat img,
+.mission-control-chat video,
+.mission-control-chat iframe {
+  /* Responsive scaling */
+  max-width: 100% !important;
+  height: auto !important;
+  
+  /* Flex properties */
+  flex-shrink: 1 !important;
+  
+  /* Containment */
+  object-fit: contain !important;
+}
+
+/* Tool results - condensed, no scrolling */
+.mission-control-chat .tool-result,
+.mission-control-chat .tool-output,
+.mission-control-chat .error-message {
+  /* Flex properties */
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  
+  /* Aggressive text wrapping */
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  
+  /* No scrolling */
+  overflow-x: hidden !important;
+  white-space: pre-wrap !important;
+}
+
+/* ===== UNIVERSAL FLEX CONTAINMENT ===== */
+
+/* Catch-all for flex-based containment */
+.mission-control-chat * {
+  /* Universal flex-based width management - allow natural sizing */
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  
+  /* Aggressive text handling */
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Typing indicator adjustments for Mission Control */
+.mission-control-chat .typing-indicator {
+  /* Reduce spacing for compact view */
+  margin: 0.5rem 0 !important;
+}
+
+/* New messages indicator positioning for Mission Control */
+.mission-control-chat .new-messages-indicator {
+  /* Position relative to Mission Control container - match input area height */
+  bottom: calc(8rem + env(safe-area-inset-bottom)) !important; /* Account for input area height */
+}
+
+/* Scroll anchor adjustments for Mission Control */
+.mission-control-chat .chat-scroll-anchor {
+  /* Ensure proper positioning in Mission Control context */
+  margin-bottom: 1rem !important;
+}
+
+/* Debug overlay adjustments for Mission Control */
+.mission-control-chat .debug-overlay {
+  /* Adjust positioning for split screen */
+  right: 1rem !important;
+  bottom: 1rem !important;
+  max-width: 150px !important;
+}
+
+/* Message list adjustments for Mission Control */
+.mission-control-chat .chat-message-list {
+  /* Ensure proper spacing in compact view */
+  gap: 0.75rem !important;
+}
+
+/* Agent profile and modals in Mission Control */
+.mission-control-chat .agent-profile,
+.mission-control-chat .new-chat-modal {
+  /* Ensure modals appear above Mission Control interface */
+  z-index: 1000 !important;
+}
+
+/* Animation adjustments for Mission Control */
+.mission-control-chat .message-animation {
+  /* Reduce animation intensity in split screen */
+  animation-duration: 0.2s !important;
+}
+
+/* Focus states in Mission Control */
+.mission-control-chat input:focus,
+.mission-control-chat textarea:focus {
+  /* Ensure focus states are visible in Mission Control */
+  outline: 2px solid rgba(59, 130, 246, 0.5) !important;
+  outline-offset: 2px !important;
+}
+
+/* Scrollbar styling for Mission Control */
+.mission-control-chat .scroll-area::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.mission-control-chat .scroll-area::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.mission-control-chat .scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 3px !important;
+}
+
+.mission-control-chat .scroll-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Responsive adjustments for Mission Control */
+@media (max-width: 768px) {
+  .mission-control-chat {
+    /* On mobile, Mission Control might need different handling */
+    font-size: 0.875rem !important;
+  }
+  
+  .mission-control-input-area {
+    /* Adjust input area for mobile in Mission Control */
+    padding: 0.5rem !important;
+  }
+}

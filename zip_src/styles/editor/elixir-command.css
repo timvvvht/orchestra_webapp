@@ -1,0 +1,91 @@
+/* Elixir Command Bar Styles - Orchestra Design System */
+
+.elixir-command-bar {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  pointer-events: auto;
+}
+
+/* Sidebar Container Styles */
+.elixir-sidebar {
+  width: 340px;
+  height: 100%;
+  background: transparent;
+  transition: transform 300ms ease-out;
+  pointer-events: none;
+}
+
+.elixir-sidebar.open {
+  transform: translateX(0);
+}
+
+.elixir-sidebar.closed {
+  transform: translateX(100%);
+}
+
+/* Enhanced focus ring for accessibility */
+.elixir-command-bar input:focus {
+  outline: none;
+}
+
+.elixir-command-bar input:focus-visible {
+  outline: 2px solid rgba(0, 119, 237, 0.5);
+  outline-offset: 2px;
+}
+
+/* Thinking dot animation timing adjustments */
+@keyframes elixir-thinking-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+}
+
+.elixir-command-bar .animate-elixir-thinking-dot {
+  animation: elixir-thinking-dot 1.5s ease-in-out infinite;
+}
+
+/* Ripple effect on submit */
+@keyframes elixir-ripple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 119, 237, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(0, 119, 237, 0);
+  }
+}
+
+.elixir-command-bar.submitting {
+  animation: elixir-ripple 0.6s ease-out;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .elixir-command-bar * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .elixir-command-bar .animate-elixir-thinking-dot {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Enhanced glass effect for better visibility */
+.elixir-command-bar > div > div:last-child {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Hover state enhancement */
+.elixir-command-bar > div > div:last-child:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+}

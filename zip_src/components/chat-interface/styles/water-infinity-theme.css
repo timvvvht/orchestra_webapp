@@ -1,0 +1,123 @@
+/* Water & Infinity Inspired Chat Theme */
+
+/* Smooth scrolling with momentum */
+.chat-scroll-area {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Water-like gradient backgrounds */
+.water-gradient {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 113, 227, 0.1) 0%,
+    rgba(0, 119, 237, 0.05) 50%,
+    transparent 100%
+  );
+}
+
+/* Infinity symbol animation */
+@keyframes infinity-flow {
+  0%, 100% {
+    transform: translateX(0) scale(1);
+    opacity: 0.3;
+  }
+  25% {
+    transform: translateX(10px) scale(1.05);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateX(0) scale(1.1);
+    opacity: 0.7;
+  }
+  75% {
+    transform: translateX(-10px) scale(1.05);
+    opacity: 0.5;
+  }
+}
+
+/* Water ripple effect */
+@keyframes water-ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Smooth message transitions */
+.message-transition {
+  transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* Glass water effect */
+.glass-water {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Subtle water shimmer */
+@keyframes water-shimmer {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.water-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: water-shimmer 3s ease-in-out infinite;
+}
+
+/* Floating animation for messages */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+/* Smooth focus transitions */
+.smooth-focus {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.smooth-focus:focus {
+  box-shadow: 0 0 0 3px rgba(0, 119, 237, 0.1);
+  border-color: rgba(0, 119, 237, 0.3);
+}
+
+/* Water drop shadow */
+.water-shadow {
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 8px 16px rgba(0, 0, 0, 0.04),
+    0 16px 32px rgba(0, 0, 0, 0.04);
+}
+
+/* Infinite scroll indicator */
+.infinity-scroll {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(0, 0, 0, 0.02),
+    transparent
+  );
+  height: 100px;
+  pointer-events: none;
+}

@@ -1,0 +1,50 @@
+/* Command Palette Advanced - CSS Transitions */
+
+/* Enter animation */
+.cp-enter {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.cp-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: all 0.25s ease-out;
+}
+
+/* Leave animation */
+.cp-leave {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cp-leave-active {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: all 0.2s ease-in;
+}
+
+/* Mobile bottom sheet adjustments */
+@media (max-width: 639px) {
+  .cp-enter {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  .cp-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 0.3s ease-out;
+  }
+
+  .cp-leave {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .cp-leave-active {
+    opacity: 0;
+    transform: translateY(100%);
+    transition: all 0.25s ease-in;
+  }
+}

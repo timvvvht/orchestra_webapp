@@ -1,0 +1,548 @@
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useACSChatUIRefactored as useACSChatUI } from '@/hooks/acs-chat';
+import { useACSAgentConfigs } from '@/hooks/useACSAgentConfigs';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useAuth } from '@/auth/AuthContext';
+import type { AgentConfigTS, ToolDefinitionTS, ToolGroupTS } from '@/types/agentConfig';
+import type { ChatSession } from '@/types/chatTypes';
+
+// Icons
+import { Sparkles, Search, ArrowRight, Command } from 'lucide-react';
+
+// The interface that disappears
+export function LandingPageInfinite() {
+  const navigate = useNavigate();
+  const auth = useAuth();
+  const { createSession, isLoading: acsLoading } = useACSChatUI();
+  const { agentConfigs, agentConfigsArray, isLoading: configsLoading, error: configsError } = useACSAgentConfigs();
+  const { settings } = useSettingsStore();
+  
+  const [userInput, setUserInput] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState<AgentConfigTS | null>(null);
+  const [showAgentBrowser, setShowAgentBrowser] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  
+  // Get all agents as array (now provided directly by the hook)
+  const allAgents = useMemo(() => 
+    agentConfigsArray,
+    [agentConfigsArray]
+  );
+
+  // Initialize with default agent
+  useEffect(() => {
+    const defaultId = settings.defaultAgentId || Object.keys(agentConfigs)[0];
+    if (defaultId && agentConfigs[defaultId]) {
+      setSelectedAgent(agentConfigs[defaultId] as AgentConfigTS);
+    } else if (allAgents.length > 0 && !selectedAgent) {
+      // If no default ID matches, use the first available agent
+      setSelectedAgent(allAgents[0]);
+    }
+  }, [agentConfigs, settings.defaultAgentId, allAgents, selectedAgent]);
+
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Note: No need for prepareAgentTemplate anymore - useACSChatUI handles this internally
+
+  // Handle starting conversation
+  const handleStart = async () => {
+    if (!userInput.trim() || !selectedAgent) {
+      console.log('[LandingPage] handleStart: Missing userInput or selectedAgent', { userInput: userInput.trim(), selectedAgent: !!selectedAgent });
+      return;
+    }
+
+    // Check authentication before allowing message sending
+    if (!auth.isAuthenticated) {
+      console.log('[LandingPage] handleStart: User not authenticated, showing auth modal');
+      auth.setShowModal(true);
+      return;
+    }
+
+    console.log('[LandingPage] handleStart: Creating session and redirecting immediately for snappy UX:', { 
+      userInput: userInput.trim(), 
+      agentId: selectedAgent.id, 
+      agentName: selectedAgent.agent.name,
+      strategy: 'create-session-first'
+    });
+
+    try {
+      console.log('[LandingPage] handleStart: Creating session...');
+      console.log('[LandingPage] handleStart: selectedAgent:', selectedAgent);
+      console.log('[LandingPage] handleStart: userInput:', userInput);
+      
+      // Step 1: Create session only (no message sending yet)
+      const sessionId = await createSession(
+        `Chat with ${selectedAgent.agent.name}`,
+        selectedAgent.id
+      );
+      
+      console.log('[LandingPage] handleStart: Session created successfully:', sessionId);
+      console.log('[LandingPage] handleStart: Redirecting immediately to chat interface...');
+      
+      // Step 2: Navigate immediately with the initial message as URL parameter
+      // The chat interface will detect this and send the message
+      navigate(`/chat/${sessionId}?initialMessage=${encodeURIComponent(userInput.trim())}`);
+      
+      console.log('[LandingPage] handleStart: Navigation completed - chat interface will handle message sending');
+    } catch (error) {
+      console.error('[LandingPage] handleStart: Failed to create session:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('[LandingPage] handleStart: Error details:', {
+        message: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'Unknown'
+      });
+      // Add user-facing error feedback
+      alert(`Failed to start chat: ${errorMessage}`);
+    }
+  };
+
+  // Handle agent selection from browser
+  const handleAgentSelect = (agent: AgentConfigTS) => {
+    setSelectedAgent(agent);
+    setShowAgentBrowser(false);
+    inputRef.current?.focus();
+  };
+
+  // Filter agents for search
+  const filteredAgents = useMemo(() => {
+    if (!searchQuery.trim()) return allAgents;
+    
+    const query = searchQuery.toLowerCase();
+    return allAgents.filter(agent => 
+      agent.agent.name.toLowerCase().includes(query) ||
+      agent.agent.description.toLowerCase().includes(query)
+    );
+  }, [allAgents, searchQuery]);
+
+  return (
+    <div className="min-h-screen bg-black text-white overflow-hidden">
+      {/* Subtle animated background */}
+      <div className="fixed inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-black to-slate-950" />
+        <div 
+          className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl"
+          style={{ animation: 'float 30s ease-in-out infinite' }}
+        />
+        <div 
+          className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl"
+          style={{ animation: 'float 35s ease-in-out infinite reverse' }}
+        />
+      </div>
+
+      {/* Main content */}
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 -mt-20">
+        <div className="w-full max-w-3xl">
+          {/* Minimal branding */}
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 backdrop-blur-sm mb-5">
+              <Sparkles className="w-7 h-7 text-white/60" />
+            </div>
+            <h1 className="text-5xl md:text-6xl font-extralight tracking-tight mb-3">
+              What can I do for you today?
+            </h1>
+            <p className="text-white/50 font-light text-lg mb-2">
+              AI assistants that write code, research topics, analyze data, and more
+            </p>
+            <p className="text-white/30 font-light text-sm">
+              Choose your expert → Type your request → Get instant help
+            </p>
+          </div>
+
+          {/* Unified Input Container */}
+          <div className="relative group">
+            {/* Gradient border - always visible */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-3xl blur"></div>
+            {/* White glow on hover */}
+            <div className="absolute -inset-1 bg-white/10 rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+            <div className="relative bg-white/[0.03] backdrop-blur-md rounded-3xl border border-white/20 overflow-hidden transition-all duration-500">
+              {/* Embedded Agent Selector */}
+              {configsLoading ? (
+                <div className="w-full flex items-center justify-between p-6 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-white/40 text-sm font-light">To:</div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-white/10 animate-pulse" />
+                      <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ) : configsError ? (
+                <div className="w-full flex items-center justify-between p-6 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-white/40 text-sm font-light">To:</div>
+                    <div className="text-red-400 text-sm">Failed to load agents</div>
+                  </div>
+                </div>
+              ) : selectedAgent ? (
+                <button
+                  onClick={() => setShowAgentBrowser(true)}
+                  className="w-full flex items-center justify-between p-6 pb-4 hover:bg-white/[0.02] transition-colors duration-200"
+                >
+                <div className="flex items-center gap-3">
+                  <div className="text-white/40 text-sm font-light">To:</div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-white/20">
+                      {selectedAgent.agent.avatar ? (
+                        <img
+                          src={selectedAgent.agent.avatar.startsWith('/') || selectedAgent.agent.avatar.startsWith('http')
+                            ? selectedAgent.agent.avatar
+                            : `/assets/avatars/${selectedAgent.agent.avatar}`}
+                          alt={selectedAgent.agent.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-500" />
+                      )}
+                    </div>
+                    <div className="text-white font-light">{selectedAgent.agent.name}</div>
+                    {/* Show first few skills inline with subtle colors */}
+                    {selectedAgent.agent.metadata?.skills && selectedAgent.agent.metadata.skills.length > 0 && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {selectedAgent.agent.metadata.skills.slice(0, 2).map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-blue-300/70 border border-blue-500/10"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                        {selectedAgent.agent.metadata.skills.length > 2 && (
+                          <span className="text-[10px] text-white/40">
+                            +{selectedAgent.agent.metadata.skills.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <svg className="w-4 h-4 text-white/40 group-hover:text-white/60 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              ) : (
+                <div className="w-full flex items-center justify-between p-6 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-white/40 text-sm font-light">To:</div>
+                    <div className="text-white/60 text-sm">No agents available</div>
+                  </div>
+                </div>
+              )}
+            
+            {/* Separator line */}
+            <div className="h-px bg-white/10 mx-6" />
+            
+            {/* The Input Area */}
+            <div className="relative">
+              <textarea
+                ref={inputRef}
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder="Type your message..."
+                className="w-full p-6 pt-4 bg-transparent text-lg font-light placeholder-white/25 resize-none h-32 focus:outline-none text-white/90"
+                style={{
+                  lineHeight: '1.7',
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.metaKey) {
+                    e.preventDefault();
+                    handleStart();
+                  }
+                }}
+              />
+              
+              {/* Send button - light and clean */}
+              <button
+                onClick={handleStart}
+                disabled={!userInput.trim() || configsLoading || acsLoading || !selectedAgent}
+                className={`absolute bottom-4 right-4 px-4 py-2 rounded-lg font-normal transition-all duration-300 text-sm ${
+                  userInput.trim() && !configsLoading && !acsLoading && selectedAgent
+                    ? 'bg-white/80 text-black/80 hover:bg-white/90 hover:text-black'
+                    : 'bg-white/20 text-white/40 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span>Send</span>
+                  <svg 
+                    className={`w-3.5 h-3.5 transition-all ${
+                      userInput.trim() && !configsLoading && !acsLoading && selectedAgent ? 'text-black/60' : 'text-white/30'
+                    }`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </div>
+              </button>
+            </div>
+          </div>
+          </div>
+
+          {/* Example use cases */}
+          <div className="mt-8 space-y-3">
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                'Debug Python code',
+                'Research market trends',
+                'Analyze CSV data',
+                'Write React components'
+              ].map((example, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setUserInput(example)}
+                  className="px-3 py-1.5 text-xs font-light text-white/40 hover:text-white/60 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-200"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+            <div className="text-center">
+              <div className="text-white/30 font-light text-sm">
+                <Command className="inline w-3 h-3 mb-0.5" /> + Enter to send
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Agent Browser Modal - True Apple design */}
+      {showAgentBrowser && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+          onClick={() => setShowAgentBrowser(false)}
+        >
+          {/* Backdrop - Light mode style */}
+          <div 
+            className="absolute inset-0"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'saturate(180%) blur(20px)',
+              WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+            }}
+          />
+          
+          <div 
+            className="relative w-full md:max-w-2xl bg-white dark:bg-[#1c1c1e] md:rounded-[2rem] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              animation: 'slideUp 0.5s cubic-bezier(0.32, 0.72, 0, 1)',
+              maxHeight: '90vh',
+              boxShadow: '0 30px 60px rgba(0, 0, 0, 0.12)',
+            }}
+          >
+            {/* Modal content wrapper with Apple's signature gradient */}
+            <div className="relative bg-gradient-to-b from-gray-50 to-white dark:from-[#1c1c1e] dark:to-[#1c1c1e]">
+              {/* Drag handle for mobile */}
+              <div className="md:hidden flex justify-center pt-3 pb-2">
+                <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+              </div>
+              
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4">
+                <h2 className="text-[28px] font-semibold text-gray-900 dark:text-white text-center tracking-tight">
+                  All Experts
+                </h2>
+                <p className="text-center text-gray-500 dark:text-gray-400 text-[15px] mt-1">
+                  {allAgents.length} specialized assistants
+                </p>
+                
+                {/* Close button - macOS style */}
+                <button
+                  onClick={() => setShowAgentBrowser(false)}
+                  className="hidden md:flex absolute top-6 left-6 w-7 h-7 rounded-full bg-gray-200/80 hover:bg-gray-300/80 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 items-center justify-center transition-colors group"
+                >
+                  <svg className="w-3.5 h-3.5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Search bar - iOS 15+ style */}
+              <div className="px-6 pb-4">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  </div>
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search"
+                    className="w-full pl-11 pr-4 py-3.5 bg-gray-100 dark:bg-gray-800/60 rounded-2xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-[3px] focus:ring-blue-500/25 transition-all text-[16px]"
+                    autoFocus
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                    >
+                      <div className="w-5 h-5 bg-gray-400/30 dark:bg-gray-600/50 rounded-full flex items-center justify-center hover:bg-gray-400/50 dark:hover:bg-gray-600/70 transition-colors">
+                        <svg className="w-3 h-3 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Separator - iOS style */}
+            <div className="h-[0.5px] bg-gray-200 dark:bg-gray-700/50" />
+            
+            {/* Agent list */}
+            <div className="overflow-y-auto bg-white dark:bg-[#1c1c1e]" style={{ maxHeight: 'calc(90vh - 200px)' }}>
+              {filteredAgents.length === 0 ? (
+                <div className="px-6 py-16 text-center">
+                  <p className="text-gray-400 dark:text-gray-500 text-[17px]">No experts found</p>
+                </div>
+              ) : (
+                <div className="px-6 py-2">
+                  {/* Group agents by first letter */}
+                  {Object.entries(
+                    filteredAgents.reduce((groups, agent) => {
+                      const letter = agent.agent.name[0].toUpperCase();
+                      if (!groups[letter]) groups[letter] = [];
+                      groups[letter].push(agent);
+                      return groups;
+                    }, {} as Record<string, AgentConfigTS[]>)
+                  )
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([letter, agents]) => (
+                      <div key={letter} className="mb-6 last:mb-2">
+                        <h3 className="text-[13px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2 px-4">
+                          {letter}
+                        </h3>
+                        <div className="space-y-0.5">
+                          {agents.map((agent, index) => (
+                            <button
+                              key={agent.id}
+                              onClick={() => handleAgentSelect(agent)}
+                              className="w-full flex items-center gap-4 p-4 -mx-4 rounded-2xl hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-gray-800/50 dark:active:bg-gray-800 transition-colors group"
+                            >
+                              {/* Avatar with Apple-style colors */}
+                              <div className="relative flex-shrink-0">
+                                <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+                                  {agent.agent.avatar ? (
+                                    <img
+                                      src={agent.agent.avatar.startsWith('/') || agent.agent.avatar.startsWith('http')
+                                        ? agent.agent.avatar
+                                        : `/assets/avatars/${agent.agent.avatar}`}
+                                      alt={agent.agent.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600" />
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Content */}
+                              <div className="flex-1 text-left">
+                                <h4 className="text-[17px] font-normal text-gray-900 dark:text-white leading-tight">
+                                  {agent.agent.name}
+                                </h4>
+                                <p className="text-[15px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
+                                  {agent.agent.description}
+                                </p>
+                                {/* Skills display */}
+                                {agent.agent.metadata?.skills && agent.agent.metadata.skills.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {agent.agent.metadata.skills.slice(0, 3).map((skill, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                      >
+                                        {skill}
+                                      </span>
+                                    ))}
+                                    {agent.agent.metadata.skills.length > 3 && (
+                                      <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-1">
+                                        +{agent.agent.metadata.skills.length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Chevron - iOS style */}
+                              <svg className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 dark:group-hover:text-gray-500 transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS animations */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(30px, -30px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+        
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @media (min-width: 768px) {
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(40px) scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+export default LandingPageInfinite;

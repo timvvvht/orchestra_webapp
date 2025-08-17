@@ -1,0 +1,73 @@
+/* Mission Control UI Enhancements */
+/* Warmer color temperature adjustments */
+
+:root {
+  /* Warmer whites and grays */
+  --text-primary: rgba(255, 252, 250, 0.95);
+  --text-secondary: rgba(255, 252, 250, 0.75);
+  --text-tertiary: rgba(255, 252, 250, 0.55);
+  --text-quaternary: rgba(255, 252, 250, 0.35);
+
+  /* Warmer backgrounds */
+  --glass-subtle: rgba(255, 252, 250, 0.02);
+  --glass-light: rgba(255, 252, 250, 0.03);
+  --glass-medium: rgba(255, 252, 250, 0.05);
+}
+
+/* Enhanced animations */
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+@keyframes float-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-30px, 20px) scale(0.9); }
+  66% { transform: translate(20px, -30px) scale(1.1); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Smooth focus rings */
+.focus-ring:focus-visible {
+  outline: 2px solid rgba(0, 119, 237, 0.5);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Enhanced scrollbars */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

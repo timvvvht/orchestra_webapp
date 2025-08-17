@@ -1,0 +1,13 @@
+/* Scoped fixes for Mission Control V2 */
+.mcv2-left-scroll {
+  /* Ensure scroll works under fixed html/body in desktop */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; /* noop on desktop; improves Safari */
+  contain: layout paint; /* isolate sticky + scroll */
+}
+
+/* Ensure sticky bar remains sticky within the scroll container */
+.mcv2-left-scroll > .sticky { 
+  position: sticky; 
+  top: 0; 
+}

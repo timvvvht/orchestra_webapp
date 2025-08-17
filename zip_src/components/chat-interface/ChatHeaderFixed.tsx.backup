@@ -1,0 +1,700 @@
+import React from 'react';
+import { ChatHeader } from './header';
+
+interface ChatHeaderFixedProps {
+  sessionId?: string | null;
+  onNewChat?: () => void;
+  onOpenAgentSelector?: () => void;
+  className?: string;
+  // Refined mode props
+  refinedMode?: boolean;
+  onToggleRefinedMode?: (active: boolean) => void;
+  hasMessages?: boolean;
+}
+
+/**
+ * ChatHeaderFixed - Wrapper component that maintains backward compatibility
+ * 
+ * This component has been refactored to use the new modular ChatHeader component
+ * with well-organized subcomponents. The original 750+ line component has been
+ * broken down into focused, reusable components:
+ * 
+ * - AgentSelector: Agent dropdown and selection logic
+ * - ModelSelector: Model dropdown and selection logic  
+ * - SessionMetadata: Session duration, name, message count display
+ * - CapabilitiesDisplay: Agent tools and capabilities with progressive disclosure
+ * - HeaderActions: New chat button, refined mode toggle, settings
+ * - DebugPanel: Comprehensive debugging information
+ * - ChatHeader: Main orchestrator component
+ * 
+ * Benefits of refactoring:
+ * - Single responsibility principle
+ * - Improved maintainability
+ * - Better testability
+ * - Reusable components
+ * - Cleaner code organization
+ * 
+ * The new architecture maintains all existing functionality while being
+ * much more maintainable and organized.
+ */
+export function ChatHeaderFixed({
+  className = ''
+}: ChatHeaderFixedProps) {
+  // The new ChatHeader component handles all the functionality
+  // that was previously in this 750+ line component
+  return <ChatHeader className={className} />;
+}
+
+export default ChatHeaderFixed;
+
+  const headerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Get current session and agent data from ACS
+  const currentSession = chatUI.currentSession;
+  const currentAgentConfig = chatUI.currentAgentConfig;
+
+  // Use sessionId from props or fallback to context
+  const activeSessionId = sessionId || chatUI.currentSessionId;
+
+  // Get agent capabilities for progressive disclosure
+  const tools = currentAgentConfig?.tools || [];
+
+  // Use imported model definitions
+  const availableModels = AVAILABLE_MODELS;
+
+  // Get current model_id from selections (with fallbacks)
+  const currentModelId = selections.effectiveModelId;
+  const currentModel = getModelDisplayInfo(currentModelId);
+  
+  // Get current agent config ID from selections (with fallbacks)
+  const currentAgentConfigId = selections.effectiveAgentConfigId;
+
+  // Get the current agent display name with better fallback logic
+  const getCurrentAgentDisplayName = () => {
+    // If still loading agent configs, show loading state
+    if (configsLoading) {
+      return 'Loading...';
+    }
+    
+    // 🎯 PRIORITY 1: Use selected agent config (from UI selection)
+    if (selections.selectedAgentConfigId && agentConfigs[selections.selectedAgentConfigId]) {
+      return agentConfigs[selections.selectedAgentConfigId].name;
+    }
+    
+    // 🎯 PRIORITY 2: Use persisted agent_config_name from session
+    if (currentSession?.agent_config_name) {
+      return currentSession.agent_config_name;
+    }
+    
+    // 🎯 PRIORITY 3: Try current agent config name from context
+    if (currentAgentConfig?.name) {
+      return currentAgentConfig.name;
+    }
+    
+    // 🎯 PRIORITY 4: Try to find agent in the available configs by ID
+    if (currentAgentConfig?.id && agentConfigs[currentAgentConfig.id]) {
+      return agentConfigs[currentAgentConfig.id].name;
+    }
+    
+    // 🎯 PRIORITY 5: Try session's agent config ID lookup
+    if (currentSession?.agent_config_id && agentConfigs[currentSession.agent_config_id]) {
+      return agentConfigs[currentSession.agent_config_id].name;
+    }
+    
+    // 🎯 PRIORITY 6: Try to find any agent config that matches by looking through available configs
+    const sessionAgentId = currentSession?.agent_config_id;
+    if (sessionAgentId) {
+      const matchingAgent = agentConfigsArray.find(agent => agent.id === sessionAgentId);
+      if (matchingAgent) {
+        return matchingAgent.name;
+      }
+    }
+    
+    // 🎯 PRIORITY 7: Final fallback to descriptive default
+    const fallback = currentAgentConfig?.ai_config?.model_id || 
+                     currentSession?.agent_config_id || 
+                     'AI Assistant';
+    
+    return fallback;
+  };
+
+  // Calculate session duration
+  useEffect(() => {
+    if (currentSession?.createdAt) {
+      const updateDuration = () => {
+        const now = new Date();
+        const created = new Date(currentSession.createdAt);
+        const diffMs = now.getTime() - created.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        
+        if (diffMins < 1) {
+          setSessionDuration('Just started');
+        } else if (diffMins < 60) {
+          setSessionDuration(`${diffMins}m`);
+        } else {
+          const hours = Math.floor(diffMins / 60);
+          const mins = diffMins % 60;
+          setSessionDuration(`${hours}h ${mins}m`);
+        }
+      };
+
+      updateDuration();
+      const interval = setInterval(updateDuration, 60000); // Update every minute
+      return () => clearInterval(interval);
+    }
+  }, [currentSession?.createdAt]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowAgentDropdown(false);
+      }
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+        setShowModelDropdown(false);
+      }
+    };
+
+    if (showAgentDropdown || showModelDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAgentDropdown, showModelDropdown]);
+
+  // Handle new chat creation
+  const handleNewChat = () => {
+    if (onNewChat) {
+      onNewChat();
+    } else {
+      // Fallback: navigate to new chat
+      navigate('/chat');
+    }
+  };
+
+  // Handle agent selector
+  const handleAgentSelector = () => {
+    setShowAgentDropdown(!showAgentDropdown);
+    setShowModelDropdown(false); // Close model dropdown
+  };
+
+  // Handle model selector
+  const handleModelSelector = () => {
+    setShowModelDropdown(!showModelDropdown);
+    setShowAgentDropdown(false); // Close agent dropdown
+  };
+
+  // Handle agent selection (UI-only, no API calls)
+  const handleAgentSelect = (agent: AgentConfigTS) => {
+    // Close dropdown first
+    setShowAgentDropdown(false);
+    
+    // If it's the same agent, don't do anything
+    if (currentAgentConfigId === agent.id) {
+      return;
+    }
+    
+    console.log('[ChatHeader] Agent selected (UI-only):', agent.name, agent.id);
+    
+    // Update selection context (no API call)
+    selections.setSelectedAgentConfigId(agent.id);
+    
+    // Show immediate feedback
+    toast.success(`Switched to ${agent.name}`);
+  };
+
+  // Handle model selection (UI-only, no API calls)
+  const handleModelSelect = (model: { id: string; name: string; provider: string; description: string }) => {
+    // Close dropdown first
+    setShowModelDropdown(false);
+    
+    // If it's the same model, don't do anything
+    if (currentModelId === model.id) {
+      return;
+    }
+    
+    console.log('[ChatHeader] Model selected (UI-only):', model.name, model.id);
+    
+    // Update selection context (no API call)
+    selections.setSelectedModelId(model.id);
+    
+    // Show immediate feedback
+    toast.success(`Switched to ${model.name}`);
+  };
+
+  // Handle refined mode toggle
+  const handleRefinedModeToggle = (checked: boolean) => {
+    if (onToggleRefinedMode) {
+      onToggleRefinedMode(checked);
+    }
+  };
+
+  // Don't render if no session
+  if (!activeSessionId || !currentSession) {
+    return null;
+  }
+
+  return (
+    <motion.header
+      ref={headerRef}
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn(
+        "relative z-50",
+        "bg-gradient-to-r from-black/90 via-black/95 to-black/90",
+        "backdrop-blur-xl border-b border-white/[0.06]",
+        "px-6 md:px-12 py-4",
+        className
+      )}
+    >
+      <div className="max-w-none">
+        <div className="flex items-center justify-between">
+          {/* Session Info - Compact and informative */}
+          <div className="flex items-center gap-4 min-w-0 flex-1">
+            {/* Agent selector with dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                onClick={handleAgentSelector}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-full",
+                  "bg-white/[0.06] hover:bg-white/[0.1]",
+                  "border border-white/[0.08] hover:border-white/[0.12]",
+                  "transition-all group",
+                  showAgentDropdown && "bg-white/[0.1] border-white/[0.15]"
+                )}
+              >
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  configsLoading ? "bg-white/40 animate-spin" : "bg-[#007AFF] animate-pulse"
+                )} />
+                <span className="text-[13px] font-medium text-white/90 truncate max-w-[120px]">
+                  {getCurrentAgentDisplayName()}
+                </span>
+                <ChevronDown className={cn(
+                  "w-3 h-3 text-white/40 group-hover:text-white/60 transition-all",
+                  showAgentDropdown && "rotate-180 text-white/60"
+                )} />
+              </motion.button>
+
+              {/* Agent Dropdown */}
+              <AnimatePresence>
+                {showAgentDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className={cn(
+                      "absolute top-full left-0 mt-2 w-64 z-50",
+                      "bg-black/95 backdrop-blur-xl border border-white/[0.08]",
+                      "rounded-xl shadow-2xl overflow-hidden"
+                    )}
+                  >
+                    <div className="p-2">
+                      <div className="text-xs text-white/50 px-3 py-2 font-medium">
+                        Available Agents
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {configsLoading ? (
+                          <div className="px-3 py-2 text-sm text-white/50">
+                            Loading agents...
+                          </div>
+                        ) : agentConfigsArray.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-white/50">
+                            No agents available
+                          </div>
+                        ) : (
+                          agentConfigsArray.map((agent) => (
+                            <motion.button
+                              key={agent.id}
+                              whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+                              onClick={() => handleAgentSelect(agent)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2 rounded-lg",
+                                "text-left transition-colors",
+                                currentAgentConfigId === agent.id && "bg-white/[0.08]"
+                              )}
+                            >
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                currentAgentConfigId === agent.id ? "bg-[#007AFF]" : "bg-white/20"
+                              )} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-white/90 truncate">
+                                  {agent.name}
+                                </div>
+                                <div className="text-xs text-white/50 truncate">
+                                  {agent.description || `${agent.ai_config?.model_id || 'AI'} • ${agent.ai_config?.provider_name || 'Assistant'}`}
+                                </div>
+                              </div>
+                              {currentAgentConfigId === agent.id && (
+                                <Check className="w-3 h-3 text-[#007AFF]" />
+                              )}
+                            </motion.button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Model selector with dropdown */}
+            <div className="relative" ref={modelDropdownRef}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                onClick={handleModelSelector}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-full",
+                  "bg-white/[0.06] hover:bg-white/[0.1]",
+                  "border border-white/[0.08] hover:border-white/[0.12]",
+                  "transition-all group",
+                  showModelDropdown && "bg-white/[0.1] border-white/[0.15]"
+                )}
+              >
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  "bg-[#10B981] animate-pulse"
+                )} />
+                <span className="text-[13px] font-medium text-white/90 truncate max-w-[120px]">
+                  {currentModel?.shortName || currentModel?.name || 'No Model'}
+                </span>
+                <ChevronDown className={cn(
+                  "w-3 h-3 text-white/40 group-hover:text-white/60 transition-all",
+                  showModelDropdown && "rotate-180 text-white/60"
+                )} />
+              </motion.button>
+
+              {/* Model Dropdown */}
+              <AnimatePresence>
+                {showModelDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className={cn(
+                      "absolute top-full left-0 mt-2 w-80 z-50",
+                      "bg-black/95 backdrop-blur-xl border border-white/[0.08]",
+                      "rounded-xl shadow-2xl overflow-hidden"
+                    )}
+                  >
+                    <div className="p-2">
+                      <div className="text-xs text-white/50 px-3 py-2 font-medium">
+                        Available Models
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {availableModels.map((model) => (
+                            <motion.button
+                              key={model.id}
+                              whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+                              onClick={() => handleModelSelect(model)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2 rounded-lg",
+                                "text-left transition-colors",
+                                currentModelId === model.id && "bg-white/[0.08]"
+                              )}
+                            >
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                currentModelId === model.id ? "bg-[#10B981]" : "bg-white/20"
+                              )} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-medium text-white/90 truncate">
+                                    {model.name}
+                                  </div>
+                                  <div className="text-xs text-white/40 px-1.5 py-0.5 bg-white/[0.06] rounded">
+                                    {model.provider}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-white/50 truncate">
+                                  {model.description}
+                                </div>
+                              </div>
+                              {currentModelId === model.id && (
+                                <Check className="w-3 h-3 text-[#10B981]" />
+                              )}
+                            </motion.button>
+                          ))
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Session metadata - Minimal but useful */}
+            <div className="flex items-center gap-3 text-[11px] text-white/40">
+              <span>{sessionDuration}</span>
+              {currentSession.name && (
+                <>
+                  <div className="w-px h-3 bg-white/20" />
+                  <span className="truncate max-w-[200px]">{currentSession.name}</span>
+                </>
+              )}
+            </div>
+
+            {/* Capabilities hint - Progressive disclosure */}
+            <AnimatePresence>
+              {tools.length > 0 && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => setShowCapabilities(!showCapabilities)}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded-full",
+                    "text-[10px] text-white/50 hover:text-white/70",
+                    "bg-white/[0.04] hover:bg-white/[0.08]",
+                    "transition-all"
+                  )}
+                >
+                  <Command className="w-2.5 h-2.5" />
+                  <span>{tools.length} tools</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Actions - Minimal and keyboard-first */}
+          <div className="flex items-center gap-3">
+            {/* Refined Mode Toggle - Only if messages exist and callback provided */}
+            {hasMessages && onToggleRefinedMode && (
+              <div className="flex items-center gap-2">
+                <Sparkles className={cn(
+                  "w-3.5 h-3.5 transition-colors",
+                  refinedMode ? "text-[#007AFF]" : "text-white/40"
+                )} />
+                <Switch
+                  checked={refinedMode}
+                  onCheckedChange={handleRefinedModeToggle}
+                  className="data-[state=checked]:bg-[#007AFF] scale-75"
+                />
+              </div>
+            )}
+
+            {/* Divider */}
+            {hasMessages && onToggleRefinedMode && (
+              <div className="w-px h-4 bg-white/10" />
+            )}
+
+            {/* New Chat - Primary action with keyboard hint */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleNewChat}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5",
+                "text-[12px] font-medium text-white/70",
+                "hover:text-white hover:bg-white/10",
+                "rounded-full transition-all",
+                "group"
+              )}
+            >
+              <Plus className="w-3 h-3" />
+              <span>New</span>
+              {/* Keyboard hint appears on hover */}
+              <kbd className={cn(
+                "hidden group-hover:inline-flex items-center gap-0.5",
+                "px-1.5 py-0.5 rounded text-[10px]",
+                "bg-white/10 text-white/50",
+                "ml-1"
+              )}>
+                <Command className="w-2 h-2" />
+                <span>N</span>
+              </kbd>
+            </motion.button>
+
+            {/* Debug Panel Toggle */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowDebugPanel(!showDebugPanel)}
+              className={cn(
+                "p-2 rounded-full",
+                "hover:bg-white/10 transition-all",
+                showDebugPanel && "bg-white/10"
+              )}
+              title="Toggle Debug Panel"
+            >
+              <Bug className={cn(
+                "w-3.5 h-3.5 transition-colors",
+                showDebugPanel ? "text-[#007AFF]" : "text-white/40 hover:text-white/60"
+              )} />
+            </motion.button>
+
+            {/* Settings - Secondary action */}
+            {onOpenAgentSelector && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleAgentSelector}
+                className={cn(
+                  "p-2 rounded-full",
+                  "hover:bg-white/10 transition-all"
+                )}
+              >
+                <Settings className="w-3.5 h-3.5 text-white/40 hover:text-white/60" />
+              </motion.button>
+            )}
+          </div>
+        </div>
+
+        {/* Progressive Disclosure - Capabilities on demand */}
+        <AnimatePresence>
+          {showCapabilities && tools.length > 0 && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                <div className="flex flex-wrap gap-2">
+                  {tools.map((tool: string, i: number) => (
+                    <motion.span
+                      key={tool}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className={cn(
+                        "px-2 py-1 rounded-full",
+                        "text-[11px] text-white/60",
+                        "bg-white/[0.06] backdrop-blur-sm"
+                      )}
+                    >
+                      {tool}
+                    </motion.span>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Debug Panel */}
+        <AnimatePresence>
+          {showDebugPanel && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mt-4 overflow-hidden"
+            >
+              <div className={cn(
+                "bg-black/60 backdrop-blur-sm border border-white/[0.08]",
+                "rounded-lg p-4 text-xs font-mono"
+              )}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Bug className="w-4 h-4 text-[#007AFF]" />
+                  <span className="text-white/90 font-semibold">Debug Panel - Agent Config Data</span>
+                  <button
+                    onClick={() => setShowDebugPanel(false)}
+                    className="ml-auto p-1 hover:bg-white/10 rounded"
+                  >
+                    <X className="w-3 h-3 text-white/40" />
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                  {/* Current Session Data */}
+                  <div>
+                    <h4 className="text-white/70 font-semibold mb-2">Current Session</h4>
+                    <pre className="text-white/60 bg-black/40 p-3 rounded border border-white/[0.05] overflow-x-auto">
+                      {JSON.stringify(currentSession, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* Current Agent Config */}
+                  <div>
+                    <h4 className="text-white/70 font-semibold mb-2">Current Agent Config</h4>
+                    <pre className="text-white/60 bg-black/40 p-3 rounded border border-white/[0.05] overflow-x-auto">
+                      {JSON.stringify(currentAgentConfig, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* Agent Configs Map */}
+                  <div>
+                    <h4 className="text-white/70 font-semibold mb-2">Agent Configs Map</h4>
+                    <pre className="text-white/60 bg-black/40 p-3 rounded border border-white/[0.05] overflow-x-auto">
+                      {JSON.stringify(agentConfigs, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* Agent Configs Array */}
+                  <div>
+                    <h4 className="text-white/70 font-semibold mb-2">Agent Configs Array</h4>
+                    <pre className="text-white/60 bg-black/40 p-3 rounded border border-white/[0.05] overflow-x-auto">
+                      {JSON.stringify(agentConfigsArray, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* ChatUI Context Data */}
+                  <div className="lg:col-span-2">
+                    <h4 className="text-white/70 font-semibold mb-2">ChatUI Context (Key Properties)</h4>
+                    <pre className="text-white/60 bg-black/40 p-3 rounded border border-white/[0.05] overflow-x-auto">
+                      {JSON.stringify({
+                        currentSessionId: chatUI.currentSessionId,
+                        currentSession: chatUI.currentSession,
+                        currentAgentConfig: chatUI.currentAgentConfig,
+                        isAuthenticated: chatUI.isAuthenticated,
+                        isConnected: chatUI.isConnected,
+                        connectionStatus: chatUI.connectionStatus
+                      }, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* Display Name Resolution Debug */}
+                  <div className="lg:col-span-2">
+                    <h4 className="text-white/70 font-semibold mb-2">Display Name Resolution Debug</h4>
+                    <div className="text-white/60 bg-black/40 p-3 rounded border border-white/[0.05] space-y-2">
+                      <div className="text-white/80 font-semibold">🎯 NEW PERSISTED FIELDS:</div>
+                      <div>currentSession?.agent_config_name: <span className="text-green-400">"{currentSession?.agent_config_name || 'undefined'}"</span></div>
+                      <div>currentSession?.model_id: <span className="text-green-400">"{currentSession?.model_id || 'undefined'}"</span></div>
+                      
+                      <div className="text-white/80 font-semibold mt-3">📊 LEGACY RESOLUTION:</div>
+                      <div>configsLoading: <span className="text-yellow-400">{String(configsLoading)}</span></div>
+                      <div>currentAgentConfig?.name: <span className="text-yellow-400">"{currentAgentConfig?.name || 'undefined'}"</span></div>
+                      <div>currentAgentConfig?.id: <span className="text-yellow-400">"{currentAgentConfig?.id || 'undefined'}"</span></div>
+                      <div>currentSession?.agent_config_id: <span className="text-yellow-400">"{currentSession?.agent_config_id || 'undefined'}"</span></div>
+                      <div>agentConfigs[currentSession?.agent_config_id]?.name: <span className="text-yellow-400">"{currentSession?.agent_config_id && agentConfigs[currentSession.agent_config_id]?.name || 'undefined'}"</span></div>
+                      
+                      <div className="text-white/80 font-semibold mt-3">🎯 SELECTION CONTEXT:</div>
+                      <div>selections.selectedModelId: <span className="text-blue-400 font-bold">"{selections.selectedModelId || 'null'}"</span> (UI SELECTION)</div>
+                      <div>selections.selectedAgentConfigId: <span className="text-blue-400 font-bold">"{selections.selectedAgentConfigId || 'null'}"</span> (UI SELECTION)</div>
+                      <div>selections.effectiveModelId: <span className="text-green-400 font-bold">"{selections.effectiveModelId || 'null'}"</span> (EFFECTIVE)</div>
+                      <div>selections.effectiveAgentConfigId: <span className="text-green-400 font-bold">"{selections.effectiveAgentConfigId || 'null'}"</span> (EFFECTIVE)</div>
+                      <div>selections.hasSelections: <span className="text-yellow-400">"{String(selections.hasSelections)}"</span></div>
+                      
+                      <div className="text-white/80 font-semibold mt-3">🎯 FALLBACK SOURCES:</div>
+                      <div>currentSession?.model_id: <span className="text-yellow-400">"{currentSession?.model_id || 'undefined'}"</span> (SESSION)</div>
+                      <div>currentAgentConfig?.ai_config?.model_id: <span className="text-yellow-400">"{currentAgentConfig?.ai_config?.model_id || 'undefined'}"</span> (AGENT CONFIG)</div>
+                      <div>currentModel.name: <span className="text-green-400 font-bold">"{currentModel.name}"</span></div>
+                      <div>currentModel.provider: <span className="text-green-400">"{currentModel.provider}"</span></div>
+                      
+                      <div className="text-white/80 font-semibold mt-3">🎯 FINAL RESULT:</div>
+                      <div>getCurrentAgentDisplayName(): <span className="text-green-400 font-bold">"{getCurrentAgentDisplayName()}"</span></div>
+                      <div>activeSessionId: <span className="text-yellow-400">"{activeSessionId || 'undefined'}"</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Subtle bottom border */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+    </motion.header>
+  );
+}
+
+export default ChatHeader;

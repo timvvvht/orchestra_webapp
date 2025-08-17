@@ -1,0 +1,212 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+
+interface QuantumWaveIndicatorProps {
+  className?: string;
+  agentName?: string;
+  showThinkingState?: boolean;
+}
+
+const QuantumWaveIndicator: React.FC<QuantumWaveIndicatorProps> = ({ 
+  className, 
+  agentName,
+  showThinkingState = false 
+}) => {
+  // Container animation
+  const containerVariants = {
+    initial: { 
+      opacity: 0, 
+      y: 5 
+    },
+    animate: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: [0.16, 1, 0.3, 1]
+      }
+    },
+    exit: { 
+      opacity: 0, 
+      y: -5,
+      transition: {
+        duration: 0.3
+      }
+    }
+  };
+
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      className={cn("relative w-16 h-16", className)}
+    >
+      {/* Quantum wave visualization */}
+      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 64 64">
+        <defs>
+          <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={showThinkingState ? "rgba(147, 51, 234, 0)" : "rgba(0, 119, 237, 0)"} />
+            <stop offset="50%" stopColor={showThinkingState ? "rgba(147, 51, 234, 0.9)" : "rgba(0, 119, 237, 0.8)"} />
+            <stop offset="100%" stopColor={showThinkingState ? "rgba(147, 51, 234, 0)" : "rgba(0, 119, 237, 0)"} />
+          </linearGradient>
+        </defs>
+
+        {/* Sine wave paths */}
+        {[...Array(3)].map((_, i) => (
+          <motion.path
+            key={`wave-${i}`}
+            d="M 0 32 Q 16 16 32 32 T 64 32"
+            stroke="url(#waveGradient)"
+            strokeWidth={3 - i * 0.5}
+            fill="none"
+            opacity={1 - i * 0.15}
+            animate={{
+              d: [
+                "M 0 32 Q 16 16 32 32 T 64 32",
+                "M 0 32 Q 16 48 32 32 T 64 32",
+                "M 0 32 Q 16 16 32 32 T 64 32"
+              ],
+            }}
+            transition={{
+              duration: 3 + i * 0.5,
+              repeat: Infinity,
+              delay: i * 0.2,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+
+        {/* Interference pattern */}
+        <motion.g opacity="0.6">
+          {[...Array(8)].map((_, i) => (
+            <motion.line
+              key={`interference-${i}`}
+              x1={i * 8}
+              y1="0"
+              x2={i * 8}
+              y2="64"
+              stroke={showThinkingState ? "rgba(219, 39, 119, 0.15)" : "rgba(0, 212, 255, 0.1)"}
+              strokeWidth="0.5"
+              animate={{
+                opacity: [0, 0.3, 0],
+                strokeWidth: [0.5, 1, 0.5],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                delay: i * 0.1,
+                ease: "easeInOut"
+              }}
+            />
+          ))}
+        </motion.g>
+      </svg>
+
+      {/* Probability cloud */}
+      <motion.div
+        className="absolute inset-0"
+        animate={{
+          opacity: [0.4, 0.7, 0.4],
+        }}
+        transition={{
+          duration: 4,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      >
+        {[...Array(5)].map((_, i) => (
+          <motion.div
+            key={`cloud-${i}`}
+            className="absolute"
+            style={{
+              left: `${20 + i * 10}%`,
+              top: '50%',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: showThinkingState
+                ? 'radial-gradient(circle, rgba(147, 51, 234, 0.7) 0%, transparent 70%)'
+                : 'radial-gradient(circle, rgba(0, 119, 237, 0.6) 0%, transparent 70%)',
+              filter: 'blur(4px)'
+            }}
+            animate={{
+              y: [0, -8, 8, 0],
+              scale: [1, 1.5, 0.8, 1],
+              opacity: [0.5, 0.9, 0.5],
+            }}
+            transition={{
+              duration: 3 + i * 0.3,
+              repeat: Infinity,
+              delay: i * 0.2,
+              ease: [0.16, 1, 0.3, 1]
+            }}
+          />
+        ))}
+      </motion.div>
+
+      {/* Quantum collapse effect */}
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center"
+        animate={{
+          scale: [1, 1.1, 1],
+        }}
+        transition={{
+          duration: 5,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      >
+        <motion.div
+          className="w-2 h-2"
+          style={{
+            background: showThinkingState
+              ? 'radial-gradient(circle, rgba(147, 51, 234, 1) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(0, 119, 237, 0.9) 0%, transparent 70%)',
+            boxShadow: showThinkingState
+              ? '0 0 30px rgba(147, 51, 234, 0.6)'
+              : '0 0 30px rgba(0, 119, 237, 0.5)',
+          }}
+          animate={{
+            scale: [0, 2, 0],
+            opacity: [0, 1, 0],
+          }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            ease: "easeOut"
+          }}
+        />
+      </motion.div>
+
+      {/* Field lines */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        {[...Array(3)].map((_, i) => (
+          <motion.circle
+            key={`field-${i}`}
+            cx="32"
+            cy="32"
+            r={10 + i * 8}
+            fill="none"
+            stroke={showThinkingState ? "rgba(147, 51, 234, 0.4)" : "rgba(0, 119, 237, 0.3)"}
+            strokeWidth="1"
+            strokeDasharray="2 4"
+            animate={{
+              r: [10 + i * 8, 15 + i * 8, 10 + i * 8],
+              opacity: [0.4, 0.8, 0.4],
+            }}
+            transition={{
+              duration: 4 + i * 0.5,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+      </svg>
+    </motion.div>
+  );
+};
+
+export default QuantumWaveIndicator;

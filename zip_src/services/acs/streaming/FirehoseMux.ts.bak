@@ -1,0 +1,268 @@
+/* eslint-env browser */
+import mitt from 'mitt';
+import { DedupeCache } from '@/utils/DedupeCache';
+import type { ACSFirehoseService, ACSRawEvent } from './ACSFirehoseService';
+import type { LocalRelaySource } from './LocalRelaySource';
+
+type Events = {
+    data: ACSRawEvent;
+    error: Error;
+    status: { remoteConnected: boolean; relayConnected: boolean };
+};
+
+interface FirehoseMuxConfig {
+    ignoreRelayHeartbeats?: boolean;
+}
+
+/**
+ * FirehoseMux multiplexes events from both ACSFirehoseService (remote) and LocalRelaySource (relay),
+ * providing deduplication, health tracking, and unified event emission.
+ */
+export class FirehoseMux {
+    private readonly bus = mitt<Events>();
+    private readonly dedupe = new DedupeCache<string>(30_000, 10_000); // 30s window, 10k max entries
+    private remoteUnsub: (() => void) | null = null;
+    private relayUnsub: (() => void) | null = null;
+    private remoteErrorUnsub: (() => void) | null = null;
+    private relayErrorUnsub: (() => void) | null = null;
+    private heartbeatCache = new Set<string>(); // Track heartbeat event_ids to filter duplicates
+    private config: FirehoseMuxConfig;
+    private statusMonitorInterval: ReturnType<typeof setInterval> | null = null;
+
+    constructor(
+        private remote: ACSFirehoseService,
+        private relay: LocalRelaySource,
+        config: FirehoseMuxConfig = {}
+    ) {
+        this.config = { ignoreRelayHeartbeats: false, ...config };
+        this.setupEventHandlers();
+    }
+
+    private setupEventHandlers(): void {
+        // Subscribe to remote events
+        this.remoteUnsub = this.remote.subscribe((event) => {
+            this.handleEvent(event, 'remote');
+        });
+
+        // Subscribe to relay events
+        this.relayUnsub = this.relay.subscribe((event) => {
+            this.handleEvent(event, 'relay');
+        });
+
+        // Subscribe to error events
+        this.remoteErrorUnsub = this.remote.subscribe((error) => {
+            this.bus.emit('error', error instanceof Error ? error : new Error('Remote error'));
+        });
+
+        this.relayErrorUnsub = this.relay.onError((error) => {
+            this.bus.emit('error', error);
+        });
+
+        // Subscribe to remote status changes
+        if (typeof this.remote.onStatusChange === 'function') {
+            this.remote.onStatusChange((connected) => {
+                console.log(`[FirehoseMux] Remote connection status changed: ${connected}`);
+                this.emitStatus();
+            });
+        }
+
+        // Emit initial status
+        this.emitStatus();
+        
+        // Set up periodic status monitoring
+        this.setupStatusMonitoring();
+    }
+
+    private handleEvent(event: ACSRawEvent, source: 'remote' | 'relay'): void {
+        // Create deduplication key
+        const dedupeKey = `${event.session_id}:${event.event_id}`;
+
+        // Check for duplicates
+        if (this.dedupe.seen(dedupeKey)) {
+            console.log(`[FirehoseMux] Filtered duplicate event from ${source}:`, dedupeKey);
+            return;
+        }
+
+        // Filter heartbeat events if configured
+        if (this.shouldFilterHeartbeat(event, source)) {
+            return;
+        }
+
+        // Enhance event with source information for debugging
+        const enhancedEvent: ACSRawEvent & { source?: string; originalTimestamp?: number } = {
+            ...event,
+            source
+        };
+
+        // Enhanced timestamp handling: fallback to remote timestamp if relay timestamp differs
+        if (source === 'relay') {
+            // Store original relay timestamp for debugging
+            enhancedEvent.originalTimestamp = event.timestamp;
+            
+            // If relay timestamp is missing or significantly different, use current time
+            if (!event.timestamp || Math.abs(event.timestamp - Date.now()) > 60000) {
+                console.log(`[FirehoseMux] Relay timestamp fallback for ${dedupeKey}:`, {
+                    originalTimestamp: event.timestamp,
+                    fallbackTimestamp: Date.now(),
+                    source
+                });
+                enhancedEvent.timestamp = Date.now();
+            }
+        } else if (source === 'remote') {
+            // For remote events, preserve the original timestamp but ensure it exists
+            if (!event.timestamp) {
+                enhancedEvent.timestamp = Date.now();
+                console.log(`[FirehoseMux] Remote timestamp fallback for ${dedupeKey}:`, {
+                    fallbackTimestamp: enhancedEvent.timestamp,
+                    source
+                });
+            }
+        }
+
+        // Log event processing for debugging
+        console.log(`[FirehoseMux] Processing event from ${source}:`, {
+            eventId: event.event_id,
+            sessionId: event.session_id,
+            eventType: event.event_type,
+            timestamp: enhancedEvent.timestamp,
+            originalTimestamp: enhancedEvent.originalTimestamp,
+            source
+        });
+
+        // Emit the event
+        this.bus.emit('data', enhancedEvent);
+    }
+
+    private shouldFilterHeartbeat(event: ACSRawEvent, source: 'remote' | 'relay'): boolean {
+        if (event.event_type !== 'heartbeat') {
+            return false;
+        }
+
+        // If configured to ignore relay heartbeats, filter them out
+        if (this.config.ignoreRelayHeartbeats && source === 'relay') {
+            console.log('[FirehoseMux] Filtered relay heartbeat event:', event.event_id);
+            return true;
+        }
+
+        // For duplicate heartbeat filtering, track by event_id
+        if (this.heartbeatCache.has(event.event_id)) {
+            console.log(`[FirehoseMux] Filtered duplicate heartbeat from ${source}:`, event.event_id);
+            return true;
+        }
+
+        // Add to heartbeat cache
+        this.heartbeatCache.add(event.event_id);
+
+        // Clean up heartbeat cache periodically (keep last 100 heartbeat IDs)
+        if (this.heartbeatCache.size > 100) {
+            const entries = Array.from(this.heartbeatCache);
+            this.heartbeatCache.clear();
+            // Keep the last 50 entries
+            entries.slice(-50).forEach(id => this.heartbeatCache.add(id));
+        }
+
+        return false;
+    }
+
+    private setupStatusMonitoring(): void {
+        // Monitor status changes every 5 seconds
+        this.statusMonitorInterval = setInterval(() => {
+            this.emitStatus();
+        }, 5000);
+    }
+
+    private emitStatus(): void {
+        const status = {
+            remoteConnected: this.remote.isConnected(),
+            relayConnected: this.relay.isConnected()
+        };
+        
+        console.log('[FirehoseMux] Status update:', status);
+        this.bus.emit('status', status);
+    }
+
+    /**
+     * Subscribe to multiplexed events
+     * @param handler Function to handle ACSRawEvent
+     * @returns Unsubscribe function
+     */
+    subscribe(handler: (event: ACSRawEvent) => void): () => void {
+        this.bus.on('data', handler);
+        return () => this.bus.off('data', handler);
+    }
+
+    /**
+     * Subscribe to error events
+     * @param handler Function to handle errors
+     * @returns Unsubscribe function
+     */
+    onError(handler: (error: Error) => void): () => void {
+        this.bus.on('error', handler);
+        return () => this.bus.off('error', handler);
+    }
+
+    /**
+     * Subscribe to status change events
+     * @param handler Function to handle status changes
+     * @returns Unsubscribe function
+     */
+    onStatus(handler: (status: { remoteConnected: boolean; relayConnected: boolean }) => void): () => void {
+        this.bus.on('status', handler);
+        return () => this.bus.off('status', handler);
+    }
+
+    /**
+     * Get current connection status
+     */
+    getStatus(): { remoteConnected: boolean; relayConnected: boolean } {
+        return {
+            remoteConnected: this.remote.isConnected(),
+            relayConnected: this.relay.isConnected()
+        };
+    }
+
+    /**
+     * Check if either source is connected
+     */
+    isConnected(): boolean {
+        return this.remote.isConnected() || this.relay.isConnected();
+    }
+
+    /**
+     * Update configuration
+     */
+    updateConfig(config: Partial<FirehoseMuxConfig>): void {
+        this.config = { ...this.config, ...config };
+    }
+
+    /**
+     * Cleanup and disconnect from all sources
+     */
+    disconnect(): void {
+        // Clear status monitoring
+        if (this.statusMonitorInterval) {
+            clearInterval(this.statusMonitorInterval);
+            this.statusMonitorInterval = null;
+        }
+
+        // Unsubscribe from all event handlers
+        this.remoteUnsub?.();
+        this.relayUnsub?.();
+        this.remoteErrorUnsub?.();
+        this.relayErrorUnsub?.();
+        
+        this.remoteUnsub = null;
+        this.relayUnsub = null;
+        this.remoteErrorUnsub = null;
+        this.relayErrorUnsub = null;
+        
+        // Clear caches
+        this.dedupe.clear();
+        this.heartbeatCache.clear();
+        
+        console.log('[FirehoseMux] Disconnected from all sources');
+    }
+}
+
+// Re-export ACSRawEvent type for consumers
+export type { ACSRawEvent } from './ACSFirehoseService';

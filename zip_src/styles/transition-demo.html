@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orchestra Transitions Demo</title>
+    <style>
+        /* Reset */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+        /* Orchestra Transitions */
+        .orchestra-page {
+            min-height: 100vh;
+            width: 100%;
+            animation: pageEnter 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            background: #000;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        @keyframes pageEnter {
+            from {
+                opacity: 0;
+                transform: scale(1.02) translateZ(0);
+                filter: blur(10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateZ(0);
+                filter: blur(0px);
+            }
+        }
+
+        .orchestra-page-exit {
+            animation: pageExit 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+        }
+
+        @keyframes pageExit {
+            from {
+                opacity: 1;
+                transform: scale(1) translateZ(0);
+                filter: blur(0px);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.98) translateZ(0);
+                filter: blur(10px);
+            }
+        }
+
+        /* Demo styles */
+        .page-content {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 200;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        #page1 { background: linear-gradient(135deg, #1a1a2e, #0f0f1e); }
+        #page2 { background: linear-gradient(135deg, #0f1419, #1a1f29); display: none; }
+    </style>
+</head>
+<body>
+    <div id="page1" class="orchestra-page">
+        <div class="page-content">
+            <h1>Landing Page Prelude</h1>
+            <p style="margin-bottom: 2rem; opacity: 0.7;">Click to see the transition effect</p>
+            <button onclick="transitionToPage2()">Go to Chat →</button>
+        </div>
+    </div>
+
+    <div id="page2" class="orchestra-page">
+        <div class="page-content">
+            <h1>Chat Interface</h1>
+            <p style="margin-bottom: 2rem; opacity: 0.7;">Notice the smooth blur + scale transition</p>
+            <button onclick="transitionToPage1()">← Back to Prelude</button>
+        </div>
+    </div>
+
+    <script>
+        function transitionToPage2() {
+            const page1 = document.getElementById('page1');
+            const page2 = document.getElementById('page2');
+            
+            // Add exit class to current page
+            page1.classList.add('orchestra-page-exit');
+            
+            // After exit animation, hide page1 and show page2
+            setTimeout(() => {
+                page1.style.display = 'none';
+                page1.classList.remove('orchestra-page-exit');
+                page2.style.display = 'flex';
+                // Force reflow to ensure animation plays
+                page2.offsetHeight;
+                page2.classList.remove('orchestra-page-exit');
+            }, 500);
+        }
+
+        function transitionToPage1() {
+            const page1 = document.getElementById('page1');
+            const page2 = document.getElementById('page2');
+            
+            // Add exit class to current page
+            page2.classList.add('orchestra-page-exit');
+            
+            // After exit animation, hide page2 and show page1
+            setTimeout(() => {
+                page2.style.display = 'none';
+                page2.classList.remove('orchestra-page-exit');
+                page1.style.display = 'flex';
+                // Force reflow to ensure animation plays
+                page1.offsetHeight;
+                page1.classList.remove('orchestra-page-exit');
+            }, 500);
+        }
+    </script>
+</body>
+</html>
