@@ -4,6 +4,8 @@ import { lazy } from "react";
 import AppShell from "./shell/AppShell";
 import AuthCallback from "./routes/auth/callback";
 import GitHubConnectPage from "./routes/github-connect";
+import MockTestPage from "./components/test-components/testSendChatMessage";
+import MissionControl from "@/components/mission-control/MissionControl";
 import GitHubWizardLayout from "./routes/github/GitHubWizardLayout";
 import StepConfig from "./routes/github/StepConfig";
 import StepLogin from "./routes/github/StepLogin";
@@ -14,9 +16,6 @@ import StartChat from "./routes/StartChat";
 
 // Lazy load components for better performance
 const Landing = lazy(() => import("./routes/Landing"));
-const MissionControl = lazy(
-  () => import("@/components/mission-control/MissionControl")
-);
 
 export const routes: RouteObject[] = [
   {
@@ -64,6 +63,7 @@ export const routes: RouteObject[] = [
           { path: "install/callback", element: <InstallCallback /> },
         ],
       },
+      { path: "mock-test", element: <MockTestPage /> },
     ],
   },
 ];

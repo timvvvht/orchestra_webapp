@@ -4,6 +4,7 @@ import { useMissionControlStore } from "@/stores/missionControlStore";
 
 import { SessionIdContext } from "@/context/SessionIdContext";
 import ChatMain from "@/components/chat-interface/ChatMain";
+//import ChatMainCanonicalLegacy from "../chat-interface/ChatMainCanonicalLegacy";
 import { sendChatMessage } from "@/utils/sendChatMessage";
 import { getDefaultACSClient } from "@/services/acs";
 import { useAuth } from "@/auth/AuthContext";
@@ -269,7 +270,7 @@ const ChatPane: React.FC = () => {
           <ChatErrorBoundary>
             <div className="h-full max-h-full overflow-hidden flex flex-col">
               <SessionIdContext.Provider value={selectedSession}>
-                <ChatMainCanonicalLegacy
+                <ChatMain
                   sessionId={selectedSession}
                   sidebarCollapsed={true}
                   onSubmit={handleSubmit}

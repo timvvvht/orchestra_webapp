@@ -42,8 +42,12 @@ import { useMissionControlStore } from "@/stores/missionControlStore";
 function FallbackTextEditor({
   value,
   onChange,
-  placeholder
-}: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
   return (
     <textarea
       className="w-full min-h-[120px] rounded-md border border-white/10 bg-white/[0.03] p-3 text-white/90 outline-none focus:border-white/20 resize-none"
@@ -51,40 +55,45 @@ function FallbackTextEditor({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       style={{
-        background: 'transparent',
-        fontSize: '15px',
-        lineHeight: '1.6',
-        padding: '16px 20px',
-        minHeight: '220px',
-        maxHeight: '45vh',
-        overflowY: 'auto'
+        background: "transparent",
+        fontSize: "15px",
+        lineHeight: "1.6",
+        padding: "16px 20px",
+        minHeight: "220px",
+        maxHeight: "45vh",
+        overflowY: "auto",
       }}
     />
   );
 }
 
 // Lazy-loaded Lexical editor component
-const LazyLexicalPillEditor = React.lazy(() => 
-  import("@/components/ui/LexicalPillEditor").then(module => ({
-    default: module.LexicalPillEditor
-  })).catch(error => {
-    console.warn("[NewTaskModal] Failed to load LexicalPillEditor, using fallback:", error);
-    // Return a component that will trigger the error boundary
-    throw error;
-  })
+const LazyLexicalPillEditor = React.lazy(() =>
+  import("@/components/ui/LexicalPillEditor")
+    .then((module) => ({
+      default: module.LexicalPillEditor,
+    }))
+    .catch((error) => {
+      console.warn(
+        "[NewTaskModal] Failed to load LexicalPillEditor, using fallback:",
+        error
+      );
+      // Return a component that will trigger the error boundary
+      throw error;
+    })
 );
 
 // Error boundary class for Lexical editor
 class LexicalErrorBoundary extends React.Component<
-  { 
-    children: React.ReactNode; 
+  {
+    children: React.ReactNode;
     fallback: React.ReactNode;
     onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
   },
   { hasError: boolean }
 > {
-  constructor(props: { 
-    children: React.ReactNode; 
+  constructor(props: {
+    children: React.ReactNode;
     fallback: React.ReactNode;
     onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
   }) {
@@ -122,7 +131,10 @@ function SafeLexicalEditor(props: {
   const [hasError, setHasError] = React.useState(false);
 
   const handleError = React.useCallback((error: Error) => {
-    console.warn("[NewTaskModal] Lexical editor error, switching to fallback:", error);
+    console.warn(
+      "[NewTaskModal] Lexical editor error, switching to fallback:",
+      error
+    );
     // Use setTimeout to avoid infinite re-render loops
     setTimeout(() => setHasError(true), 0);
   }, []);
@@ -201,13 +213,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const auth = useAuth();
 
   // Local keyboard shortcut hint helper
-  const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform);
-  const getShortcutHint = (action: 'send' | 'save' | 'new') => {
-    const modifier = isMac ? '⌘' : 'Ctrl+';
-    if (action === 'send') return `${modifier}↵`;
-    if (action === 'save') return `${modifier}S`;
-    if (action === 'new') return `${modifier}N`;
-    return '';
+  const isMac =
+    typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
+  const getShortcutHint = (action: "send" | "save" | "new") => {
+    const modifier = isMac ? "⌘" : "Ctrl+";
+    if (action === "send") return `${modifier}↵`;
+    if (action === "save") return `${modifier}S`;
+    if (action === "new") return `${modifier}N`;
+    return "";
   };
 
   // Core state - minimal and focused
@@ -639,7 +652,8 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       const selectedAgentConfig = agentConfigsArray.find(
         (ac) => ac.id === agentConfigId
       );
-      const agentConfigName = selectedAgentConfig?.agent.name || "General";
+      const agentConfigName =
+        selectedAgentConfig?.ai_config?.model_id || "General";
 
       // Truncate content for title
       const MAX_TITLE_LENGTH = 60;
