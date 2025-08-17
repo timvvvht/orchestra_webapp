@@ -112,11 +112,12 @@ export const LeftRail: React.FC = () => {
   // Navigation items configuration
   const navItems = [
     // { to: '/dev/native-tools', label: 'Native Tools', icon: Wrench },
-    { to: "/mission-control-v2", label: "Home", icon: Home },
-    // { to: '/landing', label: 'Home', icon: Home },
+    //{ to: "/", label: "Home", icon: Home },
+    { to: "/", label: "Home", icon: Home },
+    { to: "/mission-control", label: "Mission", icon: Bot },
     // { to: '/dashboard', label: 'Home', icon: Home },
-    { to: "/chat", label: "Chat", icon: Bot },
-    { to: "/vault", label: "Notes", icon: FileText, onClick: handleVaultClick },
+    //{ to: "/chat", label: "Chat", icon: Bot },
+    //{ to: "/vault", label: "Notes", icon: FileText, onClick: handleVaultClick },
     // { to: '/mcp-playground', label: 'MCP Playground', icon: Zap },
     // { to: '/animations', label: 'Animations', icon: Wand2 },
     // { to: '/demo/mermaid', label: 'Mermaid Demo', icon: GitBranch },
@@ -151,12 +152,12 @@ export const LeftRail: React.FC = () => {
             to={item.to}
             onClick={(e) => {
               // Handle custom onClick first (like vault)
-              if (item.onClick) {
-                item.onClick(e);
-              } else {
-                // Handle general auth check for other nav items
-                handleNavigation(item.to, e);
-              }
+              //if (item.onClick) {
+              //item.onClick(e);
+              //} else {
+              // Handle general auth check for other nav items
+              handleNavigation(item.to, e);
+              //}
             }}
             className={({ isActive }) =>
               clsx(
