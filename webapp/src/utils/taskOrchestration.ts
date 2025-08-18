@@ -5,7 +5,13 @@
 import { isGitRepo } from "@/utils/gitHelpers";
 import { checkRepoDirtyLightweight } from "@/utils/worktreeApi";
 import { createSessionFast } from "@/hooks/useCreateSessionFast";
-import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from '@/utils/runtime';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 import { getDefaultACSClient } from "@/services/acs";
 import {
   sendChatMessage,
@@ -59,7 +65,7 @@ export async function prepareTaskWorkspace(
   projectRoot: string
 ): Promise<string> {
   // Returns the path to the new worktree's CWD.
-  const worktreeCwd = await invoke<string>("create_worktree", {
+  const worktreeCwd = await tauriInvoke<string>("create_worktree", {
     sessionId,
     projectRoot,
   });
