@@ -5,7 +5,13 @@
  * specifically for Mission Control workflows.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '@/utils/runtime';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 import { toast } from 'sonner';
 import {
     createFindSymbolSpec,
