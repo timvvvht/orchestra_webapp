@@ -47,7 +47,7 @@ const itemVariants = {
   },
 };
 
-const fetchAcsSessions = async (): Promise<MissionControlAgent[]> => {
+export const fetchAcsSessions = async (): Promise<MissionControlAgent[]> => {
   const acs = getDefaultACSClient();
 
   const resp = await acs.sessions.listSessions({

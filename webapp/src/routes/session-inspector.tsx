@@ -13,6 +13,8 @@ import {
   getAllChatMessages,
 } from "@/services/supabase/chatService";
 import { getPlansBySession } from "@/services/supabase/planService";
+import { useMissionControlStore } from "@/stores/missionControlStore";
+import { fetchAcsSessions } from "@/components/mission-control/MissionControl";
 
 type SSEEvent = {
   session_id?: string;
@@ -80,9 +82,15 @@ const Section: React.FC<{
   </section>
 );
 
-const SessionInspector: React.FC = () => {
+const SessionInspector: React.FC = async () => {
   const { user } = useAuth();
-  const { sessionId, loading, error } = useCurrentSessionId();
+  const getSortedSessions = await fetchAcsSessions().then((s) => {
+    console.log("[MostRecentSession] mostRecentSession", s);
+    return s;
+  });
+  const mostRecentSession = getSortedSessions[0] || null;
+
+  const sessionId = mostRecentSession.id;
 
   // Supabase data
   const [sessionMeta, setSessionMeta] = useState<any | null>(null);
@@ -169,19 +177,6 @@ const SessionInspector: React.FC = () => {
 
   const clearEvents = useCallback(() => setEvents([]), []);
 
-  if (loading) {
-    return <div className="p-6">Loading most recent session…</div>;
-  }
-  if (error) {
-    return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold">Session Inspector</h1>
-        <p className="mt-4 text-red-400">
-          Error resolving most recent session: {String(error?.message || error)}
-        </p>
-      </div>
-    );
-  }
   if (!sessionId) {
     return (
       <div className="p-6">
