@@ -1,1 +1,0 @@
-export { default as AppInfrastructureProvider } from './AppInfrastructureProvider';

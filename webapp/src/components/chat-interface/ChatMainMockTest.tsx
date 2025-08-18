@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MobileChatInput } from "./MobileChatInput";
 import { httpApi } from "@/api/httpApi";
-import { useEventStore } from "@/stores/eventStores";
+import { useEventStore } from "@/stores/eventStore";
 import { useSessionStatusStore } from "@/stores/sessionStatusStore";
 import { ChatRole } from "@/types/chatTypes";
 

@@ -454,13 +454,17 @@ export function parseSupabaseMessage(msg: any, index: number): UnifiedTimelineEv
                     source: 'supabase',
                     sessionId: msg.session_id || msg.id, // Add sessionId for consistency
                     role: 'assistant',
-                    toolResult: {
+                    data: {
+                        id: `${contentItem.tool_use_id || msg.id || index}-result-${contentIndex}`,
+                        toolCallId: contentItem.tool_use_id || 'unknown',
+                        toolName: toolName,
                         ok: success,
                         result: result,
                         error: error,
-                        toolCallId: contentItem.tool_use_id || 'unknown',
-                        toolName: toolName
-                    },
+                        timestamp: itemTimestamp,
+                        source: 'supabase',
+                        messageId: msg.id
+                    } as UnifiedToolResult,
                     metadata: {
                         supabase: {
                             messageId: msg.id,

@@ -11,6 +11,10 @@ import type {
 } from "../shared/types";
 import { ACS_ENDPOINTS } from "../shared/types";
 
+// Session origin types and constants for webapp
+type SessionOrigin = 'web'; // For webapp bundle we lock to 'web'
+const ORIGIN_WEB: SessionOrigin = 'web';
+
 /**
  * Session management service for ACS
  * Handles CRUD operations for chat sessions
@@ -47,9 +51,11 @@ export class ACSSessionService {
     request: CreateSessionRequest,
     options?: RequestOptions
   ): Promise<APIResponse<SessionResponse>> {
+    // Always inject origin="web" for webapp sessions
+    const withOrigin: CreateSessionRequest = { ...request, origin: ORIGIN_WEB };
     return this.client.post<SessionResponse>(
       ACS_ENDPOINTS.SESSIONS,
-      request,
+      withOrigin,
       options
     );
   }
@@ -70,6 +76,7 @@ export class ACSSessionService {
       agent_config_id: agentConfigId,
       agent_cwd: defaultCwd,
       base_dir: options?.agentCwd,
+      origin: ORIGIN_WEB, // Always set origin for webapp
     };
 
     return this.createSession(request, options);

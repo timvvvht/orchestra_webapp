@@ -1,1 +1,0 @@
-export { MicroToast, type MicroToastProps } from './MicroToast';

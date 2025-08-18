@@ -37,6 +37,7 @@ export async function createSessionFast(
         agent_config_id: agentConfigId || "general",
         agent_cwd: workspacePath || undefined,
         base_dir: workspacePath || undefined,
+        origin: 'web', // Explicit origin for webapp
       });
 
       // @ts-ignore

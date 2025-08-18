@@ -138,5 +138,51 @@ export const acsGithubApi = (config: ACSConfig) => {
         }),
       });
     },
+
+    // Lifecycle Operations
+    updateRepoImage: async (args: {
+      repo_id: number;
+      branch: string;
+      new_tes_image: string;
+      cleanup_old_machine?: boolean;
+    }, authorization?: string) => {
+      return getJson(`${API}/infrastructure/repo/update-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authorization ? { Authorization: authorization } : {})
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          repo_id: args.repo_id,
+          branch: args.branch,
+          new_tes_image: args.new_tes_image,
+          cleanup_old_machine: args.cleanup_old_machine ?? true,
+        }),
+      });
+    },
+
+    deleteVolume: async (args: {
+      volume_id: string;
+      cleanup_machine?: boolean;
+      cleanup_app?: boolean;
+    }, authorization?: string) => {
+      const params = new URLSearchParams();
+      if (args.cleanup_machine !== undefined) {
+        params.set("cleanup_machine", String(args.cleanup_machine));
+      }
+      if (args.cleanup_app !== undefined) {
+        params.set("cleanup_app", String(args.cleanup_app));
+      }
+      
+      const queryString = params.toString();
+      const url = `${API}/infrastructure/volumes/${args.volume_id}${queryString ? `?${queryString}` : ''}`;
+      
+      return getJson(url, {
+        method: "DELETE",
+        credentials: "include",
+        headers: authorization ? { Authorization: authorization } : {},
+      });
+    },
   };
 };

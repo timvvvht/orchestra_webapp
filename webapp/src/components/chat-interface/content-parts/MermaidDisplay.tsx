@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Maximize2, X } from 'lucide-react';
 import { cn } from 'cn-utility';
 import mermaid from 'mermaid';
-// // import '../styles/mermaid.css'; // CSS file may not exist in webapp // CSS file may not exist in webapp
+import '../styles/mermaid.css';
 
 interface MermaidDisplayProps {
   content: string;

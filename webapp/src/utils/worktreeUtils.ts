@@ -39,3 +39,13 @@ export function getSessionIdFromWorktree(worktreePath: string): string | null {
   const match = worktreePath.match(/\/\.orchestra\/worktrees\/([^/]+)$/);
   return match ? match[1] : null;
 }
+
+/**
+ * Extracts the worktree name from a worktree path (alias for getSessionIdFromWorktree)
+ * @param cwd - Path to check
+ * @returns Worktree name or null if not found
+ */
+export function getWorktreeName(cwd?: string | null): string | null {
+  if (!cwd) return null;
+  return getSessionIdFromWorktree(cwd);
+}

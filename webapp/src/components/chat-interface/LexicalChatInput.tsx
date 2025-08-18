@@ -8,6 +8,7 @@
  */
 
 import React, { useState } from 'react';
+import './LexicalChatInput.css';
 
 interface LexicalChatInputProps {
   onSendMessage?: (message: string) => void;

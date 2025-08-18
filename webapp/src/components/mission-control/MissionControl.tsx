@@ -12,13 +12,14 @@ import { ChatUIProvider } from "@/context/ChatUIContext";
 // KeyboardShortcutsProvider removed — no global shortcuts context
 import Header from "./Header";
 import LayoutSplit from "./LayoutSplit";
-import { ProvisioningOverlay } from "./ProvisioningOverlay";
+
 import { Plan } from "@/types/plans";
 
 import type { SessionSummary } from "@/services/acs";
 import { getDefaultACSClient } from "@/services/acs";
 import { mapACSSessionsToMCAgent } from "@/utils/mapACSSessionsToMCAgent";
 import { useAuth } from "@/auth/AuthContext";
+import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
 
 // Animation variants for staggered reveals
 const containerVariants = {
@@ -70,7 +71,6 @@ const MissionControl: React.FC<MissionControlProps> = ({
 
   const location = useLocation() as any;
   const navigate = useNavigate();
-  const provisionState = location?.state?.provision;
 
   const {
     showNewDraftModal,
@@ -146,7 +146,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
   }, [refetchSessions]);
 
   // Set up real-time updates and hotkeys
-  // useMissionControlFirehose();
+  useMissionControlFirehose();
   // useMissionControlHotkeys();
 
   // Update store when plans change
@@ -403,20 +403,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
             <LayoutSplit />
           </motion.div>
 
-          {/* Provisioning Overlay */}
-          {provisionState && (
-            <ProvisioningOverlay
-              repo_id={provisionState.repo_id}
-              repo_full_name={provisionState.repo_full_name}
-              branch={provisionState.branch}
-              acs_base={provisionState.acs_base}
-              onDone={(status, details) => {
-                // Clear the state so overlay disappears (replace state keeps same URL)
-                navigate(".", { replace: true, state: null });
-                // TODO: optionally initiate a new session with the initial prompt here
-              }}
-            />
-          )}
+
 
           {/* New Task Modal */}
           {showNewDraftModal && (

@@ -220,7 +220,7 @@ import {
 } from "@/utils/chat";
 
 // Canonical store imports
-import { useEventStore } from "@/stores/eventStores";
+import { useEventStore } from "@/stores/eventStore";
 import { useSessionStatusStore } from "@/stores/sessionStatusStore";
 import { clearDuplicateCache } from "@/stores/eventReducer";
 import { hydrateSession } from "@/stores/eventBridges/historyBridge";

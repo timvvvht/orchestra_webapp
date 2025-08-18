@@ -36,11 +36,11 @@ import {
   Clock
 } from 'lucide-react';
 import { cn } from 'cn-utility';
-import type { ToolInteractionTimelineEvent } from '@/types/unifiedTimeline';
+import type { ToolInteractionTimelineEvent, UnifiedToolCall, UnifiedToolResult } from '@/types/unifiedTimeline';
 import MarkdownRenderer from './MarkdownRenderer';
 import { getToolDisplayName } from '@/utils/timelineHelpers';
-import { ToolRenderingDebugOverlay, ToolInteractionDebugOverlay, RenderingPathDebugOverlay } from '@/components/debug/ToolRenderingDebugOverlay';
-import { DataFlowDebugOverlay, ToolCallResultPairDebug } from '@/components/debug/DataFlowDebugOverlay';
+// import { ToolRenderingDebugOverlay, ToolInteractionDebugOverlay, RenderingPathDebugOverlay } from '@/components/debug/ToolRenderingDebugOverlay';
+// import { DataFlowDebugOverlay, ToolCallResultPairDebug } from '@/components/debug/DataFlowDebugOverlay';
 // import { requiresApproval } from '@/config/approvalTools';
 import { usePendingToolsStore } from '@/stores/pendingToolsStore';
 import { useParams } from 'react-router-dom';

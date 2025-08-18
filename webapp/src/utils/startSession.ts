@@ -9,6 +9,7 @@ export async function startSession(...) {
   const createRes = await ACSClient.sessions.createSession({
     name,
     agent_config_id,
+    origin: 'web', // Explicit origin for webapp
     // ...other fields
   });
   const realSessionId = createRes.data.id;

@@ -1,23 +1,224 @@
-/**
- * LexicalChatInput CSS - Webapp Stub Implementation
- * 
- * Placeholder CSS file for LexicalChatInput component styling.
- * This is a stub implementation for webapp migration.
- * 
- * TODO: Implement actual styling when LexicalChatInput functionality is fully implemented
- */
+/* LexicalChatInput - Custom styles for chat input Lexical editor */
 
-/* Placeholder styles for LexicalChatInput component */
-.lexical-chat-input {
-  /* Basic styling placeholder */
+.lexical-chat-input .lexical-editor-root {
+  outline: none;
+  border: none;
+  background: transparent;
+  color: white;
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 12px 20px;
+  min-height: 48px;
+  max-height: 200px;
+  overflow-y: auto;
+  resize: none;
+  font-family: inherit;
 }
 
-.lexical-chat-input-container {
-  /* Container styling placeholder */
+.lexical-chat-input .lexical-editor-root:focus {
+  outline: none;
+  box-shadow: none;
 }
 
-.lexical-chat-input-editor {
-  /* Editor styling placeholder */
+.lexical-chat-input .lexical-paragraph {
+  margin: 0;
+  padding: 0;
 }
 
-/* Additional placeholder styles can be added here as needed */
+.lexical-chat-input .lexical-editor-root::placeholder,
+.lexical-chat-input .lexical-editor-root [data-lexical-placeholder] {
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  user-select: none;
+  position: absolute;
+  top: 12px;
+  left: 20px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* File pill styling for chat input */
+.lexical-chat-input [data-file-pill="true"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  margin: 0 2px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  color: rgb(147, 197, 253);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: default;
+  user-select: none;
+  transition: all 150ms ease;
+}
+
+.lexical-chat-input [data-file-pill="true"]:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.lexical-chat-input [data-file-pill="true"] svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.lexical-chat-input [data-file-pill="true"] .pill-delete-btn {
+  margin-left: 4px;
+  padding: 2px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: rgba(147, 197, 253, 0.7);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.lexical-chat-input [data-file-pill="true"] .pill-delete-btn:hover {
+  background: rgba(59, 130, 246, 0.3);
+  color: rgb(147, 197, 253);
+}
+
+/* Scrollbar styling for expanded editor */
+.lexical-chat-input .lexical-editor-root::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lexical-chat-input .lexical-editor-root::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lexical-chat-input .lexical-editor-root::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.lexical-chat-input .lexical-editor-root::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Remove default Lexical styles that conflict */
+.lexical-chat-input .ContentEditable__root {
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: auto !important;
+}
+
+.lexical-chat-input .ContentEditable__root:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  ring: none !important;
+}
+
+/* Ensure proper text color inheritance */
+.lexical-chat-input .lexical-editor-root * {
+  color: inherit;
+}
+
+/* Handle empty state */
+.lexical-chat-input .lexical-editor-root:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  user-select: none;
+  position: absolute;
+}
+
+/* Orchestra Design System - File Pills */
+.pill-orchestra {
+  /* Glass background with backdrop blur */
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(40px) saturate(200%);
+  
+  /* Subtle border */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  
+  /* Typography */
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  
+  /* Spacing and shape */
+  padding: 4px 10px;
+  border-radius: 9999px; /* Full rounded */
+  
+  /* Transitions */
+  transition: all 300ms cubic-bezier(0.23, 1, 0.32, 1);
+  
+  /* Base state */
+  cursor: default;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 2px;
+}
+
+.pill-orchestra:hover {
+  /* Brighten on hover */
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  
+  /* Lift effect */
+  transform: translateY(-2px);
+  
+  /* Subtle glow */
+  box-shadow: 0 8px 32px rgba(0, 119, 237, 0.1);
+  
+  /* Glow pulse animation */
+  animation: glow-pulse 2s cubic-bezier(0.19, 1, 0.22, 1) infinite;
+}
+
+.pill-orchestra:focus-visible {
+  outline: none;
+  border-color: rgba(0, 119, 237, 0.5);
+  box-shadow: 0 0 0 2px rgba(0, 119, 237, 0.2);
+}
+
+/* Delete button styling */
+.pill-orchestra .pill-delete-btn {
+  margin-left: 4px;
+  padding: 2px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.pill-orchestra .pill-delete-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.pill-orchestra .pill-delete-btn:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(0, 119, 237, 0.5);
+}
+
+/* Icon styling */
+.pill-orchestra svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Glow pulse keyframe animation */
+@keyframes glow-pulse {
+  0%, 100% { 
+    box-shadow: 0 8px 32px rgba(0, 119, 237, 0.1);
+  }
+  50% { 
+    box-shadow: 0 8px 32px rgba(0, 119, 237, 0.2);
+  }
+}

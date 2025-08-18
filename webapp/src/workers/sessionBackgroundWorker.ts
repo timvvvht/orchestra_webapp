@@ -30,6 +30,13 @@ export interface SessionBackgroundWorkerOptions {
   // Optional flag to enable worktrees (alternative to skipWorkspacePreparation)
   enableWorktrees?: boolean;
 
+  // Optional repo context for backend provisioning
+  repoContext?: {
+    repo_id: number;
+    repo_full_name: string;
+    branch: string;
+  };
+
   // Callback signatures
   onProgress?: (step: string, progress: number) => void;
   onError?: (error: Error, step: string) => void;
@@ -105,6 +112,7 @@ export async function startBackgroundSessionOps(
     firstMessage,
     skipWorkspacePreparation,
     enableWorktrees,
+    repoContext, // For backend provisioning (StartChat flow)
     onProgress,
     onError,
     onComplete,
@@ -124,6 +132,14 @@ export async function startBackgroundSessionOps(
   console.log(
     `[sessionBackgroundWorker] auto_mode: ${autoMode} - model_auto_mode: ${modelAutoMode}`
   );
+
+  // Log repo context for backend provisioning (StartChat flow)
+  if (repoContext) {
+    console.log(
+      `[sessionBackgroundWorker] Repo context provided for backend provisioning:`,
+      repoContext
+    );
+  }
 
   // Compute skipPrep: prioritize explicit skipWorkspacePreparation, otherwise derive from enableWorktrees
   const skipPrep =

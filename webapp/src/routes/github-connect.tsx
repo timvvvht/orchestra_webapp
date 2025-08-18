@@ -9,6 +9,7 @@ type Panel = {
   status: Chip;
   app_name?: string;
   machine_id?: string;
+  volume_id?: string;
   region?: string;
   tes_internal_url?: string;
   cpu_count?: number | string;
@@ -38,6 +39,11 @@ export default function GitHubConnectPage() {
   const [branch, setBranch] = useState("main");
   const [diag, setDiag] = useState<Panel | null>(null);
   const [autoPoll, setAutoPoll] = useState<boolean>(true);
+
+  // Lifecycle operations state
+  const [newTesImage, setNewTesImage] = useState("registry.fly.io/orchestra-tes:latest");
+  const [cleanupOldMachine, setCleanupOldMachine] = useState(true);
+  const [cleanupApp, setCleanupApp] = useState(false);
 
 
   // Shell state
@@ -134,6 +140,7 @@ export default function GitHubConnectPage() {
       status: d.status || "unknown",
       app_name: d.app_name || "—",
       machine_id: d.machine_id || "—",
+      volume_id: d.volume_id || "—",
       region: d.region || "—",
       tes_internal_url: d.tes_internal_url || "—",
       cpu_count: d.cpu_count ?? "—",
@@ -197,6 +204,7 @@ export default function GitHubConnectPage() {
         status: (d.status as Chip) || "unknown",
         app_name: d.app_name ?? "—",
         machine_id: d.machine_id ?? "—",
+        volume_id: d.volume_id ?? "—",
         region: d.region ?? "—",
         tes_internal_url: d.tes_internal_url ?? "—",
         cpu_count: d.cpu_count ?? d.details?.cpu_count ?? "—",
@@ -240,6 +248,61 @@ export default function GitHubConnectPage() {
     setOk("VM stopped.");
     setDiag(null);
   }, [api, selectedRepoId, branch]);
+
+  // Lifecycle Operations
+  const onUpdateImage = useCallback(async () => {
+    if (!selectedRepoId || !branch.trim()) return setErr("Select repo and branch.");
+    if (!newTesImage.trim()) return setErr("Enter TES image.");
+    
+    setInfo("Updating TES image…");
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    
+    const res = await api.updateRepoImage({
+      repo_id: selectedRepoId,
+      branch: branch.trim(),
+      new_tes_image: newTesImage.trim(),
+      cleanup_old_machine: cleanupOldMachine
+    }, auth);
+    
+    if (!res.ok) return setErr(res.data?.detail ?? "Image update failed");
+    setOk("Image update initiated. Check diagnostics for progress.");
+    
+    // Refresh diagnostics after a brief delay
+    setTimeout(() => fetchDiagnostics(), 2000);
+  }, [api, selectedRepoId, branch, newTesImage, cleanupOldMachine, fetchDiagnostics]);
+
+  const onDeleteVolume = useCallback(async () => {
+    if (!diag?.volume_id) return setErr("No volume ID available. Run diagnostics first.");
+    
+    const confirmed = window.confirm(
+      `⚠️ WARNING: This will permanently delete the volume and all data!\n\n` +
+      `Volume ID: ${diag.volume_id}\n` +
+      `Repo: ${selectedRepoFullName}#${branch}\n\n` +
+      `This action cannot be undone. Continue?`
+    );
+    
+    if (!confirmed) return;
+    
+    setInfo("Deleting volume…");
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    
+    const res = await api.deleteVolume({
+      volume_id: diag.volume_id,
+      cleanup_machine: true,
+      cleanup_app: cleanupApp
+    }, auth);
+    
+    if (!res.ok) return setErr(res.data?.detail ?? "Volume deletion failed");
+    setOk("Volume deleted successfully.");
+    setDiag(null);
+    
+    // Refresh diagnostics to confirm deletion
+    setTimeout(() => fetchDiagnostics(), 2000);
+  }, [api, diag?.volume_id, selectedRepoFullName, branch, cleanupApp, fetchDiagnostics]);
+
+
 
 
 
@@ -389,6 +452,74 @@ export default function GitHubConnectPage() {
                   <input type="checkbox" checked={autoPoll} onChange={(e) => setAutoPoll(e.target.checked)} />
                   Auto-poll diagnostics
                 </label>
+              </div>
+            </div>
+
+            {/* Step 4: Lifecycle Operations */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
+              <div className="text-white/90 font-medium mb-3">4 · Lifecycle Operations</div>
+              
+              {/* Image Update Section */}
+              <div className="mb-4">
+                <div className="text-white/70 text-sm mb-2">Update TES Image</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2">
+                  <div className="md:col-span-2">
+                    <label className="text-white/50 text-xs">New TES Image</label>
+                    <input 
+                      className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10"
+                      value={newTesImage} 
+                      onChange={(e) => setNewTesImage(e.target.value)}
+                      placeholder="registry.fly.io/orchestra-tes:latest"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button 
+                      className="w-full px-4 py-2 rounded-lg bg-blue-600 text-white"
+                      onClick={onUpdateImage}
+                      disabled={!selectedRepoId || !branch.trim() || !newTesImage.trim()}
+                    >
+                      Update Image
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <label className="text-white/60 flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={cleanupOldMachine} 
+                      onChange={(e) => setCleanupOldMachine(e.target.checked)} 
+                    />
+                    Cleanup old machine
+                  </label>
+                  <span className="text-white/40">
+                    💡 Updates image while preserving volume data
+                  </span>
+                </div>
+              </div>
+
+              {/* Volume Delete Section */}
+              <div>
+                <div className="text-white/70 text-sm mb-2">Delete Volume (⚠️ Destructive)</div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <button 
+                    className="px-4 py-2 rounded-lg bg-red-700 text-white"
+                    onClick={onDeleteVolume}
+                    disabled={!diag?.volume_id || diag.volume_id === "—"}
+                  >
+                    🗑️ Delete Volume
+                  </button>
+                  <label className="text-white/60 text-xs flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={cleanupApp} 
+                      onChange={(e) => setCleanupApp(e.target.checked)} 
+                    />
+                    Also cleanup app if no other volumes
+                  </label>
+                </div>
+                <div className="text-white/40 text-xs">
+                  ⚠️ WARNING: This permanently deletes all data in the volume. Cannot be undone.
+                </div>
               </div>
             </div>
           </div>
