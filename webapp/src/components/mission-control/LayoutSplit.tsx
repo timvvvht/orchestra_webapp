@@ -111,7 +111,7 @@ const LayoutSplit: React.FC = () => {
           bg-black/95 backdrop-blur-2xl
           border-l border-white/10
           flex flex-col
-          overflow-hidden
+          overflow-hidden p-1
         "
         >
           <ChatPane />

@@ -38,9 +38,9 @@ export const MobileChatInput: React.FC<MobileChatInputProps> = ({
 
   return (
     <div
-      className={`border border-gray-300 dark:border-gray-600 rounded-lg mb-2 ${className}`}
+      className={`backdrop-blur-2xl rounded-2xl border border-white/20 p-1.5 w-[75%] min-w-[15vw] shadow-2xl bg-white/[0.12] dark:border-gray-600 mb-2 mt-2${className}`}
     >
-      <form onSubmit={handleSubmit} className="flex items-end">
+      <form onSubmit={handleSubmit} className="flex items-center ">
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -50,7 +50,7 @@ export const MobileChatInput: React.FC<MobileChatInputProps> = ({
           rows={1}
           style={{ fontSize: "16px" }} // Prevent zoom on iOS
         />
-        <div className="p-2 flex items-center justify-evenly">
+        <div className="flex items-center justify-evenly">
           {/* Stop Generating Button */}
           <div className="px-4 py-2 border-b border-white/5">
             <Button
@@ -74,10 +74,6 @@ export const MobileChatInput: React.FC<MobileChatInputProps> = ({
           </button>
         </div>
       </form>
-
-      <div className="px-3 pb-2 text-xs text-gray-500 italic">
-        Mobile-optimized input (webapp mode)
-      </div>
     </div>
   );
 };

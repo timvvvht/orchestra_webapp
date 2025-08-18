@@ -1243,7 +1243,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         <div
           ref={chatInputRef}
           className={cn(
-            "flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 bg-black/90 backdrop-blur-sm border-t border-white/10",
+            "flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 bg-black/90 backdrop-blur-sm border-t border-white/10 flex items-center justify-center",
             renderContext === "mission-control" && "mission-control-input-area"
           )}
         >
@@ -1268,6 +1268,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             onSendMessage={handleSubmit}
             disabled={effectiveDisabled}
             placeholder="Message"
+            className=""
             onCancelButtonClick={() => {
               if (sessionId) {
                 cancelConversation(sessionId);
@@ -1531,34 +1532,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Layout Debug Overlay */}
-      {/* <DebugOverlay
-        scrollAreaRef={scrollAreaRef}
-        chatInputRef={chatInputRef}
-        mainContainerRef={mainContainerRef}
-      /> */}
-
-      {/* Message Test Controls */}
-      {/* <MessageTestControls sessionId={sessionId} /> */}
-
-      {/* SSE Debug Overlay */}
-      {/* <SSEDebugOverlay /> */}
-
-      {/* Event Tap Debug Overlay */}
-      {/* <EventTapDebugOverlay
-        open={eventTapDebugOpen}
-        onClose={() => setEventTapDebugOpen(false)}
-        sessionId={sessionId || ''}
-      /> */}
-
-      {/* Tool Event Debug Panel */}
-      {/* <ToolEventDebugPanel
-        open={toolDebugOpen}
-        onClose={() => setToolDebugOpen(false)}
-        messages={messages}
-        sessionId={sessionId || ''}
-      /> */}
     </div>
   );
 };

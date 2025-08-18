@@ -35,6 +35,7 @@ export function convertEventsToMessages(events: any[]): ChatMessage[] {
       if (Array.isArray(event.content)) {
         // Direct array - this is what we expect from RowMapper after it processes the nested structure
         content = event.content.map((part: any) => {
+          console.log("Part: ", part);
           // Fix existing "[object Object]" issues
           if (part.type === "text" && part.text === "[object Object]") {
             // Try to extract from other fields in the part
