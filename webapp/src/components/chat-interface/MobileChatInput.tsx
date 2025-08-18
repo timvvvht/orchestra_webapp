@@ -38,7 +38,7 @@ export const MobileChatInput: React.FC<MobileChatInputProps> = ({
 
   return (
     <div
-      className={`border border-gray-300 dark:border-gray-600 rounded-lg ${className}`}
+      className={`border border-gray-300 dark:border-gray-600 rounded-lg mb-2 ${className}`}
     >
       <form onSubmit={handleSubmit} className="flex items-end">
         <textarea

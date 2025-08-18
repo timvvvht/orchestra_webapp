@@ -52,51 +52,52 @@ const AgentListPanel: React.FC = () => {
   }, [selectedSession]);
 
   return (
-    <div className="flex-1 min-h-0">
-      <div
-        ref={listRef}
-        // className="mcv2-left-scroll flex flex-col h-full overflow-y-auto min-h-0"ß
-        data-testid="agent-list-panel"
-      >
-        {/* Sticky Filters Bar */}
-        <div className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm border-b border-white/10">
-          <div className="px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Directory Filter */}
-              <CwdFilterDropdown />
-              
-              {/* View Mode Toggle */}
-              <div className="flex items-center bg-white/[0.02] backdrop-blur-sm rounded-lg p-0.5 border border-white/[0.06]">
-                <button
-                  onClick={() => setViewMode('active')}
-                  className={`
-                    px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200
-                    ${viewMode === 'active'
-                      ? 'bg-white/[0.08] text-white/90 shadow-sm'
-                      : 'text-white/50 hover:text-white/70 hover:bg-white/[0.03]'
-                    }
-                  `}
-                >
-                  Active
-                </button>
-                <button
-                  onClick={() => setViewMode('archived')}
-                  className={`
-                    px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-1.5
-                    ${viewMode === 'archived'
-                      ? 'bg-white/[0.08] text-white/90 shadow-sm'
-                      : 'text-white/50 hover:text-white/70 hover:bg-white/[0.03]'
-                    }
-                  `}
-                >
-                  <Archive className="w-3 h-3" />
-                  Archived
-                </button>
-              </div>
+    <div className="flex-1 min-h-0 flex flex-col">
+      {/* Fixed Filters Bar */}
+      <div className="flex-shrink-0 bg-black/50 backdrop-blur-sm border-b border-white/10">
+        <div className="px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Directory Filter */}
+            <CwdFilterDropdown />
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-white/[0.02] backdrop-blur-sm rounded-lg p-0.5 border border-white/[0.06]">
+              <button
+                onClick={() => setViewMode('active')}
+                className={`
+                  px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200
+                  ${viewMode === 'active'
+                    ? 'bg-white/[0.08] text-white/90 shadow-sm'
+                    : 'text-white/50 hover:text-white/70 hover:bg-white/[0.03]'
+                  }
+                `}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setViewMode('archived')}
+                className={`
+                  px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-1.5
+                  ${viewMode === 'archived'
+                    ? 'bg-white/[0.08] text-white/90 shadow-sm'
+                    : 'text-white/50 hover:text-white/70 hover:bg-white/[0.03]'
+                  }
+                `}
+              >
+                <Archive className="w-3 h-3" />
+                Archived
+              </button>
             </div>
           </div>
         </div>
-        
+      </div>
+      
+      {/* Scrollable Sessions List */}
+      <div
+        ref={listRef}
+        className="flex-1 overflow-y-auto min-h-0"
+        data-testid="agent-list-panel"
+      >
         <div className="min-h-[400px]">
           <div className="py-4">
           {/* Empty State */}
@@ -358,19 +359,19 @@ const AgentListPanel: React.FC = () => {
           )}
           </div>
         </div>
-        
-        {/* Project Selection Modal */}
-        {showProjectModal && (
-          <ProjectSelectionModal
-            onClose={() => setShowProjectModal(false)}
-            onProjectSelected={(path) => {
-              setInitialDraftCodePath(path);
-              setShowNewDraftModal(true);
-              setShowProjectModal(false);
-            }}
-          />
-        )}
       </div>
+        
+      {/* Project Selection Modal */}
+      {showProjectModal && (
+        <ProjectSelectionModal
+          onClose={() => setShowProjectModal(false)}
+          onProjectSelected={(path) => {
+            setInitialDraftCodePath(path);
+            setShowNewDraftModal(true);
+            setShowProjectModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };

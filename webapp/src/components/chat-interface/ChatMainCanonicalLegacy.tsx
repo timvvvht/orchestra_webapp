@@ -145,6 +145,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   // Performance monitoring
   usePerformanceMonitor();
 
+  const [showTextInputArea, setShowTextInputArea] =
+    useState<boolean>(!hideInput);
+
   // Debug overlay - track container size via ResizeObserver
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState<{
@@ -159,9 +162,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     isInitialized: acsInitialized,
     initialize: initializeACS,
   } = useACSClient();
-
-  // Chat UI context - must be declared early
-  const chatUI = useChatUI();
 
   // Navigation hooks for URL cleanup
   const navigate = useNavigate();
@@ -218,6 +218,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const [newMessageCount, setNewMessageCount] = useState(0);
   const [lastMessageCount, setLastMessageCount] = useState(0);
   const [hasScrolledUp, setHasScrolledUp] = useState(false);
+  const [showInput, setShowInput] = useState(true);
+  const [lastScrollTop, setLastScrollTop] = useState(0);
 
   // Lazy render state
   const [renderLimit, setRenderLimit] = useState(INITIAL_RENDER_BATCH);
@@ -949,6 +951,22 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         const scrollUpThreshold = clientHeight * 0.5;
         const scrolledUpSignificantly = scrollFromBottom > scrollUpThreshold;
 
+        // Input visibility logic
+        const scrollDelta = scrollTop - lastScrollTop;
+        const isScrollingUp = scrollDelta < 0;
+        const isScrollingDown = scrollDelta > 0;
+
+        if (Math.abs(scrollDelta) > 10) {
+          // Only react to significant scroll
+          if (isScrollingUp && !atBottom) {
+            setShowTextInputArea(false);
+          } else if (isScrollingDown || atBottom) {
+            setShowTextInputArea(true);
+          }
+        }
+
+        setLastScrollTop(scrollTop);
+
         console.log(
           `📜 [Scroll] Session: ${sessionId}, atBottom: ${atBottom}, scrollTop: ${scrollTop}`
         );
@@ -972,7 +990,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         }
       });
     },
-    [sessionId, renderLimit, mergedMessages.length]
+    [sessionId, renderLimit, mergedMessages.length, lastScrollTop]
   );
 
   // Recompute groups based on displayMessages for lazy rendering
@@ -1130,23 +1148,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       className={getContextClasses()}
       id="chat-main-canonical-legacy"
     >
-      {/* Subtle gradient overlay for depth */}
-      {/* DEBUG SIZE OVERLAY */}
-      {/* {process.env.NODE_ENV !== 'production' && (
-        <div className="fixed bottom-4 right-4 bg-black/80 text-white text-xs px-3 py-2 rounded z-[9999] pointer-events-none max-w-[200px] break-words">
-          {containerSize.width}px × {containerSize.height}px
-          <br />
-          <span className={containerSize.height <= 945 ? 'text-green-400' : 'text-red-400'}>
-            H: {containerSize.height <= 945 ? '✓ Normal' : '⚠ Expanded'}
-          </span>
-          <br />
-          <span className={containerSize.width <= window.innerWidth ? 'text-green-400' : 'text-red-400'}>
-            W: {containerSize.width <= window.innerWidth ? '✓ Normal' : '⚠ Overflow'}
-          </span>
-        </div>
-      )} */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black pointer-events-none" />
-
       {!hideHeader && (
         <div className="flex-shrink-0">
           <ChatHeader sessionId={sessionId} />
@@ -1169,13 +1170,24 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       <PendingToolsDebugOverlay />
 
       {/* Message Display Area - Apple style with generous spacing */}
-      <ScrollArea className="flex-1 flex-shrink overflow-y-scroll overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full">
+      <ScrollArea
+        className="flex-1 overflow-hidden relative z-10 min-h-0"
+        viewportRef={(node) => {
+          if (node) {
+            node.addEventListener("scroll", handleScroll);
+            return () => node.removeEventListener("scroll", handleScroll);
+          }
+        }}
+      >
         <div
           className={cn(
-            "w-full max-w-full overflow-x-hidden",
+            "w-full max-w-full overflow-x-hidden transition-all duration-300",
             renderContext === "mission-control"
-              ? "px-4 pt-4 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Proper spacing for input area in mission control
-              : "px-6 md:px-12 pt-8 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Default generous spacing
+              ? "px-4 pt-4" // Mission control spacing
+              : "px-6 md:px-12 pt-8", // Default spacing
+            showTextInputArea
+              ? "pb-[calc(8rem+env(safe-area-inset-bottom))]" // Space for input when visible
+              : "pb-4" // Minimal padding when input is hidden
           )}
         >
           <ChatMessageList
@@ -1227,11 +1239,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       />
 
       {/* Message Input - Responsive */}
-      {!hideInput && (
+      {showTextInputArea && (
         <div
           ref={chatInputRef}
           className={cn(
-            "flex-shrink-0 sticky bottom-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/10",
+            "flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 bg-black/90 backdrop-blur-sm border-t border-white/10",
             renderContext === "mission-control" && "mission-control-input-area"
           )}
         >
