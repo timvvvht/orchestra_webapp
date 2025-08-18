@@ -52,7 +52,7 @@ export async function startNewChatForDraft(options: StartNewChatForDraftOptions)
         // Step 1: Create ACS session directly
         const createReq = {
             name: sessionName || 'Draft Task',
-            agent_config_id: agentConfigId || 'General'
+            agent_config_id: agentConfigId || 'general'
         };
         
         console.log('[NewChatHelper] Creating ACS session:', createReq);

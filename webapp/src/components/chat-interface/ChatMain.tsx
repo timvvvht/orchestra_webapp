@@ -232,6 +232,7 @@ import { supabase } from "@/auth/SupabaseClient";
 import { ApprovalPanel } from "@/components/approval/ApprovalPanel";
 
 import { httpApi } from "@/api/httpApi";
+import { cancelConversation } from "@/utils/cancelConversation";
 
 // Lazy render constants
 const INITIAL_RENDER_BATCH = 15;
@@ -1129,20 +1130,13 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   );
 
   // Handle stop generating
-  const handleStopGenerating = useCallback(() => {
-    // stub implementation for now, TODO send request to acs/converse/cancel
-    console.log("🛑 [ChatMain] Stop generating");
-    // send a POST request to acs/converse/cancel
-    const ACS_BASE =
-      import.meta.env.VITE_ACS_BASE_URL || "http://localhost:8000";
-    const url = `${ACS_BASE}/acs/converse`;
-    httpApi.POST(url, {
-      headers: {},
-      body: {
-        session_id: sessionId,
-      },
-      params: {},
-    });
+  const handleStopGenerating = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      await cancelConversation(sessionId);
+    } catch (error: any) {
+      console.error("Failed to cancel conversation", error);
+    }
   }, [sessionId]);
 
   // Recompute groups based on displayMessages for lazy rendering
@@ -1292,7 +1286,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   }
 
   return (
-    <div ref={mainContainerRef} className={getContextClasses()}>
+    <div ref={mainContainerRef} className={getContextClasses()} id="chat-main">
       {/* Subtle gradient overlay for depth */}
       {/* DEBUG SIZE OVERLAY */}
       {/* {process.env.NODE_ENV !== 'production' && (
@@ -1349,23 +1343,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
           )}
         />
       </div>
-
-      {/* Debug overlay 
-      <StreamDebugOverlay isOpen={streamDebugOverlayOpen} />*/}
-
-      {/* Hydration debug overlay 
-      <HydrationDebugOverlay
-        open={hydrationDebugOverlayOpen}
-        onClose={() => setHydrationDebugOverlayOpen(false)}
-      />*/}
-
-      {/* Pending Tools Debug Overlay */}
-      {/* <PendingToolsDebugOverlay /> */}
-
-      {/* Message Display Area - Apple style with generous spacing */}
       <ScrollArea
         className={cn(
-          "flex-1 flex-shrink overflow-y-auto overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full",
+          "flex-1 flex-shrink overflow-y-scroll overflow-x-hidden relative z-10 min-h-0 max-h-[70vh] [&>[data-radix-scroll-area-viewport]]:!h-full",
           renderContext === "mission-control" && "mission-control-scroll-area"
         )}
         onScrollCapture={handleScroll}
@@ -1442,6 +1422,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         >
           <MobileChatInput
             onSendMessage={handleSubmit}
+            onCancelButtonClick={handleStopGenerating}
             disabled={isTyping || isLoading || isWaitingForAI}
             placeholder="Message"
           />
@@ -1459,12 +1440,12 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         )}
       </AnimatePresence>
 
-      {/* New Chat Modal */}
+      {/* New Chat Modal 
       <NewChatModal
         isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
-        //chat={chatUI}
-      />
+        chat={chatUI}
+      />*/}
 
       {/* Debug Panel */}
       <AnimatePresence>

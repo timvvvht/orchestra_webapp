@@ -653,7 +653,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         (ac) => ac.id === agentConfigId
       );
       const agentConfigName =
-        selectedAgentConfig?.ai_config?.model_id || "General";
+        selectedAgentConfig?.ai_config?.model_id || "general";
 
       console.log("[NewTaskModal][sendCore] Agent Config: ", agentConfigName);
 
