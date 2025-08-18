@@ -51,7 +51,7 @@ export async function startOptimisticChatForDraft(
         // Step 1: Create ACS session (fast operation)
         const createReq = {
             name: sessionName || 'Draft Task',
-            agent_config_id: agentConfigId || 'General'
+            agent_config_id: agentConfigId || 'general'
         };
         
         const createRes = await acsClient.sessions.createSession(createReq);

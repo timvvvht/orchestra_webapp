@@ -43,7 +43,7 @@ const DraftCard: React.FC<DraftCardProps> = ({ draft }) => {
       const selectedAgentConfig = agentConfigsArray.find(
         (ac) => ac.id === draft.agentConfigId
       );
-      const agentConfigName = selectedAgentConfig?.agent.name || "General";
+      const agentConfigName = selectedAgentConfig?.agent.name || "general";
 
       await startNewChatForDraft({
         draftText: draft.content,

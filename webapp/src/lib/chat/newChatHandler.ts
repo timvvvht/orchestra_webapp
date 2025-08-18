@@ -56,7 +56,7 @@ export async function startNewChat(options: StartNewChatOptions = {}): Promise<S
         const chatStore = useChatStore.getState();
 
         const sessionName = options.sessionName || 'New Chat';
-        const agentConfigId = options.agentConfigId || 'General'; // Default agent
+        const agentConfigId = options.agentConfigId || 'general'; // Default agent
 
         console.log('[NewChatHandler] Creating chat session with workspace path as agent_cwd');
 
