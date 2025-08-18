@@ -148,6 +148,81 @@ export default function GitHubConnectPage() {
     setOk("Diagnostics updated.");
   }, [fetchDiagnostics]);
 
+  const onProvisionAndDiagnose = useCallback(async () => {
+    if (!selectedRepoId || !selectedRepoFullName || !branch.trim()) {
+      return setErr("Select repo and branch.");
+    }
+    setInfo("Provisioning repo VM and polling health…");
+
+    // Disable autoPoll to avoid conflicts during single-flow execution
+    const wasAutoPoll = autoPoll;
+    setAutoPoll(false);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+
+    // 1) Kick off provisioning
+    const res = await api.provisionWithRepo({
+      repo_id: selectedRepoId,
+      repo_name: selectedRepoFullName,
+      branch: branch.trim(),
+    }, auth);
+    if (!res.ok) {
+      return setErr(res.data?.detail ?? "Provisioning failed");
+    }
+
+    // 2) Poll diagnostics until ready or timeout
+    const started = Date.now();
+    const timeoutMs = 5 * 60 * 1000; // 5 minutes
+    const intervalMs = 5000;
+
+    async function tryOnce() {
+      const statusRes = await api.repoStatus({ repo_id: selectedRepoId, branch: branch.trim() }, auth);
+      if (!statusRes.ok) {
+        setDiag(null);
+        setErr(statusRes.data?.detail ?? "Diagnostics failed");
+        return false;
+      }
+      const d = statusRes.data;
+      const panel: Panel = {
+        status: (d.status as Chip) || "unknown",
+        app_name: d.app_name ?? "—",
+        machine_id: d.machine_id ?? "—",
+        region: d.region ?? "—",
+        tes_internal_url: d.tes_internal_url ?? "—",
+        cpu_count: d.cpu_count ?? d.details?.cpu_count ?? "—",
+        memory_mb: d.memory_mb ?? d.details?.memory_mb ?? "—",
+        volume_size_gb: d.volume_size_gb ?? d.details?.volume_size_gb ?? "—",
+        provisioned_at: d.provisioned_at ?? "—",
+        orchestrator: !!(d.details?.has_orchestrator ?? d.has_orchestrator),
+        notes:
+          d.status === "ready" ? "TES health passed" :
+          d.status === "provisioned" ? "Booting; waiting for TES health" :
+          d.status === "failed" ? "Provisioning/health failed" :
+          d.status === "stopped" ? "Machine stopped" : "Unknown",
+        updated_at: new Date().toLocaleTimeString(),
+      };
+      setDiag(panel);
+      return d.status === "ready";
+    }
+
+    // Immediate check, then interval
+    let ready = await tryOnce();
+    while (!ready && Date.now() - started < timeoutMs) {
+      await new Promise(r => setTimeout(r, intervalMs));
+      ready = await tryOnce();
+    }
+
+    if (ready) {
+      setOk("Ready – TES health passed.");
+    } else {
+      setErr("Timed out waiting for TES readiness.");
+    }
+
+    // Optionally restore autoPoll after completion
+    // setAutoPoll(wasAutoPoll);
+  }, [api, selectedRepoId, selectedRepoFullName, branch, autoPoll]);
+
   const onStop = useCallback(async () => {
     if (!selectedRepoId || !branch.trim()) return setErr("Select repo and branch.");
     setInfo("Stopping VM…");
@@ -243,7 +318,8 @@ export default function GitHubConnectPage() {
             <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
               <div className="text-white/90 font-medium mb-3">3 · Provision & Control</div>
               <div className="flex flex-wrap gap-2">
-                <button className="px-4 py-2 rounded-lg bg-white text-black" onClick={onProvisionWithRepo}>Provision With Repo</button>
+                <button className="px-4 py-2 rounded-lg bg-white text-black" onClick={onProvisionAndDiagnose}>Provision + Diagnose</button>
+                <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onProvisionWithRepo}>Provision With Repo</button>
                 <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onRunDiagnostics}>Run Diagnostics</button>
                 <button className="px-4 py-2 rounded-lg bg-red-600 text-white" onClick={onStop}>Stop VM</button>
                 <label className="ml-auto text-white/60 text-xs flex items-center gap-2">
