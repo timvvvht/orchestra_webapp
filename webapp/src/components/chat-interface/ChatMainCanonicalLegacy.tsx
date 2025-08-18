@@ -1,237 +1,78 @@
-/**
- * ChatMainCanonicalLegacy - ChatMainLegacy style but using canonical event store
- * 
- * This component replicates the exact styling and behavior of ChatMainLegacy
- * but fetches data from the canonical event store instead of the ACS context.
- */
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import ChatScrollAnchor from './ChatScrollAnchor';
-import NewMessagesIndicator from './NewMessagesIndicator';
-// import { Switch } from "@/components/ui/switch";
-// import { Label } from "@/components/ui/label";
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-// import { Virtuoso } from 'react-virtuoso';
-
-// Import Mission Control specific styles
-import './ChatMissionControl.css';
-
-// Import theme styles for full parity with desktop
-import './styles/apple-dark-theme.css';
-import './styles/water-infinity-theme.css';
-
-// Debug imports
-import { usePendingToolsStore } from '@/stores/pendingToolsStore';
-
-// Pending Tools Debug Overlay Component
-const PendingToolsDebugOverlay: React.FC = () => {
-  const { jobs } = usePendingToolsStore();
-  const allJobs = Object.values(jobs);
-  const [showFullJSON, setShowFullJSON] = useState(false);
-  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
-
-  if (allJobs.length === 0) {
-    return null; // Don't show overlay if no jobs
-  }
-
-  const toggleJobExpansion = (jobId: string) => {
-    const newExpanded = new Set(expandedJobs);
-    if (newExpanded.has(jobId)) {
-      newExpanded.delete(jobId);
-    } else {
-      newExpanded.add(jobId);
-    }
-    setExpandedJobs(newExpanded);
-  };
-
-  return (
-    <div className="fixed top-4 right-4 bg-black/90 border border-white/20 rounded-lg p-4 max-w-lg max-h-[80vh] overflow-y-auto z-[9999]">
-      <div className="text-white font-semibold mb-3 flex items-center justify-between">
-        <span>🔧 Pending Tools Queue ({allJobs.length})</span>
-        <button
-          onClick={() => setShowFullJSON(!showFullJSON)}
-          className="text-xs px-2 py-1 bg-white/10 hover:bg-white/20 rounded transition-colors"
-        >
-          {showFullJSON ? 'Hide JSON' : 'Show JSON'}
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        {allJobs.map((job) => {
-          const isExpanded = expandedJobs.has(job.id);
-          return (
-            <div key={job.id} className="bg-white/5 rounded p-3 text-sm">
-              <div className="text-white font-medium mb-2 flex items-center justify-between">
-                <span>{job.sse?.ji?.tool_name || 'Unknown Tool'}</span>
-                {showFullJSON && (
-                  <button
-                    onClick={() => toggleJobExpansion(job.id)}
-                    className="text-xs px-2 py-1 bg-white/10 hover:bg-white/20 rounded transition-colors"
-                  >
-                    {isExpanded ? '▼' : '▶'}
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-1 text-white/70">
-                <div><span className="text-white/50">ID:</span> {job.id}</div>
-                <div><span className="text-white/50">Status:</span>
-                  <span className={`ml-1 px-2 py-0.5 rounded text-xs ${job.status === 'waiting' ? 'bg-yellow-500/20 text-yellow-300' :
-                    job.status === 'approved' ? 'bg-green-500/20 text-green-300' :
-                      job.status === 'rejected' ? 'bg-red-500/20 text-red-300' :
-                        'bg-gray-500/20 text-gray-300'
-                    }`}>
-                    {job.status}
-                  </span>
-                </div>
-                <div><span className="text-white/50">Session:</span> {job.sse?.session_id || 'None'}</div>
-                <div><span className="text-white/50">Is Test:</span> {job.id.startsWith('test_') ? 'Yes' : 'No'}</div>
-                <div><span className="text-white/50">Created:</span> {new Date(job.createdAt).toLocaleTimeString()}</div>
-                {!showFullJSON && job.sse?.ji && (
-                  <div className="mt-2 pt-2 border-t border-white/10">
-                    <div className="text-white/50 text-xs mb-1">Job Instruction:</div>
-                    <div className="text-white/60 text-xs">
-                      <div>Job ID: {job.sse.ji.job_id}</div>
-                      <div>Tool Use ID: {job.sse.ji.tool_use_id || 'None'}</div>
-                      <div>Tool: {job.sse.ji.tool_name}</div>
-                      {job.sse.ji.args && (
-                        <div>Args: {JSON.stringify(job.sse.ji.args).substring(0, 50)}...</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {showFullJSON && (
-                  <div className="mt-2 pt-2 border-t border-white/10">
-                    <div className="text-white/50 text-xs mb-1 flex items-center justify-between">
-                      <span>Full Job Object:</span>
-                    </div>
-                    {isExpanded ? (
-                      <pre className="text-white/60 text-xs bg-black/30 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
-                        {JSON.stringify(job, null, 2)}
-                      </pre>
-                    ) : (
-                      <div className="text-white/60 text-xs">
-                        Click ▶ to expand full JSON
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-3 pt-3 border-t border-white/10 text-xs text-white/50">
-        This overlay shows all jobs in the pending tools store for debugging approval workflow.
-      </div>
-    </div>
-  );
-};
+import { AnimatePresence, motion } from "framer-motion";
 
 // ACS imports
-import { useACSClient } from '@/hooks/acs-chat/useACSClient';
-import { useAuth } from '@/auth/AuthContext';
-import { useBYOKStore } from '@/stores/byokStore';
-import { createACSTemplateVariables } from '@/utils/templateVariables';
-import { sendChatMessage } from '@/utils/sendChatMessage';
+import { useACSClient } from "@/hooks/acs-chat/useACSClient";
+import { useAuth } from "@/auth/AuthContext";
+import { useBYOKStore } from "@/stores/byokStore";
+import { createACSTemplateVariables } from "@/utils/templateVariables";
+import { sendChatMessage } from "@/utils/sendChatMessage";
 
 // Types
-import type {
-  ChatMessage as ChatMessageType,
-  ChatSession as ChatSessionType,
-  ChatRole
-} from '@/types/chatTypes';
+import type { ChatMessage as ChatMessageType } from "@/types/chatTypes";
 
 // Components
-import AgentProfile from './AgentProfile';
-import ChatHeader from './header/ChatHeader';
-import NewChatModal from './NewChatModal';
-import QuantumWaveIndicator from './QuantumWaveIndicator';
-import { shouldUseUnifiedRendering } from './UnrefinedModeTimelineRenderer';
-import { DynamicToolStatusPill, FileOperationsSummary, renderUnifiedTimelineEvent, CombinedThinkBlockDisplay, ThinkBlockDisplay, AssistantMessageWithFileOps } from './UnifiedTimelineRenderer';
-import ToolStatusPill from './content-parts/ToolStatusPill';
-import { LexicalChatInput } from './LexicalChatInput';
-import { MobileChatInput } from './MobileChatInput';
-import { TouchMessage } from './TouchMessage';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
-import ChatEmptyState from './ChatEmptyState';
-import ChatTypingIndicator from './ChatTypingIndicator';
-import ChatMessageList from './ChatMessageList';
-
-// Utilities
-import {
-  isFinalAssistantMessage,
-  getVisibleMessages,
-  getFileOperationsForResponse,
-  getFinalMessageStatus,
-  type ExtendedFileOperation
-} from '@/utils/conversationBoundaries';
+import AgentProfile from "./AgentProfile";
+import ChatHeader from "./header/ChatHeader";
+import NewChatModal from "./NewChatModal";
+import { shouldUseUnifiedRendering } from "./UnrefinedModeTimelineRenderer";
+import { renderUnifiedTimelineEvent } from "./UnifiedTimelineRenderer";
+import { LexicalChatInput } from "./LexicalChatInput";
+import { MobileChatInput } from "./MobileChatInput";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
+import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
+import ChatEmptyState from "./ChatEmptyState";
+import ChatTypingIndicator from "./ChatTypingIndicator";
+import ChatMessageList from "./ChatMessageList";
 
 // Performance optimizations
 import {
   getOptimizedVisibleMessages,
   isOptimizedFinalAssistantMessage,
   getOptimizedFileOperationsForResponse,
-  getOptimizedToolCallsForResponse
-} from '@/utils/optimizedMessageFiltering';
+} from "@/utils/optimizedMessageFiltering";
 
 // Chat utilities (extracted from this component)
 import {
   formatMessageDate,
   isSameDay,
   shouldGroupMessages,
-  groupMessagesByDate,
   convertEventsToMessages,
-  type MessageGroup
-} from '@/utils/chat';
-
-// Tool registration utilities
-import {
-  registerApplyPatchTool,
-  registerCatTool,
-  registerTreeTool,
-  registerSearchFilesTool,
-  registerStrReplaceEditorTool,
-  registerReadFilesTool,
-  registerSearchNotesTool
-} from '@/utils/registerSessionTools';
-
+} from "@/utils/chat";
 
 // Canonical store imports
-import { useEventStore } from '@/stores/eventStore';
-import { useSessionStatusStore } from '@/stores/sessionStatusStore';
-import { clearDuplicateCache } from '@/stores/eventReducer';
-import { hydrateSession } from '@/stores/eventBridges/historyBridge';
-import { useChatUI } from '@/context/ChatUIContext';
-import { useSelections, getAcsOverrides } from '@/context/SelectionContext';
-import { supabase } from '@/auth/SupabaseClient';
-
-// SSE imports - REMOVED: Now handled by ChatEventOrchestrator
-// import { useACSChatStreaming } from '@/hooks/acs-chat/useACSChatStreaming';
-// import { toUnifiedEvents } from '@/utils/toUnifiedEvent';
-// import type { SSEEvent } from '@/services/acs';
-
-
-
-// Debug imports
-import { SSEDebugOverlay } from '@/components/debug/SSEDebugOverlay';
-import ToolEventDebugPanel from '@/components/debug/ToolEventDebugPanel';
-import EventTapDebugOverlay from '@/components/debug/EventTapDebugOverlay';
+import { useEventStore } from "@/stores/eventStore";
+import { useSessionStatusStore } from "@/stores/sessionStatusStore";
+import { clearDuplicateCache } from "@/stores/eventReducer";
+import { hydrateSession } from "@/stores/eventBridges/historyBridge";
+import { useChatUI } from "@/context/ChatUIContext";
+import { useSelections, getAcsOverrides } from "@/context/SelectionContext";
+import { supabase } from "@/auth/SupabaseClient";
 
 // Approval imports
-import { ApprovalPanel } from '@/components/approval/ApprovalPanel';
+import { ApprovalPanel } from "@/components/approval/ApprovalPanel";
 
-// Debug overlay imports
-import { DebugOverlay } from './DebugOverlay';
-import { MessageTestControls } from './MessageTestControls';
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
+import PendingToolsDebugOverlay from "./PendingToolsDebugOverlay";
+import { ScrollArea } from "../ui/ScrollArea";
+import { Button } from "../ui/Button";
+import { toast } from "sonner";
+import ChatScrollAnchor from "./ChatScrollAnchor";
+import NewMessagesIndicator from "./NewMessagesIndicator";
+import { cn } from "@/lib/utils";
+import { cancelConversation } from "@/utils/cancelConversation";
 
 // Lazy render constants
 const INITIAL_RENDER_BATCH = 15;
@@ -255,7 +96,10 @@ if (import.meta.env.DEV && !(window as any).__STREAM_DEBUG) {
   (window as any).__STREAM_DEBUG = {
     logs: [],
   };
-  (window as any).__STREAM_DEBUG.addLogEntry = (entry: { sessionId: string; timestamp: string }) => {
+  (window as any).__STREAM_DEBUG.addLogEntry = (entry: {
+    sessionId: string;
+    timestamp: string;
+  }) => {
     const logs = (window as any).__STREAM_DEBUG.logs;
     logs.push(entry);
     // Cap the logs array at 500 entries to prevent memory leaks
@@ -269,13 +113,13 @@ if (import.meta.env.DEV && !(window as any).__STREAM_DEBUG) {
 
 interface ChatMainCanonicalLegacyProps {
   sidebarCollapsed: boolean;
-  sessionId?: string; // Optional prop - falls back to URL params if not provided
-  renderContext?: 'default' | 'mission-control'; // New prop to specify rendering context
+  sessionId: string; // Optional prop - falls back to URL params if not provided
+  renderContext?: "default" | "mission-control"; // New prop to specify rendering context
   onSubmit?: (message: string) => Promise<void>; // Optional custom submit handler
   hideHeader?: boolean; // Optional prop to hide the ChatHeader component
   hideInput?: boolean; // Optional prop to hide the input area
   // NEW: single abstraction for mission control
-  sessionIsActive?: boolean;                 // Parent-controlled: true => show busy visuals
+  sessionIsActive?: boolean; // Parent-controlled: true => show busy visuals
   onToggleSessionActive?: (next: boolean) => void; // Parent-provided toggle handler
   agentCwd?: string; // Optional: explicit working directory for LexicalChatInput
 }
@@ -285,53 +129,36 @@ interface ChatMainCanonicalLegacyProps {
 /**
  * ChatMainCanonicalLegacy - The primary chat interface component using canonical store
  */
-const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> = ({
+const ChatMainCanonicalLegacyComponent: React.FC<
+  ChatMainCanonicalLegacyProps
+> = ({
   sidebarCollapsed,
   sessionId: propSessionId,
-  renderContext = 'default',
+  renderContext = "default",
   onSubmit: customOnSubmit,
   hideHeader = false,
   hideInput = false,
   sessionIsActive,
   onToggleSessionActive,
-  agentCwd
+  agentCwd,
 }) => {
-
-
-
-  // Responsive breakpoint detection
-  const isDesktop = useBreakpoint();
-
   // Performance monitoring
-  usePerformanceMonitor('ChatMainCanonicalLegacy');
+  usePerformanceMonitor();
 
   // Debug overlay - track container size via ResizeObserver
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [containerSize, setContainerSize] = useState<{
+    width: number;
+    height: number;
+  }>({ width: 0, height: 0 });
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      setContainerSize({ width: Math.round(rect.width), height: Math.round(rect.height) });
-    };
-
-    update(); // initial
-
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener('resize', update);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', update);
-    };
-  }, []);
   // Auth and ACS
   const auth = useAuth();
-  const { acsClient, isInitialized: acsInitialized, initialize: initializeACS } = useACSClient();
+  const {
+    acsClient,
+    isInitialized: acsInitialized,
+    initialize: initializeACS,
+  } = useACSClient();
 
   // Chat UI context - must be declared early
   const chatUI = useChatUI();
@@ -357,7 +184,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   const [streamDebugOverlayOpen, setStreamDebugOverlayOpen] = useState(false);
 
   // State for hydration debug overlay
-  const [hydrationDebugOverlayOpen, setHydrationDebugOverlayOpen] = useState(false);
+  const [hydrationDebugOverlayOpen, setHydrationDebugOverlayOpen] =
+    useState(false);
 
   // State for tool debug panel
   const [toolDebugOpen, setToolDebugOpen] = useState(false);
@@ -365,36 +193,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   // State for event tap debug overlay
   const [eventTapDebugOpen, setEventTapDebugOpen] = useState(false);
 
-  // Initialize stream debug global object
-  useEffect(() => {
-    if (import.meta.env.DEV && !(window as any).__STREAM_DEBUG) {
-      (window as any).__STREAM_DEBUG = {
-        logs: [],
-        addLogEntry: (entry: any) => {
-          const logs = (window as any).__STREAM_DEBUG.logs;
-          logs.push({
-            ...entry,
-            timestamp: new Date().toISOString()
-          });
-          // Cap the logs array at 500 entries to prevent memory leaks
-          const MAX_LOGS = 500;
-          if (logs.length > MAX_LOGS) {
-            logs.splice(0, logs.length - MAX_LOGS);
-          }
-        }
-      };
-    }
-  }, []);
-
-  // Debug refined mode changes
-  useEffect(() => {
-    // Effect for tracking refined mode changes
-  }, [refinedMode]);
-
   // Local + context loading (fallback)
   const [localIsLoading, setLocalIsLoading] = useState(false);
-  const contextIsLoading = chatUI.isLoading || false;
-  const fallbackIsLoading = localIsLoading || contextIsLoading;
+  const fallbackIsLoading = localIsLoading;
 
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -421,7 +222,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   // Lazy render state
   const [renderLimit, setRenderLimit] = useState(INITIAL_RENDER_BATCH);
   const loadingOlderRef = useRef(false);
-  
+
   // Scroll throttling
   const scrollRafRef = useRef<number | null>(null);
 
@@ -430,21 +231,100 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   const sessionId = propSessionId ?? urlSessionId;
   const [searchParams] = useSearchParams();
   const selections = useSelections();
-  const acsOverrides = selections; // Renaming variable for clarity  
+  const acsOverrides = selections; // Renaming variable for clarity
+
+  // ✅ ROBUST: Check if session is idle using new centralized store
+  const idleNow = useSessionStatusStore((state) =>
+    sessionId ? state.getStatus(sessionId) === "idle" : true
+  );
+
+  const isTyping = useMemo(() => {
+    // If agent is marked as idle, don't show typing indicator
+    if (idleNow) {
+      return false;
+    }
+
+    const streamingMessages = messages.filter((msg) => msg.isStreaming);
+    return streamingMessages.length > 0;
+  }, [messages, idleNow]);
+
+  // "AI is typing" if the session is currently marked as awaiting
+  const isWaitingForAI = useSessionStatusStore((s) =>
+    sessionId ? s.getStatus(sessionId) === "awaiting" : false
+  );
+
+  const effectiveActive =
+    typeof sessionIsActive === "boolean"
+      ? sessionIsActive
+      : isTyping || fallbackIsLoading || isWaitingForAI;
+  const effectiveDisabled = effectiveActive; // In MC, when active (busy), disable input
+
+  // Initialize stream debug global object
+  useEffect(() => {
+    if (import.meta.env.DEV && !(window as any).__STREAM_DEBUG) {
+      (window as any).__STREAM_DEBUG = {
+        logs: [],
+        addLogEntry: (entry: any) => {
+          const logs = (window as any).__STREAM_DEBUG.logs;
+          logs.push({
+            ...entry,
+            timestamp: new Date().toISOString(),
+          });
+          // Cap the logs array at 500 entries to prevent memory leaks
+          const MAX_LOGS = 500;
+          if (logs.length > MAX_LOGS) {
+            logs.splice(0, logs.length - MAX_LOGS);
+          }
+        },
+      };
+    }
+  }, []);
+
+  // Debug refined mode changes
+  useEffect(() => {
+    // Effect for tracking refined mode changes
+  }, [refinedMode]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setContainerSize({
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      });
+    };
+
+    update(); // initial
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
 
   // Clean up query parameters after initial load
   useEffect(() => {
     // Only clean up if we have query parameters and a valid session
     if (sessionId && location.search) {
       const currentParams = new URLSearchParams(location.search);
-      const hasBootstrapParams = currentParams.has('initialMessage') ||
-        currentParams.has('agentConfigId') ||
-        currentParams.has('modelId') ||
-        currentParams.has('sessionName') ||
-        currentParams.has('projectPath');
+      const hasBootstrapParams =
+        currentParams.has("initialMessage") ||
+        currentParams.has("agentConfigId") ||
+        currentParams.has("modelId") ||
+        currentParams.has("sessionName") ||
+        currentParams.has("projectPath");
 
       if (hasBootstrapParams) {
-        console.log('🧹 [ChatMainCanonicalLegacy] Cleaning up bootstrap query parameters');
+        console.log(
+          "🧹 [ChatMainCanonicalLegacy] Cleaning up bootstrap query parameters"
+        );
         // Navigate to clean URL without query parameters
         navigate(`/chat/${sessionId}`, { replace: true });
       }
@@ -453,7 +333,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
   // Monitor sessionId changes and reset auto-scroll state
   useEffect(() => {
-    console.log(`🔄 [SessionChange] New session: ${sessionId}, resetting auto-scroll state`);
+    console.log(
+      `🔄 [SessionChange] New session: ${sessionId}, resetting auto-scroll state`
+    );
 
     // Reset auto-scroll state for new session
     setIsAtBottom(true);
@@ -469,10 +351,12 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
     setTimeout(() => {
       const scrollArea = scrollAreaRef.current;
       if (scrollArea) {
-        console.log(`🔄 [SessionChange] Scrolling to bottom for session: ${sessionId}`);
+        console.log(
+          `🔄 [SessionChange] Scrolling to bottom for session: ${sessionId}`
+        );
         scrollArea.scrollTo({
           top: scrollArea.scrollHeight,
-          behavior: 'smooth'
+          behavior: "smooth",
         });
       }
     }, 100);
@@ -492,7 +376,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
     useEventStore.setState((state) => ({
       ...state,
-      clearAll: patchedClearAll
+      clearAll: patchedClearAll,
     }));
 
     // Remove periodic logging interval
@@ -503,7 +387,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
       // Restore original clearAll method
       useEventStore.setState((state) => ({
         ...state,
-        clearAll: originalClearAll
+        clearAll: originalClearAll,
       }));
     };
   }, []);
@@ -518,15 +402,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
     // Try session ID first, then 'unknown'
     let eventIds = state.bySession.get(sessionId) || [];
-    if (eventIds.length === 0 && state.bySession.has('unknown')) {
-      eventIds = state.bySession.get('unknown') || [];
+    if (eventIds.length === 0 && state.bySession.has("unknown")) {
+      eventIds = state.bySession.get("unknown") || [];
     }
 
-    const events = eventIds
-      .map(id => state.byId.get(id))
-      .filter(Boolean);
-
-
+    const events = eventIds.map((id) => state.byId.get(id)).filter(Boolean);
 
     // Convert to messages
     const convertedMessages = convertEventsToMessages(events);
@@ -539,11 +419,13 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   const scrollToBottom = useCallback(() => {
     const scrollArea = scrollAreaRef.current;
     if (scrollArea) {
-      const scrollContainer = scrollArea.querySelector('[data-radix-scroll-area-viewport]');
+      const scrollContainer = scrollArea.querySelector(
+        "[data-radix-scroll-area-viewport]"
+      );
       if (scrollContainer) {
         scrollContainer.scrollTo({
           top: scrollContainer.scrollHeight,
-          behavior: 'smooth'
+          behavior: "smooth",
         });
       }
     }
@@ -558,12 +440,14 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
     // Auto-scroll if:
     // 1. User is at bottom AND anchor not visible (new content arrived), OR
     // 2. Currently streaming and user hasn't scrolled up significantly
-    const hasStreamingMessage = messages.some(m => m.isStreaming);
+    const hasStreamingMessage = messages.some((m) => m.isStreaming);
     const streamingAutoScroll = hasStreamingMessage && !hasScrolledUp;
-    
+
     const result = (isAtBottom && !anchorVisible) || streamingAutoScroll;
-    
-    console.log(`🔄 [AutoScroll] Session: ${sessionId}, shouldAutoScroll: ${result}, isAtBottom: ${isAtBottom}, anchorVisible: ${anchorVisible}, streaming: ${hasStreamingMessage}, scrolledUp: ${hasScrolledUp}`);
+
+    console.log(
+      `🔄 [AutoScroll] Session: ${sessionId}, shouldAutoScroll: ${result}, isAtBottom: ${isAtBottom}, anchorVisible: ${anchorVisible}, streaming: ${hasStreamingMessage}, scrolledUp: ${hasScrolledUp}`
+    );
     return result;
   }, [isAtBottom, anchorVisible, hasScrolledUp, sessionId, messages]);
 
@@ -571,7 +455,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   useEffect(() => {
     const currentMessageCount = messages.length;
     if (currentMessageCount > lastMessageCount && !isAtBottom) {
-      setNewMessageCount(prev => prev + (currentMessageCount - lastMessageCount));
+      setNewMessageCount(
+        (prev) => prev + (currentMessageCount - lastMessageCount)
+      );
     }
     setLastMessageCount(currentMessageCount);
   }, [messages.length, lastMessageCount, isAtBottom]);
@@ -589,7 +475,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
     if (!isAtBottom && newMessageCount > 0) {
       return {
         show: true,
-        variant: 'new-messages' as const,
+        variant: "new-messages" as const,
         messageCount: newMessageCount,
       };
     }
@@ -598,7 +484,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
     if (hasScrolledUp && newMessageCount === 0) {
       return {
         show: true,
-        variant: 'back-to-latest' as const,
+        variant: "back-to-latest" as const,
         messageCount: undefined,
       };
     }
@@ -606,14 +492,14 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
     // Default: No button
     return {
       show: false,
-      variant: 'new-messages' as const,
+      variant: "new-messages" as const,
       messageCount: 0,
     };
   }, [isAtBottom, newMessageCount, hasScrolledUp]);
 
   // Load older messages for infinite scroll
   const loadOlderMessages = useCallback(async () => {
-    if (!sessionId || sessionId.startsWith('temp-')) return;
+    if (!sessionId || sessionId.startsWith("temp-")) return;
 
     const store = useEventStore.getState();
     const currentEventIds = store.bySession.get(sessionId) || [];
@@ -626,7 +512,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
     if (!oldestEvent) return;
 
-    console.log(`📜 [ChatMainCanonicalLegacy] Loading older messages before ${oldestEvent.timestamp}`);
+    console.log(
+      `📜 [ChatMainCanonicalLegacy] Loading older messages before ${oldestEvent.createdAt}`
+    );
 
     try {
       // This would typically call an API to get older messages
@@ -635,19 +523,20 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
       // const olderEvents = await getEventsBeforeTimestamp(sessionId, oldestEvent.timestamp, 20);
       // Then prepend them to the store
 
-      console.log(`📜 [ChatMainCanonicalLegacy] Would load older messages for session ${sessionId}`);
+      console.log(
+        `📜 [ChatMainCanonicalLegacy] Would load older messages for session ${sessionId}`
+      );
     } catch (error) {
-      console.error('Failed to load older messages:', error);
+      console.error("Failed to load older messages:", error);
     }
   }, [sessionId]);
 
   // Initialize ACS client
   useEffect(() => {
     if (!acsInitialized) {
-      initializeACS()
-        .catch(error => {
-          // Error handling maintained without logging
-        });
+      initializeACS().catch((_) => {
+        // Error handling maintained without logging
+      });
     }
   }, [acsInitialized, initializeACS]);
 
@@ -664,22 +553,26 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   // 🔒 2024-06 fix: initial message now handled exclusively in ChatRoute.
   // Leaving empty effect as a guard against future regression.
   useEffect(() => {
-    if (searchParams.get('initialMessage')) {
-      console.warn('[ChatMain] initialMessage param detected but ignored (handled upstream)');
+    if (searchParams.get("initialMessage")) {
+      console.warn(
+        "[ChatMain] initialMessage param detected but ignored (handled upstream)"
+      );
     }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []); // run once
 
   // Auto-hydrate on session change
   useEffect(() => {
-    if (sessionId && !sessionId.startsWith('temp-')) {
+    if (sessionId && !sessionId.startsWith("temp-")) {
       setLocalIsLoading(true);
 
       const store = useEventStore.getState();
 
       // PERFORMANCE: No session clearing - keep all sessions cached for faster switching
       // Previous sessions remain in store for instant switching back
-      console.log(`📦 [ChatMainCanonicalLegacy] Keeping previous sessions cached. Store has ${store.bySession.size} sessions.`);
+      console.log(
+        `📦 [ChatMainCanonicalLegacy] Keeping previous sessions cached. Store has ${store.bySession.size} sessions.`
+      );
 
       // Update the previous session ID
       previousSessionIdRef.current = sessionId;
@@ -690,7 +583,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
       const MAX_CACHED_SESSIONS = 20;
       const currentSessionCount = store.bySession.size;
       if (currentSessionCount > MAX_CACHED_SESSIONS) {
-        console.log(`🧹 [ChatMainCanonicalLegacy] Cache size (${currentSessionCount}) exceeds limit (${MAX_CACHED_SESSIONS}), cleaning up old sessions`);
+        console.log(
+          `🧹 [ChatMainCanonicalLegacy] Cache size (${currentSessionCount}) exceeds limit (${MAX_CACHED_SESSIONS}), cleaning up old sessions`
+        );
 
         // Get all sessions with their last access time (approximate)
         const sessionEntries = Array.from(store.bySession.entries());
@@ -700,8 +595,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
           const recentEvents = eventIds.slice(-3);
           for (const eventId of recentEvents) {
             const event = store.byId.get(eventId);
-            if (event?.timestamp) {
-              const eventTime = new Date(event.timestamp).getTime();
+            if (event?.createdAt) {
+              const eventTime = new Date(event.createdAt).getTime();
               lastEventTime = Math.max(lastEventTime, eventTime);
             }
           }
@@ -710,17 +605,26 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
         // Sort by age (oldest first) and remove oldest sessions
         sessionsWithAge.sort((a, b) => a.lastEventTime - b.lastEventTime);
-        const sessionsToRemove = sessionsWithAge.slice(0, currentSessionCount - MAX_CACHED_SESSIONS + 1);
+        const sessionsToRemove = sessionsWithAge.slice(
+          0,
+          currentSessionCount - MAX_CACHED_SESSIONS + 1
+        );
 
-        for (const { sessionId: oldSessionId, eventCount } of sessionsToRemove) {
-          if (oldSessionId !== sessionId) { // Don't remove current session
+        for (const {
+          sessionId: oldSessionId,
+          eventCount,
+        } of sessionsToRemove) {
+          if (oldSessionId !== sessionId) {
+            // Don't remove current session
             const eventIds = store.bySession.get(oldSessionId) || [];
-            eventIds.forEach(eventId => {
+            eventIds.forEach((eventId) => {
               if (store.removeEvent) {
                 store.removeEvent(eventId);
               }
             });
-            console.log(`🗑️ [ChatMainCanonicalLegacy] Removed old session ${oldSessionId} (${eventCount} events)`);
+            console.log(
+              `🗑️ [ChatMainCanonicalLegacy] Removed old session ${oldSessionId} (${eventCount} events)`
+            );
           }
         }
       }
@@ -735,8 +639,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
         const recentEventIds = sessionEvents.slice(-5); // Check last 5 events
         for (const eventId of recentEventIds) {
           const event = store.byId.get(eventId);
-          if (event?.timestamp) {
-            const eventTime = new Date(event.timestamp).getTime();
+          if (event?.createdAt) {
+            const eventTime = new Date(event.createdAt).getTime();
             mostRecentEventTime = Math.max(mostRecentEventTime, eventTime);
           }
         }
@@ -747,27 +651,45 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
       // 2. Most recent event is less than 5 minutes old OR we just switched sessions recently
       const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
       const cacheAge = Date.now() - mostRecentEventTime;
-      const isCacheFresh = hasSessionData && (cacheAge < CACHE_TTL_MS || mostRecentEventTime === 0);
+      const isCacheFresh =
+        hasSessionData &&
+        (cacheAge < CACHE_TTL_MS || mostRecentEventTime === 0);
 
       const isSessionAlreadyHydrated = hasSessionData && isCacheFresh;
 
-      console.log(`🧠 [ChatMainCanonicalLegacy] Cache analysis for ${sessionId}:`, {
-        hasSessionData,
-        mostRecentEventTime: mostRecentEventTime > 0 ? new Date(mostRecentEventTime).toISOString() : 'No timestamps',
-        cacheAge: mostRecentEventTime > 0 ? `${Math.round(cacheAge / 1000)}s` : 'Unknown',
-        isCacheFresh,
-        isSessionAlreadyHydrated,
-        activeHydration: activeHydrationRef.current
-      });
+      console.log(
+        `🧠 [ChatMainCanonicalLegacy] Cache analysis for ${sessionId}:`,
+        {
+          hasSessionData,
+          mostRecentEventTime:
+            mostRecentEventTime > 0
+              ? new Date(mostRecentEventTime).toISOString()
+              : "No timestamps",
+          cacheAge:
+            mostRecentEventTime > 0
+              ? `${Math.round(cacheAge / 1000)}s`
+              : "Unknown",
+          isCacheFresh,
+          isSessionAlreadyHydrated,
+          activeHydration: activeHydrationRef.current,
+        }
+      );
 
       // ROBUSTNESS: Prevent race conditions
-      if (activeHydrationRef.current && activeHydrationRef.current !== sessionId) {
-        console.warn(`⚠️ [ChatMainCanonicalLegacy] Cancelling hydration for ${activeHydrationRef.current}, switching to ${sessionId}`);
+      if (
+        activeHydrationRef.current &&
+        activeHydrationRef.current !== sessionId
+      ) {
+        console.warn(
+          `⚠️ [ChatMainCanonicalLegacy] Cancelling hydration for ${activeHydrationRef.current}, switching to ${sessionId}`
+        );
       }
 
       if (isSessionAlreadyHydrated) {
         // Session already hydrated - skip hydrateSession and load events directly
-        console.log(`🚀 [ChatMainCanonicalLegacy] Session ${sessionId} already hydrated, skipping re-hydration`);
+        console.log(
+          `🚀 [ChatMainCanonicalLegacy] Session ${sessionId} already hydrated, skipping re-hydration`
+        );
 
         // PROGRESSIVE LOADING: Show cached data immediately, then load full context
         setLocalIsLoading(false); // Clear loading immediately for better UX
@@ -777,10 +699,14 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
         if (cachedEvents.length > 0) {
           // Show last 20 messages immediately for instant feedback
           const recentEventIds = cachedEvents.slice(-20);
-          const recentEvents = recentEventIds.map(id => store.byId.get(id)).filter(Boolean);
+          const recentEvents = recentEventIds
+            .map((id) => store.byId.get(id))
+            .filter(Boolean);
           const recentMessages = convertEventsToMessages(recentEvents);
           setMessages(recentMessages);
-          console.log(`⚡ [ChatMainCanonicalLegacy] Showing ${recentMessages.length} cached messages immediately`);
+          console.log(
+            `⚡ [ChatMainCanonicalLegacy] Showing ${recentMessages.length} cached messages immediately`
+          );
         } else {
           // Show empty state if no cached data
           setMessages([]);
@@ -792,8 +718,10 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
         });
       } else {
         // Session not hydrated or cache is stale - proceed with hydration
-        const reason = !hasSessionData ? 'no cached data' : 'cache expired';
-        console.log(`💧 [ChatMainCanonicalLegacy] Hydrating session ${sessionId} (${reason})`);
+        const reason = !hasSessionData ? "no cached data" : "cache expired";
+        console.log(
+          `💧 [ChatMainCanonicalLegacy] Hydrating session ${sessionId} (${reason})`
+        );
 
         // ROBUSTNESS: Track active hydration to prevent races
         activeHydrationRef.current = sessionId;
@@ -805,32 +733,45 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
               // Call loadEvents directly instead of relying on dependency
               const state = useEventStore.getState();
               let eventIds = state.bySession.get(sessionId) || [];
-              if (eventIds.length === 0 && state.bySession.has('unknown')) {
-                eventIds = state.bySession.get('unknown') || [];
+              if (eventIds.length === 0 && state.bySession.has("unknown")) {
+                eventIds = state.bySession.get("unknown") || [];
               }
-              const events = eventIds.map(id => state.byId.get(id)).filter(Boolean);
+              const events = eventIds
+                .map((id) => state.byId.get(id))
+                .filter(Boolean);
               const convertedMessages = convertEventsToMessages(events);
               setMessages(convertedMessages);
-              console.log(`✅ [ChatMainCanonicalLegacy] Successfully hydrated ${sessionId} with ${events.length} events`);
+              console.log(
+                `✅ [ChatMainCanonicalLegacy] Successfully hydrated ${sessionId} with ${events.length} events`
+              );
             } else {
-              console.log(`🚫 [ChatMainCanonicalLegacy] Discarding hydration result for ${sessionId} (user switched to ${activeHydrationRef.current})`);
+              console.log(
+                `🚫 [ChatMainCanonicalLegacy] Discarding hydration result for ${sessionId} (user switched to ${activeHydrationRef.current})`
+              );
             }
           })
-          .catch(err => {
-            console.error(`❌ [ChatMainCanonicalLegacy] Hydration failed for ${sessionId}:`, err);
+          .catch((err) => {
+            console.error(
+              `❌ [ChatMainCanonicalLegacy] Hydration failed for ${sessionId}:`,
+              err
+            );
 
             // ROBUSTNESS: Only proceed if this is still the active session
             if (activeHydrationRef.current === sessionId) {
               // Try to load events anyway in case there's cached data
               const state = useEventStore.getState();
               let eventIds = state.bySession.get(sessionId) || [];
-              if (eventIds.length === 0 && state.bySession.has('unknown')) {
-                eventIds = state.bySession.get('unknown') || [];
+              if (eventIds.length === 0 && state.bySession.has("unknown")) {
+                eventIds = state.bySession.get("unknown") || [];
               }
-              const events = eventIds.map(id => state.byId.get(id)).filter(Boolean);
+              const events = eventIds
+                .map((id) => state.byId.get(id))
+                .filter(Boolean);
               const convertedMessages = convertEventsToMessages(events);
               setMessages(convertedMessages);
-              console.log(`🔄 [ChatMainCanonicalLegacy] Fallback: Loaded ${events.length} cached events for ${sessionId}`);
+              console.log(
+                `🔄 [ChatMainCanonicalLegacy] Fallback: Loaded ${events.length} cached events for ${sessionId}`
+              );
             }
           })
           .finally(() => {
@@ -845,10 +786,10 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
       // Try to load events for temp sessions
       const state = useEventStore.getState();
       let eventIds = state.bySession.get(sessionId) || [];
-      if (eventIds.length === 0 && state.bySession.has('unknown')) {
-        eventIds = state.bySession.get('unknown') || [];
+      if (eventIds.length === 0 && state.bySession.has("unknown")) {
+        eventIds = state.bySession.get("unknown") || [];
       }
-      const events = eventIds.map(id => state.byId.get(id)).filter(Boolean);
+      const events = eventIds.map((id) => state.byId.get(id)).filter(Boolean);
       const convertedMessages = convertEventsToMessages(events);
       setMessages(convertedMessages);
     }
@@ -878,51 +819,38 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
     // Monitor when messages change
   }, [messages]);
 
-  // ✅ ROBUST: Check if session is idle using new centralized store
-  const idleNow = useSessionStatusStore(
-    state => (sessionId ? state.getStatus(sessionId) === 'idle' : true)
-  );
-  const isTyping = useMemo(() => {
-    // If agent is marked as idle, don't show typing indicator
-    if (idleNow) {
-      return false;
-    }
-
-    const streamingMessages = messages.filter(msg => msg.isStreaming);
-    return streamingMessages.length > 0;
-  }, [messages, idleNow]);
-
   // Effective busy state: parent-provided sessionIsActive takes precedence
-  const effectiveActive = typeof sessionIsActive === 'boolean' ? sessionIsActive : (isTyping || fallbackIsLoading || isWaitingForAI);
-  const effectiveDisabled = effectiveActive; // In MC, when active (busy), disable input
-
-
 
   // ✅ ROBUST: Force complete stale streaming messages
   useEffect(() => {
-    const streamingMessages = messages.filter(msg => msg.isStreaming);
+    const streamingMessages = messages.filter((msg) => msg.isStreaming);
 
     if (streamingMessages.length > 0) {
       const now = Date.now();
-      const staleMessages = streamingMessages.filter(msg => {
+      const staleMessages = streamingMessages.filter((msg) => {
         const messageAge = now - msg.createdAt;
         return messageAge > 30000; // 30 seconds
       });
 
       if (staleMessages.length > 0) {
         // Force complete stale streaming messages
-        staleMessages.forEach(msg => {
+        staleMessages.forEach((msg) => {
           const state = useEventStore.getState();
           const sessionEvents = state.bySession.get(sessionId) || [];
 
-          sessionEvents.forEach(eventId => {
+          sessionEvents.forEach((eventId) => {
             const event = state.byId.get(eventId);
-            if (event && event.kind === 'message' && event.id === msg.id && event.partial) {
+            if (
+              event &&
+              event.kind === "message" &&
+              event.id === msg.id &&
+              event.partial
+            ) {
               // Force completing stale message
               const updatedEvent = {
                 ...event,
                 partial: false,
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
               };
               useEventStore.getState().addEvent(updatedEvent);
             }
@@ -941,9 +869,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
       let foundStaleStreaming = false;
 
-      sessionEvents.forEach(eventId => {
+      sessionEvents.forEach((eventId) => {
         const event = state.byId.get(eventId);
-        if (event && event.kind === 'message' && event.partial) {
+        if (event && event.kind === "message" && event.partial) {
           const eventAge = now - new Date(event.createdAt).getTime();
 
           // If streaming for more than 45 seconds, force complete
@@ -951,7 +879,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
             const updatedEvent = {
               ...event,
               partial: false,
-              updatedAt: new Date().toISOString()
+              updatedAt: new Date().toISOString(),
             };
             useEventStore.getState().addEvent(updatedEvent);
             foundStaleStreaming = true;
@@ -968,7 +896,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   // ✅ WATCHDOG: Mark session as idle if no streaming messages detected
   useEffect(() => {
     const interval = setInterval(() => {
-      const stillTyping = messages.some(m => m.isStreaming);
+      const stillTyping = messages.some((m) => m.isStreaming);
       if (!stillTyping && sessionId) {
         useSessionStatusStore.getState().markIdle(sessionId);
       }
@@ -976,14 +904,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
     return () => clearInterval(interval);
   }, [messages, sessionId]);
-
-
-
-
-
-
-
-
 
   // Note: formatMessageDate function moved to @/utils/chat/dateFormatting.ts
 
@@ -1009,44 +929,51 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
   }, [mergedMessages, renderLimit]);
 
   // Auto-scroll functions - now defined after mergedMessages is available
-  const handleScroll = useCallback((event: any) => {
-    // Throttle with requestAnimationFrame
-    if (scrollRafRef.current) return;
-    
-    scrollRafRef.current = requestAnimationFrame(() => {
-      scrollRafRef.current = null;
-      
-      const { scrollTop, scrollHeight, clientHeight } = event.target;
-      
-      // More forgiving bottom detection (24px instead of 5px)
-      const bottomTolerance = 24;
-      const atBottom = scrollHeight - clientHeight <= scrollTop + bottomTolerance;
+  const handleScroll = useCallback(
+    (event: any) => {
+      // Throttle with requestAnimationFrame
+      if (scrollRafRef.current) return;
 
-      // More forgiving scroll-up detection (50% instead of 30%)
-      const scrollFromBottom = scrollHeight - clientHeight - scrollTop;
-      const scrollUpThreshold = clientHeight * 0.5;
-      const scrolledUpSignificantly = scrollFromBottom > scrollUpThreshold;
+      scrollRafRef.current = requestAnimationFrame(() => {
+        scrollRafRef.current = null;
 
-      console.log(`📜 [Scroll] Session: ${sessionId}, atBottom: ${atBottom}, scrollTop: ${scrollTop}`);
+        const { scrollTop, scrollHeight, clientHeight } = event.target;
 
-      setIsAtBottom(atBottom);
-      setHasScrolledUp(scrolledUpSignificantly);
+        // More forgiving bottom detection (24px instead of 5px)
+        const bottomTolerance = 24;
+        const atBottom =
+          scrollHeight - clientHeight <= scrollTop + bottomTolerance;
 
-      // Less aggressive lazy loading (64px instead of 150px)
-      if (scrollTop < 64 && renderLimit < mergedMessages.length && !loadingOlderRef.current) {
-        loadingOlderRef.current = true;
-        setRenderLimit(prev => Math.min(prev + RENDER_BATCH_INCREMENT, mergedMessages.length));
-        setTimeout(() => { loadingOlderRef.current = false; }, 300); // Longer debounce
-      }
-    });
-  }, [sessionId, renderLimit, mergedMessages.length]);
+        // More forgiving scroll-up detection (50% instead of 30%)
+        const scrollFromBottom = scrollHeight - clientHeight - scrollTop;
+        const scrollUpThreshold = clientHeight * 0.5;
+        const scrolledUpSignificantly = scrollFromBottom > scrollUpThreshold;
 
-  // "AI is typing" if the session is currently marked as awaiting
-  const isWaitingForAI = useSessionStatusStore(
-    s => (sessionId ? s.getStatus(sessionId) === 'awaiting' : false)
+        console.log(
+          `📜 [Scroll] Session: ${sessionId}, atBottom: ${atBottom}, scrollTop: ${scrollTop}`
+        );
+
+        setIsAtBottom(atBottom);
+        setHasScrolledUp(scrolledUpSignificantly);
+
+        // Less aggressive lazy loading (64px instead of 150px)
+        if (
+          scrollTop < 64 &&
+          renderLimit < mergedMessages.length &&
+          !loadingOlderRef.current
+        ) {
+          loadingOlderRef.current = true;
+          setRenderLimit((prev) =>
+            Math.min(prev + RENDER_BATCH_INCREMENT, mergedMessages.length)
+          );
+          setTimeout(() => {
+            loadingOlderRef.current = false;
+          }, 300); // Longer debounce
+        }
+      });
+    },
+    [sessionId, renderLimit, mergedMessages.length]
   );
-
-
 
   // Recompute groups based on displayMessages for lazy rendering
   const mergedMessageGroups = useMemo(() => {
@@ -1081,11 +1008,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
     return groups;
   }, [displayMessages, refinedMode]);
 
-
-
   // Handle message submission
   const handleSubmit = async (message: string) => {
-    console.log('💥💥💥💥💥💥💥💥💥💥 Submitting message:', message);
+    console.log("💥💥💥💥💥💥💥💥💥💥 Submitting message:", message);
     if (!message.trim()) return;
 
     // If a custom onSubmit handler is provided, use it instead of the default logic
@@ -1094,7 +1019,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
         setLocalIsLoading(true);
         await customOnSubmit(message);
       } catch (error) {
-        console.error('ChatMain custom handleSubmit error:', error);
+        console.error("ChatMain custom handleSubmit error:", error);
       } finally {
         setLocalIsLoading(false);
       }
@@ -1103,7 +1028,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
     // Default submission logic for regular chat interface
     if (!sessionId || !auth.user?.id) {
-      toast.error('Please sign in to send messages');
+      toast.error("Please sign in to send messages");
       return;
     }
 
@@ -1120,14 +1045,17 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
       const templateVariables = await createACSTemplateVariables();
       const useStoredKeys = byokStore.useStoredKeysPreference;
 
-      console.log('🚀 [ChatMainCanonicalLegacy] Sending message with resolved overrides:', {
-        agentConfigName: overrides.agentConfigName,
-        hasModelOverride: !!overrides.overrides?.model_id,
-        modelId: overrides.overrides?.model_id,
-        sessionId: sessionId.slice(0, 8) + '...',
-        useStoredKeys,
-        hasTemplateVariables: !!templateVariables
-      });
+      console.log(
+        "🚀 [ChatMainCanonicalLegacy] Sending message with resolved overrides:",
+        {
+          agentConfigName: overrides.agentConfigName,
+          hasModelOverride: !!overrides.overrides?.model_id,
+          modelId: overrides.overrides?.model_id,
+          sessionId: sessionId.slice(0, 8) + "...",
+          useStoredKeys,
+          hasTemplateVariables: !!templateVariables,
+        }
+      );
 
       // Use shared helper for canonical message sending with extended parameters
       await sendChatMessage({
@@ -1147,13 +1075,12 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
         roleModelOverrides: {},
         isBackgroundSession: false,
         autoMode: false, // Default to false unless explicitly set by user
-        modelAutoMode: false // Default to false unless explicitly set by user
+        modelAutoMode: false, // Default to false unless explicitly set by user
         // Tools will default to core tools automatically: ['apply_patch', 'cat', 'tree', 'search_files', 'str_replace_editor', 'read_files', 'search_notes']
       });
-
     } catch (error) {
       // Error handling is done in the helper
-      console.error('ChatMain handleSubmit error:', error);
+      console.error("ChatMain handleSubmit error:", error);
     } finally {
       setLocalIsLoading(false);
     }
@@ -1167,34 +1094,34 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
   // Handle message forking
   const handleFork = async (messageId: string) => {
-    toast.info('Forking not yet implemented in canonical mode');
+    toast.info(
+      `[ChatMain][handleFork][msg: ${messageId}] Forking not yet implemented in canonical mode`
+    );
   };
-
-
 
   // Generate context-specific CSS classes
   const getContextClasses = () => {
-    const baseClasses = "flex-1 flex flex-col overflow-hidden relative bg-black";
+    const baseClasses =
+      "flex-1 flex flex-col overflow-hidden relative bg-black";
 
-    if (renderContext === 'mission-control') {
-      console.log('🎯 [ChatMainCanonicalLegacy] Applying Mission Control styles', { renderContext, sessionId });
+    if (renderContext === "mission-control") {
+      console.log(
+        "🎯 [ChatMainCanonicalLegacy] Applying Mission Control styles",
+        { renderContext, sessionId }
+      );
       return `${baseClasses} h-full max-h-full mission-control-chat`;
     }
 
-    console.log('🎯 [ChatMainCanonicalLegacy] Applying default styles', { renderContext, sessionId });
+    console.log("🎯 [ChatMainCanonicalLegacy] Applying default styles", {
+      renderContext,
+      sessionId,
+    });
     return `${baseClasses} h-full`;
   };
 
   // Empty state - Apple style
   if (!sessionId) {
-    return (
-      <ChatEmptyState
-        onNewChatClick={() => setIsNewChatModalOpen(true)}
-        isNewChatModalOpen={isNewChatModalOpen}
-        onCloseNewChatModal={() => setIsNewChatModalOpen(false)}
-        chatUI={chatUI}
-      />
-    );
+    return <ChatEmptyState onStartChat={() => setIsNewChatModalOpen(true)} />;
   }
 
   return (
@@ -1218,31 +1145,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
       {!hideHeader && (
         <div className="flex-shrink-0">
-          <ChatHeader
-            sessionId={sessionId}
-            onOpenAgentSelector={() => {
-            }}
-            // Pass down refined mode props
-            refinedMode={refinedMode}
-            onToggleRefinedMode={setRefinedMode}
-            hasMessages={messages.length > 0}
-            // Pass down stream debug overlay props
-            streamDebugOverlayOpen={streamDebugOverlayOpen}
-            onToggleStreamDebugOverlay={setStreamDebugOverlayOpen}
-            // Pass down hydration debug overlay props
-            hydrationDebugOverlayOpen={hydrationDebugOverlayOpen}
-            onToggleHydrationDebugOverlay={setHydrationDebugOverlayOpen}
-            // Pass down tool debug panel props
-            toolDebugOpen={toolDebugOpen}
-            onToggleToolDebug={setToolDebugOpen}
-            // Pass down event tap debug overlay props
-            eventTapDebugOpen={eventTapDebugOpen}
-            onToggleEventTapDebug={setEventTapDebugOpen}
-          />
+          <ChatHeader sessionId={sessionId} />
         </div>
       )}
-
-
 
       {/* Tool Approval Panel - Shows pending tool approvals for user interaction */}
       <div className="flex-shrink-0">
@@ -1250,44 +1155,46 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
           sessionId={sessionId}
           className={cn(
             "py-4 border-b border-white/10",
-            renderContext === 'mission-control'
+            renderContext === "mission-control"
               ? "px-4" // Consistent with mission control spacing
               : "px-6 md:px-12" // Default generous spacing
           )}
         />
       </div>
 
-
-      {/* Pending Tools Debug Overlay */}
-      {/* <PendingToolsDebugOverlay /> */}
+      <PendingToolsDebugOverlay />
 
       {/* Message Display Area - Apple style with generous spacing */}
-      <ScrollArea
-        ref={scrollAreaRef}
-        className="flex-1 flex-shrink overflow-y-auto overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full"
-        onViewportScroll={handleScroll}
-      >
-        <div className={cn(
-          "w-full max-w-full overflow-x-hidden",
-          renderContext === 'mission-control'
-            ? "px-4 pt-4 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Proper spacing for input area in mission control
-            : "px-6 md:px-12 pt-8 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Default generous spacing
-        )}>
+      <ScrollArea className="flex-1 flex-shrink overflow-y-auto overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full">
+        <div
+          className={cn(
+            "w-full max-w-full overflow-x-hidden",
+            renderContext === "mission-control"
+              ? "px-4 pt-4 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Proper spacing for input area in mission control
+              : "px-6 md:px-12 pt-8 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Default generous spacing
+          )}
+        >
           <ChatMessageList
             data-testid="chat-message-list"
             messages={displayMessages}
             mergedMessageGroups={mergedMessageGroups}
             refinedMode={refinedMode}
-            isDesktop={isDesktop}
             handleFork={handleFork}
             formatMessageDate={formatMessageDate}
             shouldGroupMessages={shouldGroupMessages}
             isOptimizedFinalAssistantMessage={isOptimizedFinalAssistantMessage}
-            getOptimizedFileOperationsForResponse={getOptimizedFileOperationsForResponse}
-
+            getOptimizedFileOperationsForResponse={
+              getOptimizedFileOperationsForResponse
+            }
             shouldUseUnifiedRendering={shouldUseUnifiedRendering}
             renderUnifiedTimelineEvent={(event, index, events) =>
-              renderUnifiedTimelineEvent(event, index, events, false, refinedMode)
+              renderUnifiedTimelineEvent(
+                event,
+                index,
+                events,
+                false,
+                refinedMode
+              )
             }
           />
 
@@ -1295,7 +1202,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
           <ChatTypingIndicator
             isVisible={effectiveActive}
             agentName="AI Assistant"
-            showThinkingState={messages.length > 0 && messages[messages.length - 1].thinking || false}
           />
 
           {/* Chat Scroll Anchor - invisible element at bottom for auto-scroll detection */}
@@ -1305,7 +1211,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
             shouldAutoScroll={shouldAutoScroll}
             scrollToBottom={scrollToBottom}
           />
-
         </div>
       </ScrollArea>
 
@@ -1319,41 +1224,40 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
       {/* Message Input - Responsive */}
       {!hideInput && (
-        <div ref={chatInputRef} className={cn(
-          "flex-shrink-0 sticky bottom-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/10",
-          renderContext === 'mission-control' && "mission-control-input-area"
-        )}>
-          {renderContext === 'mission-control' && typeof sessionIsActive === 'boolean' && (
-            <div className="absolute right-6 -top-10">
-              <button
-                onClick={() => onToggleSessionActive?.(!effectiveActive)}
-                className={cn(
-                  "px-2 py-1 text-xs rounded border",
-                  effectiveActive ? "bg-white/10 text-white/80 border-white/20" : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10"
-                )}
-              >
-                {effectiveActive ? 'Pause' : 'Resume'}
-              </button>
-            </div>
+        <div
+          ref={chatInputRef}
+          className={cn(
+            "flex-shrink-0 sticky bottom-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/10",
+            renderContext === "mission-control" && "mission-control-input-area"
           )}
-          {isDesktop ? (
-            <LexicalChatInput
-              onSubmit={handleSubmit}
-              onKeyDown={handleKeyDown}
-              isTyping={effectiveActive}
-              isLoading={effectiveActive}
-              disabled={effectiveDisabled}
-              placeholder="Message"
-              codePathOverride={agentCwd}
-            />
-          ) : (
-            <MobileChatInput
-              onSubmit={handleSubmit}
-              disabled={effectiveDisabled}
-              placeholder="Message"
-              isTyping={effectiveActive}
-            />
-          )}
+        >
+          {renderContext === "mission-control" &&
+            typeof sessionIsActive === "boolean" && (
+              <div className="absolute right-6 -top-10">
+                <button
+                  onClick={() => onToggleSessionActive?.(!effectiveActive)}
+                  className={cn(
+                    "px-2 py-1 text-xs rounded border",
+                    effectiveActive
+                      ? "bg-white/10 text-white/80 border-white/20"
+                      : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10"
+                  )}
+                >
+                  {effectiveActive ? "Pause" : "Resume"}
+                </button>
+              </div>
+            )}
+
+          <MobileChatInput
+            onSendMessage={handleSubmit}
+            disabled={effectiveDisabled}
+            placeholder="Message"
+            onCancelButtonClick={() => {
+              if (sessionId) {
+                cancelConversation(sessionId);
+              }
+            }}
+          />
         </div>
       )}
 
@@ -1363,16 +1267,15 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
           <AgentProfile
             isOpen={isProfileOpen}
             onClose={() => setIsProfileOpen(false)}
-            agentId={'canonical-agent'}
+            agentId={"canonical-agent"}
           />
         )}
       </AnimatePresence>
 
       {/* New Chat Modal */}
       <NewChatModal
-        isVisible={isNewChatModalOpen}
+        isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
-        chat={chatUI}
       />
 
       {/* Debug Panel */}
@@ -1403,52 +1306,74 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
               {/* Supabase Data Section */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-white/80">Supabase Data</h4>
+                  <h4 className="text-sm font-medium text-white/80">
+                    Supabase Data
+                  </h4>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={async (): Promise<void> => {
-                      setDebugData(prev => ({ ...prev, loading: true }));
-
+                      setDebugData((prev) => ({ ...prev, loading: true }));
 
                       try {
                         const { data, error } = await supabase
-                          .from('chat_messages')
-                          .select('*')
-                          .eq('session_id', sessionId)
-                          .order('timestamp', { ascending: true })
+                          .from("chat_messages")
+                          .select("*")
+                          .eq("session_id", sessionId)
+                          .order("timestamp", { ascending: true })
                           .limit(10);
 
                         if (!error && data) {
-                          setDebugData(prev => ({ ...prev, supabaseData: data, loading: false }));
+                          setDebugData((prev) => ({
+                            ...prev,
+                            supabaseData: data,
+                            loading: false,
+                          }));
                         } else {
-                          setDebugData(prev => ({ ...prev, loading: false }));
-                          toast.error('Failed to fetch Supabase data');
+                          setDebugData((prev) => ({ ...prev, loading: false }));
+                          toast.error("Failed to fetch Supabase data");
                         }
                       } catch (err) {
-                        setDebugData(prev => ({ ...prev, loading: false }));
-                        toast.error('Error fetching data');
+                        setDebugData((prev) => ({ ...prev, loading: false }));
+                        toast.error("Error fetching data");
                       }
                     }}
                     disabled={debugData.loading}
                     className="text-xs"
                   >
-                    {debugData.loading ? 'Loading...' : 'Fetch DB'}
+                    {debugData.loading ? "Loading..." : "Fetch DB"}
                   </Button>
                 </div>
 
                 <div className="bg-black/50 rounded-lg p-3 max-h-[300px] overflow-y-auto">
                   {debugData.supabaseData.length === 0 ? (
-                    <p className="text-white/40 text-xs">Click "Fetch DB" to load data</p>
+                    <p className="text-white/40 text-xs">
+                      Click "Fetch DB" to load data
+                    </p>
                   ) : (
                     <div className="space-y-3">
                       {debugData.supabaseData.map((row, idx) => (
-                        <div key={idx} className="border border-white/10 rounded p-2 space-y-1">
-                          <div className="text-xs text-white/60">Message {idx + 1}</div>
+                        <div
+                          key={idx}
+                          className="border border-white/10 rounded p-2 space-y-1"
+                        >
+                          <div className="text-xs text-white/60">
+                            Message {idx + 1}
+                          </div>
                           <div className="text-xs space-y-1">
-                            <div><span className="text-white/40">ID:</span> <span className="text-white/80 font-mono">{row.id.substring(0, 8)}...</span></div>
-                            <div><span className="text-white/40">Role:</span> <span className="text-white/80">{row.role}</span></div>
-                            <div><span className="text-white/40">Content:</span></div>
+                            <div>
+                              <span className="text-white/40">ID:</span>{" "}
+                              <span className="text-white/80 font-mono">
+                                {row.id.substring(0, 8)}...
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-white/40">Role:</span>{" "}
+                              <span className="text-white/80">{row.role}</span>
+                            </div>
+                            <div>
+                              <span className="text-white/40">Content:</span>
+                            </div>
                             <pre className="text-[10px] bg-black/30 p-2 rounded overflow-x-auto text-white/70">
                               {JSON.stringify(row.content, null, 2)}
                             </pre>
@@ -1463,23 +1388,28 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
               {/* Event Store Data Section */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-white/80">Event Store Data</h4>
+                  <h4 className="text-sm font-medium text-white/80">
+                    Event Store Data
+                  </h4>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
                       const state = useEventStore.getState();
                       let eventIds = state.bySession.get(sessionId) || [];
-                      if (eventIds.length === 0 && state.bySession.has('unknown')) {
-                        eventIds = state.bySession.get('unknown') || [];
+                      if (
+                        eventIds.length === 0 &&
+                        state.bySession.has("unknown")
+                      ) {
+                        eventIds = state.bySession.get("unknown") || [];
                       }
 
                       const events = eventIds
-                        .map(id => state.byId.get(id))
+                        .map((id) => state.byId.get(id))
                         .filter(Boolean)
                         .slice(0, 10); // Just first 10 for display
 
-                      setDebugData(prev => ({ ...prev, storeData: events }));
+                      setDebugData((prev) => ({ ...prev, storeData: events }));
                     }}
                     className="text-xs"
                   >
@@ -1489,17 +1419,41 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
                 <div className="bg-black/50 rounded-lg p-3 max-h-[300px] overflow-y-auto">
                   {debugData.storeData.length === 0 ? (
-                    <p className="text-white/40 text-xs">Click "Load Store" to load data</p>
+                    <p className="text-white/40 text-xs">
+                      Click "Load Store" to load data
+                    </p>
                   ) : (
                     <div className="space-y-3">
                       {debugData.storeData.map((event: any, idx) => (
-                        <div key={idx} className="border border-white/10 rounded p-2 space-y-1">
-                          <div className="text-xs text-white/60">Event {idx + 1}</div>
+                        <div
+                          key={idx}
+                          className="border border-white/10 rounded p-2 space-y-1"
+                        >
+                          <div className="text-xs text-white/60">
+                            Event {idx + 1}
+                          </div>
                           <div className="text-xs space-y-1">
-                            <div><span className="text-white/40">ID:</span> <span className="text-white/80 font-mono">{event.id.substring(0, 8)}...</span></div>
-                            <div><span className="text-white/40">Kind:</span> <span className="text-white/80">{event.kind}</span></div>
-                            <div><span className="text-white/40">Role:</span> <span className="text-white/80">{event.role}</span></div>
-                            <div><span className="text-white/40">Content:</span></div>
+                            <div>
+                              <span className="text-white/40">ID:</span>{" "}
+                              <span className="text-white/80 font-mono">
+                                {event.id.substring(0, 8)}...
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-white/40">Kind:</span>{" "}
+                              <span className="text-white/80">
+                                {event.kind}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-white/40">Role:</span>{" "}
+                              <span className="text-white/80">
+                                {event.role}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-white/40">Content:</span>
+                            </div>
                             <pre className="text-[10px] bg-black/30 p-2 rounded overflow-x-auto text-white/70">
                               {JSON.stringify(event.content, null, 2)}
                             </pre>
@@ -1520,30 +1474,39 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
                     useEventStore.getState().clearAll();
                     clearDuplicateCache();
 
-                    if (sessionId && !sessionId.startsWith('temp-')) {
+                    if (sessionId && !sessionId.startsWith("temp-")) {
                       setLocalIsLoading(true);
                       try {
                         await hydrateSession(sessionId);
                         loadEvents();
-                        toast.success('Store cleared and re-hydrated');
+                        toast.success("Store cleared and re-hydrated");
 
                         // Reload debug data
                         const newState = useEventStore.getState();
                         let eventIds = newState.bySession.get(sessionId) || [];
-                        if (eventIds.length === 0 && newState.bySession.has('unknown')) {
-                          eventIds = newState.bySession.get('unknown') || [];
+                        if (
+                          eventIds.length === 0 &&
+                          newState.bySession.has("unknown")
+                        ) {
+                          eventIds = newState.bySession.get("unknown") || [];
                         }
-                        const events = eventIds.map(id => newState.byId.get(id)).filter(Boolean).slice(0, 10);
-                        setDebugData(prev => ({ ...prev, storeData: events }));
+                        const events = eventIds
+                          .map((id) => newState.byId.get(id))
+                          .filter(Boolean)
+                          .slice(0, 10);
+                        setDebugData((prev) => ({
+                          ...prev,
+                          storeData: events,
+                        }));
                       } catch (err) {
-                        toast.error('Failed to re-hydrate');
+                        toast.error("Failed to re-hydrate");
                       } finally {
                         setLocalIsLoading(false);
                       }
                     }
                   }}
                   className="w-full"
-                  disabled={isLoading}
+                  disabled={localIsLoading}
                 >
                   Clear Store & Re-hydrate
                 </Button>
@@ -1586,14 +1549,17 @@ const ChatMainCanonicalLegacyComponent: React.FC<ChatMainCanonicalLegacyProps> =
 
 // Memoize the component to prevent unnecessary re-renders when parent updates
 // but the actual props that matter to this component haven't changed
-const ChatMainCanonicalLegacy = React.memo(ChatMainCanonicalLegacyComponent, (prevProps, nextProps) => {
-  // Only re-render if the props that actually matter have changed
-  return (
-    prevProps.sessionId === nextProps.sessionId &&
-    prevProps.sidebarCollapsed === nextProps.sidebarCollapsed &&
-    prevProps.renderContext === nextProps.renderContext &&
-    prevProps.sessionIsActive === nextProps.sessionIsActive
-  );
-});
+const ChatMainCanonicalLegacy = React.memo(
+  ChatMainCanonicalLegacyComponent,
+  (prevProps, nextProps) => {
+    // Only re-render if the props that actually matter have changed
+    return (
+      prevProps.sessionId === nextProps.sessionId &&
+      prevProps.sidebarCollapsed === nextProps.sidebarCollapsed &&
+      prevProps.renderContext === nextProps.renderContext &&
+      prevProps.sessionIsActive === nextProps.sessionIsActive
+    );
+  }
+);
 
 export default ChatMainCanonicalLegacy;

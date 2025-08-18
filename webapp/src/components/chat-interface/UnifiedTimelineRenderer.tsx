@@ -580,7 +580,7 @@ export function renderUnifiedTimelineEvent(event: UnifiedTimelineEvent, eventInd
       );
 
     default:
-      return null;
+      return <></>;
   }
 }
 

@@ -1,59 +1,74 @@
 // webapp/src/components/chat-interface/ChatMessageList.tsx
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { toast } from 'sonner';
-import CheckpointPill from './CheckpointPill';
-import ChatMessage from './ChatMessage';
-import { UnrefinedModeTimelineRenderer } from './UnrefinedModeTimelineRenderer';
-import TouchMessage from './TouchMessage';
-import { AssistantMessageWithFileOps } from './UnifiedTimelineRenderer';
-import { getOptimizedToolCallsForResponse } from '@/utils/optimizedMessageFiltering';
-import { pairToolEventsAcrossMessages } from '@/utils/timelineHelpers';
+import React, { useMemo, JSX } from "react";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
+import CheckpointPill from "./CheckpointPill";
+import ChatMessage from "./ChatMessage";
+import { UnrefinedModeTimelineRenderer } from "./UnrefinedModeTimelineRenderer";
+import TouchMessage from "./TouchMessage";
+import { AssistantMessageWithFileOps } from "./UnifiedTimelineRenderer";
+import { getOptimizedToolCallsForResponse } from "@/utils/optimizedMessageFiltering";
+import { pairToolEventsAcrossMessages } from "@/utils/timelineHelpers";
 
 interface ChatMessageListProps {
   messages: any[];
   mergedMessageGroups: any[];
   refinedMode: boolean;
-  isDesktop: boolean;
   handleFork: (messageId: string) => void;
   formatMessageDate: (date: Date) => string;
   shouldGroupMessages: (msg1: any, msg2: any) => boolean;
   isOptimizedFinalAssistantMessage: (message: any, messages: any[]) => boolean;
-  getOptimizedFileOperationsForResponse: (messages: any[], messageId: string) => any[];
+  getOptimizedFileOperationsForResponse: (
+    messages: any[],
+    messageId: string
+  ) => any[];
   shouldUseUnifiedRendering: (message: any) => boolean;
-  renderUnifiedTimelineEvent: (event: any, index: number, events: any[]) => JSX.Element;
+  renderUnifiedTimelineEvent: (
+    event: any,
+    index: number,
+    events: any[]
+  ) => React.ReactNode;
 }
 
 // Memoized helpers
 const MemoizedChatMessage = React.memo(ChatMessage as any);
-const MemoizedUnrefinedModeTimelineRenderer = React.memo(UnrefinedModeTimelineRenderer as any);
-const MemoizedAssistantMessageWithFileOps = React.memo(AssistantMessageWithFileOps as any);
+const MemoizedUnrefinedModeTimelineRenderer = React.memo(
+  UnrefinedModeTimelineRenderer as any
+);
+const MemoizedAssistantMessageWithFileOps = React.memo(
+  AssistantMessageWithFileOps as any
+);
 
 export default function ChatMessageList({
   messages,
   mergedMessageGroups,
   refinedMode,
-  isDesktop,
   handleFork,
   formatMessageDate,
   shouldGroupMessages,
   isOptimizedFinalAssistantMessage,
   getOptimizedFileOperationsForResponse,
   shouldUseUnifiedRendering,
-  renderUnifiedTimelineEvent
+  renderUnifiedTimelineEvent,
 }: ChatMessageListProps) {
   if (!messages || messages.length === 0) return null;
 
   const crossMessageToolEvents = useMemo(() => {
-    const assistantMessages = messages.filter((m) => m.role === 'assistant');
+    const assistantMessages = messages.filter((m) => m.role === "assistant");
     return pairToolEventsAcrossMessages(assistantMessages);
   }, [messages]);
 
   const toolCallsById = useMemo(() => {
     const out: Record<string, any[]> = {};
-    messages.filter((m) => m.role === 'assistant').forEach((m) => {
-      try { out[m.id] = getOptimizedToolCallsForResponse(messages, m.id); } catch { out[m.id] = []; }
-    });
+    messages
+      .filter((m) => m.role === "assistant")
+      .forEach((m) => {
+        try {
+          out[m.id] = getOptimizedToolCallsForResponse(messages, m.id);
+        } catch {
+          out[m.id] = [];
+        }
+      });
     return out;
   }, [messages]);
 
@@ -74,28 +89,43 @@ export default function ChatMessageList({
               animate={{ scale: 1, opacity: 1 }}
               className="px-4 py-1.5 rounded-full bg-white/5 backdrop-blur-md border border-white/10"
             >
-              <span className="text-xs font-medium text-white/60">{formatMessageDate(group.date)}</span>
+              <span className="text-xs font-medium text-white/60">
+                {formatMessageDate(group.date)}
+              </span>
             </motion.div>
           </div>
 
           {group.messages.map((message: any, messageIndex: number) => {
-            const prevMessage = messageIndex > 0 ? group.messages[messageIndex - 1] : null;
-            const nextMessage = messageIndex < group.messages.length - 1 ? group.messages[messageIndex + 1] : null;
+            const prevMessage =
+              messageIndex > 0 ? group.messages[messageIndex - 1] : null;
+            const nextMessage =
+              messageIndex < group.messages.length - 1
+                ? group.messages[messageIndex + 1]
+                : null;
 
-            const isFirstInGroup = !prevMessage || !shouldGroupMessages(message, prevMessage);
-            const isLastInGroup = !nextMessage || !shouldGroupMessages(message, nextMessage);
+            const isFirstInGroup =
+              !prevMessage || !shouldGroupMessages(message, prevMessage);
+            const isLastInGroup =
+              !nextMessage || !shouldGroupMessages(message, nextMessage);
             const isFinal = isOptimizedFinalAssistantMessage(message, messages);
 
-            const currentIndex = messages.findIndex((m: any) => m.id === message.id);
-            const nextMsg = currentIndex < messages.length - 1 ? messages[currentIndex + 1] : null;
-            const isCorrectlyFinal = message.role === 'assistant' && (!nextMsg || nextMsg.role === 'user');
+            const currentIndex = messages.findIndex(
+              (m: any) => m.id === message.id
+            );
+            const nextMsg =
+              currentIndex < messages.length - 1
+                ? messages[currentIndex + 1]
+                : null;
+            const isCorrectlyFinal =
+              message.role === "assistant" &&
+              (!nextMsg || nextMsg.role === "user");
 
             const shouldShowFileOps = false;
             const fileOperations: any[] = [];
 
             const allToolCalls = toolCallsById[message.id] || [];
 
-            if (refinedMode && isFinal && message.role === 'assistant') {
+            if (refinedMode && isFinal && message.role === "assistant") {
               return (
                 <></>
                 // <div key={message.id} className="min-h-[60px]">
@@ -115,27 +145,37 @@ export default function ChatMessageList({
               );
             }
 
-            if (message.role === 'assistant' && !(refinedMode && isFinal)) {
-              const messageEvents = crossMessageToolEvents.filter((event: any) => {
-                const messageIdentifier = message.id || `msg-${messageIndex}`;
-                const eventMessageId = event.metadata?.supabase?.messageId;
-                if (eventMessageId === messageIdentifier) return true;
-                if (event.type === 'tool_interaction') {
-                  const callMessageId = event.data?.call?.rawData?.metadata?.supabase?.messageId;
-                  return callMessageId === messageIdentifier;
+            if (message.role === "assistant" && !(refinedMode && isFinal)) {
+              const messageEvents = crossMessageToolEvents.filter(
+                (event: any) => {
+                  const messageIdentifier = message.id || `msg-${messageIndex}`;
+                  const eventMessageId = event.metadata?.supabase?.messageId;
+                  if (eventMessageId === messageIdentifier) return true;
+                  if (event.type === "tool_interaction") {
+                    const callMessageId =
+                      event.data?.call?.rawData?.metadata?.supabase?.messageId;
+                    return callMessageId === messageIdentifier;
+                  }
+                  return false;
                 }
-                return false;
-              });
+              );
 
               if (messageEvents.length === 0) {
-                const hasTextContent = Array.isArray(message.content) && message.content.some((p: any) => p.type === 'text' && p.text?.trim());
+                const hasTextContent =
+                  Array.isArray(message.content) &&
+                  message.content.some(
+                    (p: any) => p.type === "text" && p.text?.trim()
+                  );
                 if (!hasTextContent) return null;
 
                 const node = (
                   <MemoizedChatMessage
                     message={message}
                     onFork={() => handleFork(message.id)}
-                    isLastMessage={groupIndex === mergedMessageGroups.length - 1 && messageIndex === group.messages.length - 1}
+                    isLastMessage={
+                      groupIndex === mergedMessageGroups.length - 1 &&
+                      messageIndex === group.messages.length - 1
+                    }
                     isFirstInGroup={isFirstInGroup}
                     isLastInGroup={isLastInGroup}
                     showAvatar={isFirstInGroup}
@@ -144,29 +184,34 @@ export default function ChatMessageList({
                 );
                 return (
                   <div key={message.id} className="min-h-[60px]">
-                    {isDesktop ? (
-                      node
-                    ) : (
-                      <TouchMessage
-                        onReply={() => handleFork(message.id)}
-                        onCopy={() => {
-                          const textContent = (Array.isArray(message.content) ? message.content : [])
-                            .filter((c: any) => c.type === 'text')
-                            .map((c: any) => c.text)
-                            .join('\n');
-                          if (textContent) {
-                            navigator.clipboard.writeText(textContent).then(() => toast.success('Message copied to clipboard'));
-                          }
-                        }}
-                      >
-                        {node}
-                      </TouchMessage>
-                    )}
+                    <TouchMessage
+                      onReply={() => handleFork(message.id)}
+                      onCopy={() => {
+                        const textContent = (
+                          Array.isArray(message.content) ? message.content : []
+                        )
+                          .filter((c: any) => c.type === "text")
+                          .map((c: any) => c.text)
+                          .join("\n");
+                        if (textContent) {
+                          navigator.clipboard
+                            .writeText(textContent)
+                            .then(() =>
+                              toast.success("Message copied to clipboard")
+                            );
+                        }
+                      }}
+                    >
+                      {node}
+                    </TouchMessage>
                   </div>
                 );
               }
 
-              if (Array.isArray(message.content) && message.content[0]?.type === 'tool_result') {
+              if (
+                Array.isArray(message.content) &&
+                message.content[0]?.type === "tool_result"
+              ) {
                 return null;
               }
 
@@ -176,7 +221,10 @@ export default function ChatMessageList({
                     message={message}
                     timelineEvents={messageEvents}
                     onFork={() => handleFork(message.id)}
-                    isLastMessage={groupIndex === mergedMessageGroups.length - 1 && messageIndex === group.messages.length - 1}
+                    isLastMessage={
+                      groupIndex === mergedMessageGroups.length - 1 &&
+                      messageIndex === group.messages.length - 1
+                    }
                     isFirstInGroup={isFirstInGroup}
                     isLastInGroup={isLastInGroup}
                     showAvatar={isFirstInGroup}
@@ -190,7 +238,7 @@ export default function ChatMessageList({
               );
             }
 
-            if (message.type === 'checkpoint') {
+            if (message.type === "checkpoint") {
               return (
                 <div key={message.id} className="flex justify-center my-4">
                   <CheckpointPill message={message} />
@@ -201,7 +249,10 @@ export default function ChatMessageList({
             const chatMessageElement = (
               <MemoizedChatMessage
                 message={message}
-                isLastMessage={groupIndex === mergedMessageGroups.length - 1 && messageIndex === group.messages.length - 1}
+                isLastMessage={
+                  groupIndex === mergedMessageGroups.length - 1 &&
+                  messageIndex === group.messages.length - 1
+                }
                 isFirstInGroup={isFirstInGroup}
                 isLastInGroup={isLastInGroup}
                 showAvatar={isFirstInGroup}
@@ -212,24 +263,26 @@ export default function ChatMessageList({
 
             return (
               <div key={message.id} className="min-h-[60px]">
-                {isDesktop ? (
-                  chatMessageElement
-                ) : (
-                  <TouchMessage
-                    onReply={() => handleFork(message.id)}
-                    onCopy={() => {
-                      const textContent = (Array.isArray(message.content) ? message.content : [])
-                        .filter((c: any) => c.type === 'text')
-                        .map((c: any) => c.text)
-                        .join('\n');
-                      if (textContent) {
-                        navigator.clipboard.writeText(textContent).then(() => toast.success('Message copied to clipboard'));
-                      }
-                    }}
-                  >
-                    {chatMessageElement}
-                  </TouchMessage>
-                )}
+                <TouchMessage
+                  onReply={() => handleFork(message.id)}
+                  onCopy={() => {
+                    const textContent = (
+                      Array.isArray(message.content) ? message.content : []
+                    )
+                      .filter((c: any) => c.type === "text")
+                      .map((c: any) => c.text)
+                      .join("\n");
+                    if (textContent) {
+                      navigator.clipboard
+                        .writeText(textContent)
+                        .then(() =>
+                          toast.success("Message copied to clipboard")
+                        );
+                    }
+                  }}
+                >
+                  {chatMessageElement}
+                </TouchMessage>
               </div>
             );
           })}
