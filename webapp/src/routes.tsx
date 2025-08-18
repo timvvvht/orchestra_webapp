@@ -32,7 +32,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "mission-control",
-        element: <MissionControl />,
+        element: <MissionControl repo={null} />,
       },
       {
         path: "auth",
@@ -64,6 +64,10 @@ export const routes: RouteObject[] = [
         ],
       },
       { path: "mock-test", element: <MockTestPage /> },
+      {
+        path: "session",
+        element: <SessionInspector />,
+      },
       {
         path: "*",
         element: <Navigate to="/" replace />,
