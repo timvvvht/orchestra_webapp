@@ -1116,7 +1116,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       renderContext,
       sessionId,
     });
-    return `${baseClasses} h-full`;
+    return `${baseClasses} max-h-full`;
   };
 
   // Empty state - Apple style
@@ -1125,7 +1125,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   }
 
   return (
-    <div ref={mainContainerRef} className={getContextClasses()}>
+    <div
+      ref={mainContainerRef}
+      className={getContextClasses()}
+      id="chat-main-canonical-legacy"
+    >
       {/* Subtle gradient overlay for depth */}
       {/* DEBUG SIZE OVERLAY */}
       {/* {process.env.NODE_ENV !== 'production' && (
@@ -1165,7 +1169,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       <PendingToolsDebugOverlay />
 
       {/* Message Display Area - Apple style with generous spacing */}
-      <ScrollArea className="flex-1 flex-shrink overflow-y-auto overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full">
+      <ScrollArea className="flex-1 flex-shrink overflow-y-scroll overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full">
         <div
           className={cn(
             "w-full max-w-full overflow-x-hidden",
