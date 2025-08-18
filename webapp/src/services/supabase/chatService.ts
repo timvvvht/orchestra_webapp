@@ -1043,7 +1043,7 @@ export const getAllChatMessages = async (
     .select("user_id")
     .eq("id", sessionId)
     .single();
-
+  console.log("SESSION DATA:", session);
   if (sessionError || !session || session.user_id !== currentUserId) {
     console.error(
       "[ChatService] Session not found or access denied for session " +

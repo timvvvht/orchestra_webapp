@@ -17,6 +17,9 @@ import { getPlansBySession } from "@/services/supabase/planService";
 import { useMissionControlStore } from "@/stores/missionControlStore";
 import { fetchAcsSessions } from "@/components/mission-control/MissionControl";
 import { ChatSession } from "@/types/chatTypes";
+import { hydrateSession } from "@/stores/eventBridges/historyBridge";
+import { useEventStore } from "@/stores/eventStore";
+import { useChatStore } from "@/stores/chatStore";
 
 type SSEEvent = {
   session_id?: string;
@@ -97,6 +100,8 @@ const SessionInspector: React.FC = () => {
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [chatSession, setChatSession] = useState<ChatSession | null>();
 
+  const [chats, setChats] = useState<any>([]);
+
   // SSE
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const unsubRef = useRef<null | (() => void)>(null);
@@ -104,23 +109,48 @@ const SessionInspector: React.FC = () => {
   // Get most recent session if no sessionId in URL
   useEffect(() => {
     if (!urlSessionId) {
+      console.log("[Session Inspector] Fetching all chat sessions...");
       getAllChatSessions()
         .then((sessions) => {
-          console.log("[Session Inspector] Sessions: ", sessions);
+          console.log("[Session Inspector] Retrieved sessions:", sessions.length);
           const mostRecent = sessions[0];
           console.log("[Session Inspector] Session Selected: ", mostRecent);
           if (mostRecent) {
             setSessionId(mostRecent.id);
             setSessionMeta(mostRecent);
+            console.log("[Session Inspector] Hydrating session:", mostRecent.id);
+            hydrateSession(mostRecent.id);
+
+            const state = useEventStore.getState();
+            console.log("[Session Inspector] Event store state:", {
+              totalSessions: state.bySession.size,
+              sessionIds: Array.from(state.bySession.keys())
+            });
+
+            // Try session ID first, then 'unknown'
+            let eventIds = state.bySession.get(mostRecent.id) || [];
+            console.log("[Session Inspector] Events for session", mostRecent.id, ":", eventIds.length);
+            if (eventIds.length === 0 && state.bySession.has("unknown")) {
+              eventIds = state.bySession.get("unknown") || [];
+              console.log("[Session Inspector] Using 'unknown' session events:", eventIds.length);
+            }
+
+            const events = eventIds
+              .map((id) => state.byId.get(id))
+              .filter(Boolean);
+            console.log("[Session Inspector] Filtered events:", events.length);
+
+            setChats(events);
           }
         })
         .catch((err) => {
-          console.error("Failed to fetch sessions:", err);
+          console.error("[Session Inspector] Failed to fetch sessions:", err);
         })
         .finally(() => {
           setLoadingSession(false);
         });
     } else {
+      console.log("[Session Inspector] Using URL session ID:", urlSessionId);
       setSessionId(urlSessionId);
       setLoadingSession(false);
     }
@@ -129,23 +159,30 @@ const SessionInspector: React.FC = () => {
   // Get historical chats when the sessionId changes
   useEffect(() => {
     if (!sessionId) return;
+    console.log("[Session Inspector] Fetching chat session for ID:", sessionId);
     setIsFetching(true);
+    
+    // Fetch chat session
     getChatSession(sessionId)
       .then((chatSession) => {
+        console.log("[Session Inspector] Retrieved chat session:", chatSession);
         setChatSession(chatSession);
-        return getAllChatMessages(sessionId);
-      })
-      .then((messages) => {
-        setRecentMessages(messages);
-        return getPlansBySession(sessionId);
-      })
-      .then((plans) => {
-        setPlans(plans);
-        setIsFetching(false);
       })
       .catch((err) => {
-        console.error("Failed to fetch session data:", err);
-        setFetchError(err.message);
+        console.error("[Session Inspector] Failed to fetch chat session:", err);
+      });
+    
+    // Fetch recent messages
+    console.log("[Session Inspector] Fetching recent messages for session:", sessionId);
+    getAllChatMessages(sessionId)
+      .then((messages) => {
+        console.log("[Session Inspector] Retrieved messages:", messages.length);
+        setRecentMessages(messages);
+      })
+      .catch((err) => {
+        console.error("[Session Inspector] Failed to fetch messages:", err);
+      })
+      .finally(() => {
         setIsFetching(false);
       });
   }, [sessionId]);
@@ -238,22 +275,7 @@ const SessionInspector: React.FC = () => {
         {recentMessages.length === 0 ? (
           <div className="text-sm text-[#aaa]">No messages yet.</div>
         ) : (
-          <div className="space-y-3">
-            {recentMessages.map((m: any) => (
-              <div
-                key={m.id}
-                className="bg-[#0b0b0b] border border-[#222] rounded p-3"
-              >
-                <div className="text-sm">
-                  <strong>{m.role}</strong> • {m.id} •{" "}
-                  {new Date(
-                    m.createdAt ?? m.timestamp ?? Date.now()
-                  ).toLocaleString()}
-                </div>
-                <JSONBlock label="Message" data={m} />
-              </div>
-            ))}
-          </div>
+          <div className="space-y-3">{JSON.stringify(chats, null, 2)}</div>
         )}
       </Section>
 
