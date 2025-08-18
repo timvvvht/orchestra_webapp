@@ -1035,7 +1035,7 @@ export const getAllChatMessages = async (
   console.log(
     `[ChatService] getAllChatMessages called for session: ${sessionId}`
   );
-  const currentUserId = getOrSetAnonymousUserId();
+  const currentUserId = await getCurrentUserId();
 
   // First verify the user owns this session for security
   const { data: session, error: sessionError } = await supabase

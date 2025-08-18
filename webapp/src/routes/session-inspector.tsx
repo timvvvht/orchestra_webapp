@@ -112,27 +112,41 @@ const SessionInspector: React.FC = () => {
       console.log("[Session Inspector] Fetching all chat sessions...");
       getAllChatSessions()
         .then((sessions) => {
-          console.log("[Session Inspector] Retrieved sessions:", sessions.length);
+          console.log(
+            "[Session Inspector] Retrieved sessions:",
+            sessions.length
+          );
           const mostRecent = sessions[0];
           console.log("[Session Inspector] Session Selected: ", mostRecent);
           if (mostRecent) {
             setSessionId(mostRecent.id);
             setSessionMeta(mostRecent);
-            console.log("[Session Inspector] Hydrating session:", mostRecent.id);
+            console.log(
+              "[Session Inspector] Hydrating session:",
+              mostRecent.id
+            );
             hydrateSession(mostRecent.id);
 
             const state = useEventStore.getState();
             console.log("[Session Inspector] Event store state:", {
               totalSessions: state.bySession.size,
-              sessionIds: Array.from(state.bySession.keys())
+              sessionIds: Array.from(state.bySession.keys()),
             });
 
             // Try session ID first, then 'unknown'
             let eventIds = state.bySession.get(mostRecent.id) || [];
-            console.log("[Session Inspector] Events for session", mostRecent.id, ":", eventIds.length);
+            console.log(
+              "[Session Inspector] Events for session",
+              mostRecent.id,
+              ":",
+              eventIds.length
+            );
             if (eventIds.length === 0 && state.bySession.has("unknown")) {
               eventIds = state.bySession.get("unknown") || [];
-              console.log("[Session Inspector] Using 'unknown' session events:", eventIds.length);
+              console.log(
+                "[Session Inspector] Using 'unknown' session events:",
+                eventIds.length
+              );
             }
 
             const events = eventIds
@@ -161,7 +175,7 @@ const SessionInspector: React.FC = () => {
     if (!sessionId) return;
     console.log("[Session Inspector] Fetching chat session for ID:", sessionId);
     setIsFetching(true);
-    
+
     // Fetch chat session
     getChatSession(sessionId)
       .then((chatSession) => {
@@ -171,9 +185,12 @@ const SessionInspector: React.FC = () => {
       .catch((err) => {
         console.error("[Session Inspector] Failed to fetch chat session:", err);
       });
-    
+
     // Fetch recent messages
-    console.log("[Session Inspector] Fetching recent messages for session:", sessionId);
+    console.log(
+      "[Session Inspector] Fetching recent messages for session:",
+      sessionId
+    );
     getAllChatMessages(sessionId)
       .then((messages) => {
         console.log("[Session Inspector] Retrieved messages:", messages.length);
@@ -275,7 +292,11 @@ const SessionInspector: React.FC = () => {
         {recentMessages.length === 0 ? (
           <div className="text-sm text-[#aaa]">No messages yet.</div>
         ) : (
-          <div className="space-y-3">{JSON.stringify(chats, null, 2)}</div>
+          <div className="space-y-3 bg-gray-600 rounded-2xl border-white max-h-[15vh] overflow-y-scroll">
+            {chats.map((c: any) => (
+              <p>{JSON.stringify(c, null, 2)}</p>
+            ))}
+          </div>
         )}
       </Section>
 
