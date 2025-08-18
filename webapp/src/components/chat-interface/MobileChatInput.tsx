@@ -13,6 +13,7 @@ import { Square } from "lucide-react";
 
 interface MobileChatInputProps {
   onSendMessage?: (message: string) => void;
+  onCancelButtonClick: () => void;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -20,6 +21,7 @@ interface MobileChatInputProps {
 
 export const MobileChatInput: React.FC<MobileChatInputProps> = ({
   onSendMessage,
+  onCancelButtonClick,
   placeholder = "Type your message...",
   disabled = false,
   className = "",
@@ -32,10 +34,6 @@ export const MobileChatInput: React.FC<MobileChatInputProps> = ({
       onSendMessage(message.trim());
       setMessage("");
     }
-  };
-
-  const handleCancel = () => {
-    // stub for now
   };
 
   return (
@@ -56,7 +54,7 @@ export const MobileChatInput: React.FC<MobileChatInputProps> = ({
           {/* Stop Generating Button */}
           <div className="px-4 py-2 border-b border-white/5">
             <Button
-              onClick={() => {}}
+              onClick={onCancelButtonClick}
               variant="outline"
               size="sm"
               type="button"
