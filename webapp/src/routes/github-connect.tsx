@@ -39,6 +39,15 @@ export default function GitHubConnectPage() {
   const [diag, setDiag] = useState<Panel | null>(null);
   const [autoPoll, setAutoPoll] = useState<boolean>(true);
 
+
+  // Shell state
+  const [shellCmd, setShellCmd] = useState<string>("");
+  const [shellOut, setShellOut] = useState<string>("");
+  const [shellErr, setShellErr] = useState<string>("");
+  const [shellCode, setShellCode] = useState<number | null>(null);
+  const [shellSessionId, setShellSessionId] = useState<string | null>(null);
+  const [tesVerification, setTesVerification] = useState<any>(null);
+
   // Helpers
   const setInfo = (msg: string) => setToast({ kind: "working", msg });
   const setOk = (msg: string) => setToast({ kind: "success", msg });
@@ -232,6 +241,60 @@ export default function GitHubConnectPage() {
     setDiag(null);
   }, [api, selectedRepoId, branch]);
 
+
+
+  const onVerifyTes = useCallback(async () => {
+    if (!diag?.tes_internal_url) return setErr("No TES URL – provision first.");
+    setInfo("Verifying TES implementation…");
+    try {
+      const res = await fetch(`${acsBase}/api/v1/tes-shell/verify-tes?tes_url=${encodeURIComponent(diag.tes_internal_url)}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data?.detail || "TES verification failed");
+        return;
+      }
+      setTesVerification(data);
+      setOk(`TES verified: ${data.verification}`);
+    } catch (e: any) {
+      setErr(String(e));
+    }
+  }, [acsBase, diag?.tes_internal_url]);
+
+  const onRunShell = useCallback(async () => {
+    if (!diag?.tes_internal_url) return setErr("No TES URL – provision first.");
+    if (!shellCmd.trim()) return setErr("Enter a command");
+    setInfo("Running shell command…");
+    try {
+      const res = await fetch(`${acsBase}/api/v1/tes-shell/exec`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tes_url: diag.tes_internal_url,
+          session_id: shellSessionId,
+          command: shellCmd,
+          initial_cwd: "/workspace",
+          timeout_seconds: 60,
+        }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data?.detail || "Shell exec failed");
+        return;
+      }
+      setShellSessionId(data.session_id);
+      setShellOut(data.stdout || "");
+      setShellErr(data.stderr || "");
+      setShellCode(typeof data.exit_code === "number" ? data.exit_code : null);
+      setOk("Shell done");
+    } catch (e: any) {
+      setErr(String(e));
+    }
+  }, [acsBase, diag?.tes_internal_url, shellCmd, shellSessionId]);
+
   // Auto-poll while provisioned until ready or stopped
   useEffect(() => {
     if (!autoPoll || !selectedRepoId) return;
@@ -356,6 +419,50 @@ export default function GitHubConnectPage() {
               ) : (
                 <div className="text-white/50 text-sm">No diagnostics yet. Run Provision or Diagnostics.</div>
               )}
+            </div>
+
+            {/* Shell Panel */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
+              <div className="text-white/80 text-sm mb-3">Shell (MVP)</div>
+              
+              {/* TES Verification */}
+              <div className="mb-3">
+                <button className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs" onClick={onVerifyTes}>
+                  Verify TES Implementation
+                </button>
+                {tesVerification && (
+                  <div className="mt-2 p-2 rounded bg-black/40 text-xs">
+                    <div className="text-white/90 mb-1">{tesVerification.verification}</div>
+                    <div className="text-white/60">Implementation: {tesVerification.implementation}</div>
+                    {tesVerification.version_data && (
+                      <div className="text-white/60">Version: {tesVerification.version_data.version}</div>
+                    )}
+                    <div className="text-white/60">
+                      Supports command: {tesVerification.supports_execute_in_runner_session_with_command ? "✅" : "❌"}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mb-2">
+                <input className="flex-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10"
+                       placeholder="echo hello && uname -a"
+                       value={shellCmd} onChange={e => setShellCmd(e.target.value)} />
+                <button className="px-4 py-2 rounded-lg bg-white text-black" onClick={onRunShell}>Run</button>
+              </div>
+              {shellCode !== null && (
+                <div className="text-white/70 text-xs mb-2">exit_code: {shellCode}</div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <div className="text-white/60 text-xs mb-1">stdout</div>
+                  <pre className="p-2 rounded bg-black/60 text-green-200 text-xs whitespace-pre-wrap max-h-56 overflow-auto">{shellOut}</pre>
+                </div>
+                <div>
+                  <div className="text-white/60 text-xs mb-1">stderr</div>
+                  <pre className="p-2 rounded bg-black/60 text-red-200 text-xs whitespace-pre-wrap max-h-56 overflow-auto">{shellErr}</pre>
+                </div>
+              </div>
             </div>
           </div>
         </div>

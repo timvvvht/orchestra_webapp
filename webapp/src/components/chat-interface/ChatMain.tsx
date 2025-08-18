@@ -273,7 +273,6 @@ if (import.meta.env.DEV && !(window as any).__STREAM_DEBUG) {
 interface ChatMainCanonicalLegacyProps {
   sidebarCollapsed: boolean;
   sessionId?: string; // Optional prop - falls back to URL params if not provided
-  renderContext?: "default" | "mission-control"; // New prop to specify rendering context
   onSubmit?: (message: string) => Promise<void>; // Optional custom submit handler
   hideHeader?: boolean; // Optional prop to hide the ChatHeader component
   hideInput?: boolean; // Optional prop to hide the input area
@@ -289,7 +288,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 > = ({
   sidebarCollapsed,
   sessionId: propSessionId,
-  renderContext = "default",
   onSubmit: customOnSubmit,
   hideHeader = false,
   hideInput = false,
@@ -1266,24 +1264,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     toast.info("Forking not yet implemented in canonical mode");
   };
 
-  // Generate context-specific CSS classes
+  // Generate context-specific CSS classes - now always Mission Control
   const getContextClasses = () => {
-    const baseClasses =
-      "flex-1 flex flex-col overflow-hidden relative bg-black";
-
-    if (renderContext === "mission-control") {
-      console.log(
-        "🎯 [ChatMainCanonicalLegacy] Applying Mission Control styles",
-        { renderContext, sessionId }
-      );
-      return `${baseClasses} h-full max-h-full mission-control-chat`;
-    }
-
-    console.log("🎯 [ChatMainCanonicalLegacy] Applying default styles", {
-      renderContext,
-      sessionId,
-    });
-    return `${baseClasses} h-full`;
+    return "flex-1 flex flex-col overflow-hidden relative bg-black h-full max-h-full mission-control-chat";
   };
 
   // Empty state - Apple style
@@ -1343,9 +1326,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
           sessionId={sessionId}
           className={cn(
             "py-4 border-b border-white/10",
-            renderContext === "mission-control"
-              ? "px-4" // Consistent with mission control spacing
-              : "px-6 md:px-12" // Default generous spacing
+            "px-4" // Mission Control spacing
           )}
         />
       </div>
@@ -1366,18 +1347,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       <ScrollArea
         className={cn(
           "flex-1 flex-shrink overflow-y-auto overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full",
-          renderContext === "mission-control" && "mission-control-scroll-area"
+          "mission-control-scroll-area"
         )}
         onScrollCapture={handleScroll}
       >
-        <div
-          className={cn(
-            "w-full max-w-full overflow-x-hidden",
-            renderContext === "mission-control"
-              ? "px-4 pt-4 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Proper spacing for input area in mission control
-              : "px-6 md:px-12 pt-8 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Default generous spacing
-          )}
-        >
+        <div className="w-full max-w-full overflow-x-hidden px-4 pt-4 pb-[calc(8rem+env(safe-area-inset-bottom))]">
           <ChatMessageList
             data-testid="chat-message-list"
             messages={displayMessages as any}
@@ -1437,7 +1411,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
           ref={chatInputRef}
           className={cn(
             "flex-shrink-0 sticky bottom-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/10",
-            renderContext === "mission-control" && "mission-control-input-area"
+            "mission-control-input-area"
           )}
         >
           <MobileChatInput
@@ -1746,8 +1720,7 @@ const ChatMainCanonicalLegacy = React.memo(
     // Only re-render if the props that actually matter have changed
     return (
       prevProps.sessionId === nextProps.sessionId &&
-      prevProps.sidebarCollapsed === nextProps.sidebarCollapsed &&
-      prevProps.renderContext === nextProps.renderContext
+      prevProps.sidebarCollapsed === nextProps.sidebarCollapsed
     );
   }
 );

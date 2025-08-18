@@ -1,6 +1,7 @@
 // webapp/src/components/chat-interface/ChatMessage.tsx
 import React from 'react';
 import type { ChatMessage as ChatMessageType, TextPart } from '@/types/chatTypes';
+import OptimizedTextPartDisplay from './content-parts/OptimizedTextPartDisplay';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -22,17 +23,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
 }) => {
   const isUser = message.role === 'user' || message.role === 'User';
 
-  // Collect text parts only
-  const textParts: string[] = [];
+  // Collect text parts for rendering
+  const textParts: TextPart[] = [];
   if (Array.isArray(message.content)) {
     message.content
       .filter((p): p is TextPart => p && p.type === 'text')
       .forEach((p) => {
-        if (p.text && p.text.trim()) textParts.push(p.text);
+        if (p.text && p.text.trim()) textParts.push(p);
       });
   } else if (typeof (message as any).content === 'string') {
     const s = (message as any).content as string;
-    if (s.trim()) textParts.push(s);
+    if (s.trim()) textParts.push({ type: 'text', text: s });
   }
 
   if (textParts.length === 0 && !message.thinking) {
@@ -54,11 +55,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
 
       <div className="flex-1 min-w-0">
         <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-          <div className={bubbleClasses}>
+          <div className={`chat-message ${bubbleClasses}`}>
             {textParts.length > 0 && (
               <div className="space-y-3">
-                {textParts.map((t, i) => (
-                  <div key={i} className="whitespace-pre-wrap">{t}</div>
+                {textParts.map((part, i) => (
+                  <OptimizedTextPartDisplay key={i} part={part} />
                 ))}
               </div>
             )}
