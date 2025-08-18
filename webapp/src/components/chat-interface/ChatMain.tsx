@@ -1292,7 +1292,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   }
 
   return (
-    <div ref={mainContainerRef} className={getContextClasses()}>
+    <div ref={mainContainerRef} className={getContextClasses()} id="chat-main">
       {/* Subtle gradient overlay for depth */}
       {/* DEBUG SIZE OVERLAY */}
       {/* {process.env.NODE_ENV !== 'production' && (
@@ -1349,23 +1349,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
           )}
         />
       </div>
-
-      {/* Debug overlay 
-      <StreamDebugOverlay isOpen={streamDebugOverlayOpen} />*/}
-
-      {/* Hydration debug overlay 
-      <HydrationDebugOverlay
-        open={hydrationDebugOverlayOpen}
-        onClose={() => setHydrationDebugOverlayOpen(false)}
-      />*/}
-
-      {/* Pending Tools Debug Overlay */}
-      {/* <PendingToolsDebugOverlay /> */}
-
-      {/* Message Display Area - Apple style with generous spacing */}
       <ScrollArea
         className={cn(
-          "flex-1 flex-shrink overflow-y-auto overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full",
+          "flex-1 flex-shrink overflow-y-scroll overflow-x-hidden relative z-10 min-h-0 max-h-[70vh] [&>[data-radix-scroll-area-viewport]]:!h-full",
           renderContext === "mission-control" && "mission-control-scroll-area"
         )}
         onScrollCapture={handleScroll}
@@ -1459,12 +1445,12 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         )}
       </AnimatePresence>
 
-      {/* New Chat Modal */}
+      {/* New Chat Modal 
       <NewChatModal
         isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
-        //chat={chatUI}
-      />
+        chat={chatUI}
+      />*/}
 
       {/* Debug Panel */}
       <AnimatePresence>
