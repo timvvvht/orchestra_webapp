@@ -7,14 +7,16 @@ import React, {
 } from "react";
 import { useAuth } from "@/auth/AuthContext";
 import { getFirehose } from "@/services/GlobalServiceManager";
-import { useCurrentSessionId } from "@/hooks/useCurrentSessionId";
+import { useParams } from "react-router-dom";
 import {
   getChatSession,
   getAllChatMessages,
+  getAllChatSessions,
 } from "@/services/supabase/chatService";
 import { getPlansBySession } from "@/services/supabase/planService";
 import { useMissionControlStore } from "@/stores/missionControlStore";
 import { fetchAcsSessions } from "@/components/mission-control/MissionControl";
+import { ChatSession } from "@/types/chatTypes";
 
 type SSEEvent = {
   session_id?: string;
@@ -82,15 +84,10 @@ const Section: React.FC<{
   </section>
 );
 
-const SessionInspector: React.FC = async () => {
-  const { user } = useAuth();
-  const getSortedSessions = await fetchAcsSessions().then((s) => {
-    console.log("[MostRecentSession] mostRecentSession", s);
-    return s;
-  });
-  const mostRecentSession = getSortedSessions[0] || null;
-
-  const sessionId = mostRecentSession.id;
+const SessionInspector: React.FC = () => {
+  const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
+  const [sessionId, setSessionId] = useState<string | undefined>(urlSessionId);
+  const [loadingSession, setLoadingSession] = useState(!urlSessionId);
 
   // Supabase data
   const [sessionMeta, setSessionMeta] = useState<any | null>(null);
@@ -98,115 +95,74 @@ const SessionInspector: React.FC = async () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [chatSession, setChatSession] = useState<ChatSession | null>();
 
   // SSE
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const unsubRef = useRef<null | (() => void)>(null);
 
-  const refreshSupabase = useCallback(async () => {
-    if (!sessionId) return;
-    setIsFetching(true);
-    setFetchError(null);
-    try {
-      const s = await getChatSession(sessionId, { messageLimit: 200 });
-      setSessionMeta(s);
-      // s may already include messages, but to be explicit we fetch full list or recent if needed
-      const msgs = await getAllChatMessages(sessionId);
-      setRecentMessages(msgs);
-      const ps = await getPlansBySession(sessionId);
-      setPlans(ps);
-    } catch (e: any) {
-      setFetchError(e?.message || "Failed to fetch session data");
-    } finally {
-      setIsFetching(false);
+  // Get most recent session if no sessionId in URL
+  useEffect(() => {
+    if (!urlSessionId) {
+      getAllChatSessions()
+        .then((sessions) => {
+          console.log("[Session Inspector] Sessions: ", sessions);
+          const mostRecent = sessions[0];
+          console.log("[Session Inspector] Session Selected: ", mostRecent);
+          if (mostRecent) {
+            setSessionId(mostRecent.id);
+            setSessionMeta(mostRecent);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to fetch sessions:", err);
+        })
+        .finally(() => {
+          setLoadingSession(false);
+        });
+    } else {
+      setSessionId(urlSessionId);
+      setLoadingSession(false);
     }
   }, [sessionId]);
 
-  // Load data on session change
+  // Get historical chats when the sessionId changes
   useEffect(() => {
-    if (!sessionId) {
-      setSessionMeta(null);
-      setRecentMessages([]);
-      setPlans([]);
-      return;
-    }
-    refreshSupabase();
-  }, [sessionId, refreshSupabase]);
-
-  // SSE subscription
-  useEffect(() => {
-    // Cleanup previous subscription
-    if (unsubRef.current) {
-      try {
-        unsubRef.current();
-      } catch {}
-      unsubRef.current = null;
-    }
-    if (!user || !sessionId) return;
-
-    const firehose = getFirehose();
-    if (!firehose) {
-      console.warn("[SessionInspector] No firehose available");
-      return;
-    }
-    const unsub = firehose.subscribe((raw: any) => {
-      const event: SSEEvent = {
-        session_id: raw?.session_id,
-        event_type: raw?.event_type,
-        data: raw?.data,
-        received_at: new Date().toISOString(),
-      };
-      if (event.session_id !== sessionId) return;
-      if (event?.data?.user_id && event.data.user_id !== user.id) return;
-      setEvents((prev) => {
-        const next = [event, ...prev];
-        if (next.length > MAX_EVENTS) next.length = MAX_EVENTS;
-        return next;
+    if (!sessionId) return;
+    setIsFetching(true);
+    getChatSession(sessionId)
+      .then((chatSession) => {
+        setChatSession(chatSession);
+        return getAllChatMessages(sessionId);
+      })
+      .then((messages) => {
+        setRecentMessages(messages);
+        return getPlansBySession(sessionId);
+      })
+      .then((plans) => {
+        setPlans(plans);
+        setIsFetching(false);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch session data:", err);
+        setFetchError(err.message);
+        setIsFetching(false);
       });
-    });
-    unsubRef.current = unsub;
-    return () => {
-      if (unsubRef.current) {
-        try {
-          unsubRef.current();
-        } catch {}
-        unsubRef.current = null;
-      }
-    };
-  }, [user, sessionId]);
-
-  const clearEvents = useCallback(() => setEvents([]), []);
-
-  if (!sessionId) {
-    return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold">Session Inspector</h1>
-        <p className="mt-4">
-          No sessions found. Start a chat to create a session.
-        </p>
-        <a href="/start" className="underline">
-          Go to Start
-        </a>
-      </div>
-    );
-  }
+  }, [sessionId]);
 
   return (
-    <div className="p-6">
+    <div className="p-6" id="session-inspector">
       <h1 className="text-xl font-semibold">Session Inspector</h1>
       <p className="text-sm text-[#aaa] mt-1">
-        Showing Supabase SSE data for the most recent session.
+        Showing Supabase SSE data for{" "}
+        {urlSessionId ? `session ${urlSessionId}` : "the most recent session"}.
       </p>
 
       <Section
         title="Session Summary"
         right={
           <div className="space-x-2">
-            <button
-              className="text-sm underline"
-              onClick={refreshSupabase}
-              disabled={isFetching}
-            >
+            <button className="text-sm underline" disabled={isFetching}>
               {isFetching ? "Refreshing…" : "Refresh"}
             </button>
           </div>
@@ -217,7 +173,7 @@ const SessionInspector: React.FC = async () => {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="bg-[#0b0b0b] border border-[#222] rounded p-3">
+              <div className="bg-[#0b0b0b] min-h-[50vh] border border-[#222] rounded p-3">
                 <div>
                   <strong>Session ID:</strong> {sessionMeta.id}
                 </div>
@@ -303,11 +259,7 @@ const SessionInspector: React.FC = async () => {
 
       <Section
         title={`Live SSE Stream (${events.length})`}
-        right={
-          <button className="text-sm underline" onClick={clearEvents}>
-            Clear
-          </button>
-        }
+        right={<button className="text-sm underline">Clear</button>}
       >
         {events.length === 0 ? (
           <div className="text-sm text-[#aaa]">
