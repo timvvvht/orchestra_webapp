@@ -197,6 +197,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   // Local + context loading (fallback)
   const [localIsLoading, setLocalIsLoading] = useState(false);
   const fallbackIsLoading = localIsLoading;
+  // New: track when session hydration is occurring due to a session switch
+  const [isSessionHydrating, setIsSessionHydrating] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -569,6 +571,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     if (sessionId && !sessionId.startsWith("temp-")) {
       setLocalIsLoading(true);
 
+      setIsSessionHydrating(true);
+
       const store = useEventStore.getState();
 
       // PERFORMANCE: No session clearing - keep all sessions cached for faster switching
@@ -783,6 +787,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               activeHydrationRef.current = null;
             }
             setLocalIsLoading(false);
+            setIsSessionHydrating(false);
           });
       }
     } else if (sessionId) {
@@ -1211,7 +1216,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                 getOptimizedFileOperationsForResponse
               }
               shouldUseUnifiedRendering={shouldUseUnifiedRendering}
-              renderUnifiedTimelineEvent={(event, index, events) =>
+              renderUnifiedTimelineEvent={(event, index, events) =>s
                 renderUnifiedTimelineEvent(
                   event,
                   index,
@@ -1241,7 +1246,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         <ChatLoadingOverlay
           context={renderContext}
           sessionId={sessionId}
-          visible={Boolean(sessionId && localIsLoading)}
+          visible={Boolean(sessionId && isSessionHydrating)}
         />
       </div>
 
