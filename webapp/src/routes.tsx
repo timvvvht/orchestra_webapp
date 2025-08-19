@@ -13,6 +13,7 @@ import StepExchange from "./routes/github/StepExchange";
 import StepInstall from "./routes/github/StepInstall";
 import InstallCallback from "./routes/github/InstallCallback";
 import StartChat from "./routes/StartChat";
+import SessionInspector from "./routes/session-inspector";
 
 // Lazy load components for better performance
 const Landing = lazy(() => import("./routes/Landing"));
@@ -32,7 +33,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "mission-control",
-        element: <MissionControl />,
+        element: <MissionControl repo={null} />,
       },
       {
         path: "auth",
@@ -64,6 +65,10 @@ export const routes: RouteObject[] = [
         ],
       },
       { path: "mock-test", element: <MockTestPage /> },
+      {
+        path: "session",
+        element: <SessionInspector />,
+      },
       {
         path: "*",
         element: <Navigate to="/" replace />,

@@ -40,6 +40,7 @@ type SupabaseInsertChatSession = TablesInsert<"chat_sessions">;
 type SupabaseUpdateChatSession = TablesUpdate<"chat_sessions">;
 
 import { v4 as uuidv4 } from "uuid";
+import { getOrSetAnonymousUserId } from "@/lib/authUtils";
 
 // Add this interface definition
 export interface GetChatMessagesOptions {
@@ -200,7 +201,7 @@ const convertJsonToRichContent = (content: Json): RichContentPart[] => {
   return content.map((item, index) => {
     console.log(
       `[chatService] Converting item ${index}:`,
-      JSON.stringify(item)
+      JSON.stringify(item).slice(0, 25)
     );
     if (typeof item !== "object" || item === null) {
       // Handle primitive values
@@ -523,14 +524,6 @@ export const getChatSession = async (
         .order("timestamp", { ascending: false })
         .limit(messageLimit),
     ]);
-
-    console.log("\n");
-    console.log("\n");
-    console.log("\n");
-    console.log("\n");
-    console.log("\n");
-    console.log("[chatService]", sessionResult);
-    console.log("[chatService]", messagesResult);
 
     if (sessionResult.error) {
       if (sessionResult.error.code === "PGRST116") return null; // No rows returned
@@ -1042,7 +1035,7 @@ export const getAllChatMessages = async (
   console.log(
     `[ChatService] getAllChatMessages called for session: ${sessionId}`
   );
-  const currentUserId = getOrSetAnonymousUserId();
+  const currentUserId = await getCurrentUserId();
 
   // First verify the user owns this session for security
   const { data: session, error: sessionError } = await supabase
@@ -1050,7 +1043,7 @@ export const getAllChatMessages = async (
     .select("user_id")
     .eq("id", sessionId)
     .single();
-
+  console.log("SESSION DATA:", session);
   if (sessionError || !session || session.user_id !== currentUserId) {
     console.error(
       "[ChatService] Session not found or access denied for session " +
@@ -1059,7 +1052,7 @@ export const getAllChatMessages = async (
         currentUserId +
         ")"
     );
-    throw new Error("Session not found or access denied");
+    throw new Error(`Session not found or access denied`);
   }
 
   const selectColumns =

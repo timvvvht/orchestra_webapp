@@ -237,8 +237,12 @@ function upsertEvent(state: EventState, event: CanonicalEvent) {
  */
 function hasToolUseId(event: CanonicalEvent): string | false {
   if (event.kind === "checkpoint") return false;
-
-  return event.toolUseId ? event.toolUseId : false;
+  const id =
+    (event as any).toolUseId ||
+    (event as any).tool_use_id ||
+    (event as any).toolCallId ||
+    (event as any).tool_call_id;
+  return typeof id === "string" && id ? id : false;
 }
 
 /**
