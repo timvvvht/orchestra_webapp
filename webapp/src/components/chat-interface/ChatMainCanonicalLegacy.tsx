@@ -24,7 +24,6 @@ import ChatHeader from "./header/ChatHeader";
 import NewChatModal from "./NewChatModal";
 import { shouldUseUnifiedRendering } from "./UnrefinedModeTimelineRenderer";
 import { renderUnifiedTimelineEvent } from "./UnifiedTimelineRenderer";
-import { LexicalChatInput } from "./LexicalChatInput";
 import { MobileChatInput } from "./MobileChatInput";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
