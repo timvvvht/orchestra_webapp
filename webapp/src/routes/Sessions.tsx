@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/services/supabase/supabaseClient';
 import type { Tables } from '@/types/supabase';
 
@@ -8,6 +8,7 @@ export default function Sessions() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSessions();
@@ -45,6 +46,21 @@ export default function Sessions() {
     if (!json) return 'null';
     return JSON.stringify(json, null, 2);
   };
+
+  const previewJson = (value: any, maxLen = 120) => {
+    if (value == null) return '-';
+    try {
+      const s = JSON.stringify(value);
+      return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
+    } catch {
+      return String(value);
+    }
+  };
+
+  const selectedSession = useMemo(
+    () => sessions.find((s) => s.id === selectedSessionId) || null,
+    [sessions, selectedSessionId]
+  );
 
   if (loading) {
     return (
@@ -122,15 +138,18 @@ export default function Sessions() {
                     <th className="text-left p-4 text-white/80 font-medium">Status</th>
                     <th className="text-left p-4 text-white/80 font-medium">Origin</th>
                     <th className="text-left p-4 text-white/80 font-medium">Shadow</th>
+                    <th className="text-left p-4 text-white/80 font-medium">Metadata</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sessions.map((session, index) => (
                     <tr 
-                      key={session.id} 
+                      key={session.id}
+                      onClick={() => setSelectedSessionId(session.id)}
+                      title="Click to view details"
                       className={`border-b border-white/5 hover:bg-white/5 transition-colors ${
                         index % 2 === 0 ? 'bg-white/[0.02]' : ''
-                      }`}
+                      } cursor-pointer`}
                     >
                       <td className="p-4">
                         <div className="font-mono text-sm text-purple-400">
@@ -186,6 +205,11 @@ export default function Sessions() {
                           {session.is_shadow ? 'Shadow' : 'Normal'}
                         </div>
                       </td>
+                      <td className="p-4">
+                        <div className="text-xs text-white/60 font-mono">
+                          {previewJson(session.metadata)}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -235,6 +259,96 @@ export default function Sessions() {
             <div className="text-sm text-white/60">With Messages</div>
           </div>
         </div>
+
+        {/* Side Panel for Selected Session */}
+        {selectedSession && (
+          <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] md:w-[560px] lg:w-[720px] bg-[#0b0b0b] border-l border-white/10 shadow-2xl z-50">
+            <div className="h-full flex flex-col">
+              <div className="flex items-center justify-between p-4 border-b border-white/10">
+                <div>
+                  <div className="text-sm text-white/60">Session</div>
+                  <div className="font-mono text-white/90 text-sm break-all">{selectedSession.id}</div>
+                </div>
+                <button
+                  onClick={() => setSelectedSessionId(null)}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-md text-white/80"
+                  aria-label="Close details"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="p-4 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Name</div>
+                    <div className="text-white/90 break-words">{selectedSession.name}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">User</div>
+                    <div className="font-mono text-blue-400 break-all">{selectedSession.user_id}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Agent Config</div>
+                    <div className="font-mono text-green-400 break-all">{selectedSession.agent_config_id || 'null'}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Created</div>
+                    <div className="text-white/80">{formatDate(selectedSession.created_at)}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Last Message</div>
+                    <div className="text-white/80">{selectedSession.last_message_at ? formatDate(selectedSession.last_message_at) : 'Never'}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Status</div>
+                    <div className="text-white/80">{selectedSession.status || 'idle'}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Origin</div>
+                    <div className="text-white/60">{selectedSession.origin || '-'}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Shadow</div>
+                    <div className="text-white/80">{selectedSession.is_shadow ? 'Shadow' : 'Normal'}</div>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded">
+                  <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                    <div className="text-white/80">Metadata</div>
+                    <div className="text-xs text-white/40">JSON</div>
+                  </div>
+                  <div className="p-3">
+                    {selectedSession.metadata ? (
+                      <pre className="text-xs text-white/70 font-mono whitespace-pre-wrap break-all bg-black/20 p-3 rounded border border-white/10 overflow-auto max-h-[50vh]">
+                        {JSON.stringify(selectedSession.metadata, null, 2)}
+                      </pre>
+                    ) : (
+                      <div className="text-white/40">No metadata</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded">
+                  <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                    <div className="text-white/80">Initial Agent Snapshot</div>
+                    <div className="text-xs text-white/40">JSON</div>
+                  </div>
+                  <div className="p-3">
+                    {selectedSession.initial_agent_snapshot ? (
+                      <pre className="text-xs text-white/70 font-mono whitespace-pre-wrap break-all bg-black/20 p-3 rounded border border-white/10 overflow-auto max-h-[40vh]">
+                        {JSON.stringify(selectedSession.initial_agent_snapshot, null, 2)}
+                      </pre>
+                    ) : (
+                      <div className="text-white/40">No snapshot</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
