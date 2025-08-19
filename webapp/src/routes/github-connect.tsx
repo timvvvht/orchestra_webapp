@@ -37,6 +37,7 @@ export default function GitHubConnectPage() {
   const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null);
   const [selectedRepoFullName, setSelectedRepoFullName] = useState<string>("");
   const [branch, setBranch] = useState("main");
+  const [forceRedeploy, setForceRedeploy] = useState(false);
   const [diag, setDiag] = useState<Panel | null>(null);
   const [autoPoll, setAutoPoll] = useState<boolean>(true);
 
@@ -53,6 +54,7 @@ export default function GitHubConnectPage() {
   const [shellCode, setShellCode] = useState<number | null>(null);
   const [shellSessionId, setShellSessionId] = useState<string | null>(null);
   const [tesVerification, setTesVerification] = useState<any>(null);
+  const [healthCheck, setHealthCheck] = useState<any>(null);
 
   // Helpers
   const setInfo = (msg: string) => setToast({ kind: "working", msg });
@@ -120,11 +122,12 @@ export default function GitHubConnectPage() {
     const res = await api.provisionWithRepo({
       repo_id: selectedRepoId,
       repo_name: selectedRepoFullName,
-      branch: branch.trim()
+      branch: branch.trim(),
+      force_redeploy: forceRedeploy
     }, auth);
     if (!res.ok) return setErr(res.data?.detail ?? "Provisioning failed");
     setOk("Provisioning initiated.");
-  }, [api, selectedRepoId, selectedRepoFullName, branch]);
+  }, [api, selectedRepoId, selectedRepoFullName, branch, forceRedeploy]);
 
   const fetchDiagnostics = useCallback(async () => {
     if (!selectedRepoId || !branch.trim()) return;
@@ -148,11 +151,14 @@ export default function GitHubConnectPage() {
       volume_size_gb: d.volume_size_gb ?? "—",
       provisioned_at: d.provisioned_at || "—",
       orchestrator: !!d.has_orchestrator,
-      notes:
+      notes: [
         d.status === "ready" ? "TES health passed" :
         d.status === "provisioned" ? "Booting; waiting for TES health" :
         d.status === "failed" ? "Provisioning/health failed" :
         d.status === "stopped" ? "Machine stopped" : "Unknown",
+        (d.metadata?.desired_tes_image || d.details?.metadata?.desired_tes_image || d.desired_tes_image) ? `desired: ${d.metadata?.desired_tes_image || d.details?.metadata?.desired_tes_image || d.desired_tes_image}` : null,
+        (d.metadata?.current_tes_image || d.details?.metadata?.current_tes_image || d.current_tes_image) ? `current: ${d.metadata?.current_tes_image || d.details?.metadata?.current_tes_image || d.current_tes_image}` : null,
+      ].filter(Boolean).join(" • "),
       updated_at: new Date().toLocaleTimeString(),
     };
     setDiag(panel);
@@ -163,6 +169,17 @@ export default function GitHubConnectPage() {
     await fetchDiagnostics();
     setOk("Diagnostics updated.");
   }, [fetchDiagnostics]);
+
+  const onTestNetworking = useCallback(async () => {
+    if (!selectedRepoId || !branch.trim()) return setErr("Select repo and branch.");
+    setInfo("Testing TES networking via ACS…");
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    const res = await api.repoHealth({ repo_id: selectedRepoId, branch: branch.trim() }, auth);
+    if (!res.ok) return setErr(res.data?.detail ?? "Repo health failed");
+    setHealthCheck(res.data);
+    setOk(`Health ${res.data.http_status}`);
+  }, [api, selectedRepoId, branch]);
 
   const onProvisionAndDiagnose = useCallback(async () => {
     if (!selectedRepoId || !selectedRepoFullName || !branch.trim()) {
@@ -212,11 +229,14 @@ export default function GitHubConnectPage() {
         volume_size_gb: d.volume_size_gb ?? d.details?.volume_size_gb ?? "—",
         provisioned_at: d.provisioned_at ?? "—",
         orchestrator: !!(d.details?.has_orchestrator ?? d.has_orchestrator),
-        notes:
+        notes: [
           d.status === "ready" ? "TES health passed" :
           d.status === "provisioned" ? "Booting; waiting for TES health" :
           d.status === "failed" ? "Provisioning/health failed" :
           d.status === "stopped" ? "Machine stopped" : "Unknown",
+          (d.metadata?.desired_tes_image || d.details?.metadata?.desired_tes_image || d.desired_tes_image) ? `desired: ${d.metadata?.desired_tes_image || d.details?.metadata?.desired_tes_image || d.desired_tes_image}` : null,
+          (d.metadata?.current_tes_image || d.details?.metadata?.current_tes_image || d.current_tes_image) ? `current: ${d.metadata?.current_tes_image || d.details?.metadata?.current_tes_image || d.current_tes_image}` : null,
+        ].filter(Boolean).join(" • "),
         updated_at: new Date().toLocaleTimeString(),
       };
       setDiag(panel);
@@ -446,7 +466,12 @@ export default function GitHubConnectPage() {
               <div className="flex flex-wrap gap-2">
                 <button className="px-4 py-2 rounded-lg bg-white text-black" onClick={onProvisionAndDiagnose}>Provision + Diagnose</button>
                 <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onProvisionWithRepo}>Provision With Repo</button>
+                <label className="text-white/60 text-xs flex items-center gap-2">
+                  <input type="checkbox" checked={forceRedeploy} onChange={(e) => setForceRedeploy(e.target.checked)} />
+                  Force update image if different
+                </label>
                 <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onRunDiagnostics}>Run Diagnostics</button>
+                <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onTestNetworking}>Test TES Networking (/health)</button>
                 <button className="px-4 py-2 rounded-lg bg-red-600 text-white" onClick={onStop}>Stop VM</button>
                 <label className="ml-auto text-white/60 text-xs flex items-center gap-2">
                   <input type="checkbox" checked={autoPoll} onChange={(e) => setAutoPoll(e.target.checked)} />
@@ -546,6 +571,16 @@ export default function GitHubConnectPage() {
                   <Row k="TES URL" v={diag.tes_internal_url} />
                   <div className="mt-2 text-white/60">{diag.notes}</div>
                   <div className="text-white/40 text-xs">Updated: {diag.updated_at}</div>
+                  {healthCheck && (
+                    <div className="mt-3 p-2 rounded bg-black/40 text-xs">
+                      <div className="text-white/70 mb-1">TES Health via ACS</div>
+                      <div className="text-white/60">URL: {healthCheck.tes_url}</div>
+                      <div className="text-white/60">HTTP: {healthCheck.http_status}</div>
+                      {healthCheck.body && (
+                        <pre className="mt-1 text-white/70 whitespace-pre-wrap max-h-40 overflow-auto">{JSON.stringify(healthCheck.body, null, 2)}</pre>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-white/50 text-sm">No diagnostics yet. Run Provision or Diagnostics.</div>

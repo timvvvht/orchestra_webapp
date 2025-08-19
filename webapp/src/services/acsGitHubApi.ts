@@ -93,6 +93,7 @@ export const acsGithubApi = (config: ACSConfig) => {
       repo_id: number;
       repo_name: string;
       branch: string;
+      force_redeploy?: boolean;
     }, authorization?: string) => {
       return getJson(`${API}/infrastructure/provision-with-repo`, {
         method: "POST",
@@ -107,6 +108,7 @@ export const acsGithubApi = (config: ACSConfig) => {
           branch: args.branch,
           region: "ord",
           volume_size_gb: 10,
+          force_redeploy: args.force_redeploy || false,
         }),
       });
     },
@@ -119,6 +121,17 @@ export const acsGithubApi = (config: ACSConfig) => {
         branch: args.branch,
       });
       return getJson(`${API}/infrastructure/repo-status?${params}`, {
+        method: "GET",
+        credentials: "include",
+        headers: authorization ? { Authorization: authorization } : {},
+      });
+    },
+    repoHealth: async (args: { repo_id: number; branch: string }, authorization?: string) => {
+      const params = new URLSearchParams({
+        repo_id: String(args.repo_id),
+        branch: args.branch,
+      });
+      return getJson(`${API}/infrastructure/repo-health?${params}`, {
         method: "GET",
         credentials: "include",
         headers: authorization ? { Authorization: authorization } : {},
@@ -140,6 +153,14 @@ export const acsGithubApi = (config: ACSConfig) => {
     },
 
     // Lifecycle Operations
+    reconcileRepoImage: async (args: { repo_id: number; branch: string }, authorization?: string) => {
+      return getJson(`${API}/infrastructure/repo/reconcile-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(authorization ? { Authorization: authorization } : {}) },
+        credentials: "include",
+        body: JSON.stringify({ repo_id: args.repo_id, branch: args.branch }),
+      });
+    },
     updateRepoImage: async (args: {
       repo_id: number;
       branch: string;
