@@ -14,6 +14,7 @@ import StepInstall from "./routes/github/StepInstall";
 import InstallCallback from "./routes/github/InstallCallback";
 import StartChat from "./routes/StartChat";
 import Sessions from "./routes/Sessions";
+import InfraDashboard from "./routes/InfraDashboard";
 
 // Lazy load components for better performance
 const Landing = lazy(() => import("./routes/Landing"));
@@ -38,6 +39,10 @@ export const routes: RouteObject[] = [
       {
         path: "sessions",
         element: <Sessions />,
+      },
+      {
+        path: "infra/dashboard",
+        element: <InfraDashboard />,
       },
       {
         path: "auth",
