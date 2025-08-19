@@ -237,6 +237,20 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const selections = useSelections();
   const acsOverrides = selections; // Renaming variable for clarity
 
+  // Log component mount and session info
+  useEffect(() => {
+    console.log(
+      `🚀 [ChatMainCanonicalLegacy] Component mounted for session: ${sessionId || "none"}`,
+      {
+        sessionId,
+        renderContext,
+        hideHeader,
+        hideInput,
+        sessionIsActive,
+      }
+    );
+  }, [sessionId, renderContext, hideHeader, hideInput, sessionIsActive]);
+
   // ✅ ROBUST: Check if session is idle using new centralized store
   const idleNow = useSessionStatusStore((state) =>
     sessionId ? state.getStatus(sessionId) === "idle" : true
@@ -412,7 +426,17 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       eventIds = state.bySession.get("unknown") || [];
     }
 
-    const events = eventIds.map((id) => state.byId.get(id)).filter(Boolean);
+    const events = eventIds
+      .map((id) => state.byId.get(id))
+      .filter((event): event is NonNullable<typeof event> => Boolean(event));
+
+    // Log individual events for detailed inspection
+    events.forEach((event, index) => {
+      console.log(
+        `📋 [Event ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+        event
+      );
+    });
 
     // Convert to messages
     const convertedMessages = convertEventsToMessages(events);
@@ -764,7 +788,22 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               }
               const events = eventIds
                 .map((id) => state.byId.get(id))
-                .filter(Boolean);
+                .filter((event): event is NonNullable<typeof event> =>
+                  Boolean(event)
+                );
+
+              // Log events received during hydration
+              console.log(
+                `💧 [Hydration] Session ${sessionId} - Hydrated ${events.length} events:`,
+                events
+              );
+              events.forEach((event, index) => {
+                console.log(
+                  `💧 [HydratedEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+                  event
+                );
+              });
+
               const convertedMessages = convertEventsToMessages(events);
               setMessages(convertedMessages);
               if (import.meta.env.DEV) {
@@ -796,7 +835,22 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               }
               const events = eventIds
                 .map((id) => state.byId.get(id))
-                .filter(Boolean);
+                .filter((event): event is NonNullable<typeof event> =>
+                  Boolean(event)
+                );
+
+              // Log fallback events
+              console.log(
+                `🔄 [Fallback] Session ${sessionId} - Loaded ${events.length} cached events:`,
+                events
+              );
+              events.forEach((event, index) => {
+                console.log(
+                  `🔄 [FallbackEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+                  event
+                );
+              });
+
               const convertedMessages = convertEventsToMessages(events);
               setMessages(convertedMessages);
               if (import.meta.env.DEV) {
@@ -822,7 +876,22 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       if (eventIds.length === 0 && state.bySession.has("unknown")) {
         eventIds = state.bySession.get("unknown") || [];
       }
-      const events = eventIds.map((id) => state.byId.get(id)).filter(Boolean);
+      const events = eventIds
+        .map((id) => state.byId.get(id))
+        .filter((event): event is NonNullable<typeof event> => Boolean(event));
+
+      // Log temp session events
+      console.log(
+        `🆔 [TempSession] Session ${sessionId} - Loaded ${events.length} events:`,
+        events
+      );
+      events.forEach((event, index) => {
+        console.log(
+          `🆔 [TempEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+          event
+        );
+      });
+
       const convertedMessages = convertEventsToMessages(events);
       setMessages(convertedMessages);
     }
@@ -830,7 +899,40 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Subscribe to store changes
   useEffect(() => {
-    const unsubscribe = useEventStore.subscribe(loadEvents);
+    const unsubscribe = useEventStore.subscribe((state, prevState) => {
+      // Log store changes for debugging
+      const currentEventCount = state.byId.size;
+      const prevEventCount = prevState?.byId.size || 0;
+
+      if (currentEventCount > prevEventCount) {
+        console.log(
+          `🔄 [EventStore] Store updated - Events: ${prevEventCount} → ${currentEventCount} (+${currentEventCount - prevEventCount})`
+        );
+
+        // Find new events by comparing current and previous state
+        const currentEventIds = new Set(state.byId.keys());
+        const prevEventIds = new Set(prevState?.byId.keys() || []);
+
+        const newEventIds = Array.from(currentEventIds).filter(
+          (id) => !prevEventIds.has(id)
+        );
+        if (newEventIds.length > 0) {
+          console.log(`🆕 [EventStore] New events detected:`, newEventIds);
+          newEventIds.forEach((eventId) => {
+            const event = state.byId.get(eventId);
+            if (event) {
+              console.log(
+                `✨ [NewEvent] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Session: ${event.sessionId || "unknown"}`,
+                event
+              );
+            }
+          });
+        }
+      }
+
+      // Call the original loadEvents function
+      loadEvents();
+    });
     return unsubscribe;
   }, [loadEvents]);
 
