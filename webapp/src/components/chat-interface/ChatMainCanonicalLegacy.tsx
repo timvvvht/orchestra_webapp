@@ -1216,7 +1216,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                 getOptimizedFileOperationsForResponse
               }
               shouldUseUnifiedRendering={shouldUseUnifiedRendering}
-              renderUnifiedTimelineEvent={(event, index, events) =>s
+              renderUnifiedTimelineEvent={(event, index, events) =>
                 renderUnifiedTimelineEvent(
                   event,
                   index,
