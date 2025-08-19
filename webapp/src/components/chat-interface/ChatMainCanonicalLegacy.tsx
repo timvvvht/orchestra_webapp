@@ -31,6 +31,7 @@ import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
 import ChatEmptyState from "./ChatEmptyState";
 import ChatTypingIndicator from "./ChatTypingIndicator";
 import ChatMessageList from "./ChatMessageList";
+import ChatLoadingOverlay from "./ChatLoadingOverlay";
 
 // Performance optimizations
 import {
@@ -1170,65 +1171,79 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       <PendingToolsDebugOverlay />
 
       {/* Message Display Area - Apple style with generous spacing */}
-      <ScrollArea
-        className="flex-1 overflow-hidden relative z-10 min-h-0"
-        viewportRef={(node) => {
-          if (node) {
-            node.addEventListener("scroll", handleScroll);
-            return () => node.removeEventListener("scroll", handleScroll);
-          }
-        }}
-      >
-        <div
+      <div className="relative flex-1 min-h-0">
+        {/* Keep ScrollArea mounted; overlay will sit on top */}
+        <ScrollArea
           className={cn(
-            "w-full max-w-full overflow-x-hidden transition-all duration-300",
-            renderContext === "mission-control"
-              ? "px-4 pt-4" // Mission control spacing
-              : "px-6 md:px-12 pt-8", // Default spacing
-            showTextInputArea
-              ? "pb-[calc(8rem+env(safe-area-inset-bottom))]" // Space for input when visible
-              : "pb-4" // Minimal padding when input is hidden
+            "overflow-hidden relative z-10 min-h-0",
+            renderContext === "mission-control" && "mission-control-scroll-area"
           )}
+          viewportRef={(node) => {
+            if (node) {
+              node.addEventListener("scroll", handleScroll);
+              return () => node.removeEventListener("scroll", handleScroll);
+            }
+          }}
         >
-          <ChatMessageList
-            data-testid="chat-message-list"
-            messages={displayMessages}
-            mergedMessageGroups={mergedMessageGroups}
-            refinedMode={refinedMode}
-            handleFork={handleFork}
-            formatMessageDate={formatMessageDate}
-            shouldGroupMessages={shouldGroupMessages}
-            isOptimizedFinalAssistantMessage={isOptimizedFinalAssistantMessage}
-            getOptimizedFileOperationsForResponse={
-              getOptimizedFileOperationsForResponse
-            }
-            shouldUseUnifiedRendering={shouldUseUnifiedRendering}
-            renderUnifiedTimelineEvent={(event, index, events) =>
-              renderUnifiedTimelineEvent(
-                event,
-                index,
-                events,
-                false,
-                refinedMode
-              )
-            }
-          />
+          <div
+            className={cn(
+              "w-full max-w-full overflow-x-hidden transition-all duration-300",
+              renderContext === "mission-control"
+                ? "px-4 pt-4" // Mission control spacing
+                : "px-6 md:px-12 pt-8", // Default spacing
+              showTextInputArea
+                ? "pb-[calc(8rem+env(safe-area-inset-bottom))]" // Space for input when visible
+                : "pb-4" // Minimal padding when input is hidden
+            )}
+          >
+            <ChatMessageList
+              data-testid="chat-message-list"
+              messages={displayMessages}
+              mergedMessageGroups={mergedMessageGroups}
+              refinedMode={refinedMode}
+              handleFork={handleFork}
+              formatMessageDate={formatMessageDate}
+              shouldGroupMessages={shouldGroupMessages}
+              isOptimizedFinalAssistantMessage={
+                isOptimizedFinalAssistantMessage
+              }
+              getOptimizedFileOperationsForResponse={
+                getOptimizedFileOperationsForResponse
+              }
+              shouldUseUnifiedRendering={shouldUseUnifiedRendering}
+              renderUnifiedTimelineEvent={(event, index, events) =>
+                renderUnifiedTimelineEvent(
+                  event,
+                  index,
+                  events,
+                  false,
+                  refinedMode
+                )
+              }
+            />
 
-          {/* Typing indicator - shows during loading or waiting for AI */}
-          <ChatTypingIndicator
-            isVisible={effectiveActive}
-            agentName="AI Assistant"
-          />
+            {/* Typing indicator - shows during loading or waiting for AI */}
+            <ChatTypingIndicator
+              isVisible={effectiveActive}
+              agentName="AI Assistant"
+            />
 
-          {/* Chat Scroll Anchor - invisible element at bottom for auto-scroll detection */}
-          <ChatScrollAnchor
-            isAtBottom={isAtBottom}
-            onVisibilityChange={handleAnchorVisibilityChange}
-            shouldAutoScroll={shouldAutoScroll}
-            scrollToBottom={scrollToBottom}
-          />
-        </div>
-      </ScrollArea>
+            {/* Chat Scroll Anchor - invisible element at bottom for auto-scroll detection */}
+            <ChatScrollAnchor
+              isAtBottom={isAtBottom}
+              onVisibilityChange={handleAnchorVisibilityChange}
+              shouldAutoScroll={shouldAutoScroll}
+              scrollToBottom={scrollToBottom}
+            />
+          </div>
+        </ScrollArea>
+        {/* Chat Loading Overlay - covers message list and input area */}
+        <ChatLoadingOverlay
+          context={renderContext}
+          sessionId={sessionId}
+          visible={Boolean(sessionId && localIsLoading)}
+        />
+      </div>
 
       {/* Scroll Button - shows "New messages" or "Back to latest" based on context */}
       <NewMessagesIndicator
