@@ -2,6 +2,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../auth/SupabaseClient";
 import { acsGithubApi, withApiV1 } from "@/services/acsGitHubApi";
+import { getDefaultACSClient } from "@/services/acs";
+import { sendChatMessage } from "@/utils/sendChatMessage";
+import { createSessionFast } from "@/hooks/useCreateSessionFast";
+import { getFirehose } from "@/services/GlobalServiceManager";
 
 type StatusKind = "idle" | "working" | "success" | "error";
 type Chip = "unknown" | "provisioned" | "ready" | "stopped" | "failed";
@@ -59,6 +63,13 @@ export default function GitHubConnectPage() {
   const [shellSessionId, setShellSessionId] = useState<string | null>(null);
   const [tesVerification, setTesVerification] = useState<any>(null);
   const [healthCheck, setHealthCheck] = useState<any>(null);
+
+  // Mini chat + SSE state for e2e testing
+  const [chatPrompt, setChatPrompt] = useState<string>("");
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
+  const [sseEvents, setSseEvents] = useState<any[]>([]);
+  const [onlyCurrentSession, setOnlyCurrentSession] = useState<boolean>(true);
+  const [sseStatus, setSseStatus] = useState<{remoteConnected:boolean; relayConnected:boolean}>({remoteConnected:false, relayConnected:false});
 
   // Helpers
   const setInfo = (msg: string) => setToast({ kind: "working", msg });
@@ -308,6 +319,64 @@ export default function GitHubConnectPage() {
     await fetchDiagnostics();
     setOk("Diagnostics updated.");
   }, [fetchDiagnostics]);
+
+  // Wire FirehoseMux to display SSE events
+  useEffect(() => {
+    try {
+      const fh = getFirehose();
+      if (!fh) return;
+      const unsub = fh.subscribe((ev: any) => {
+        if (onlyCurrentSession && chatSessionId && ev.session_id !== chatSessionId) return;
+        setSseEvents(prev => [ev, ...prev].slice(0, 300));
+      });
+      const unsubStatus = fh.onStatus((st: any) => setSseStatus(st));
+      return () => { unsub && unsub(); unsubStatus && unsubStatus(); };
+    } catch (e) {
+      console.warn("[GitHubConnect] FirehoseMux not available", e);
+    }
+  }, [onlyCurrentSession, chatSessionId]);
+
+  // Start a mission using the web-first flow (createSessionFast → /acs/converse/web)
+  const onStartMission = useCallback(async () => {
+    if (!selectedRepoId || !selectedRepoFullName || !branch.trim()) {
+      return setErr("Select repo and branch.");
+    }
+    if (!chatPrompt.trim()) {
+      return setErr("Enter a prompt to start.");
+    }
+    try {
+      setInfo("Creating session…");
+      const cs = await createSessionFast({ sessionName: `Mission: ${chatPrompt.slice(0,60)}`, agentConfigId: "general" });
+      if (!cs?.success || !cs.sessionId) {
+        return setErr(cs?.error || "Failed to create session");
+      }
+      setChatSessionId(cs.sessionId);
+
+      const acs = getDefaultACSClient();
+      try { await acs.streaming.connect(cs.sessionId); } catch (e) { console.warn("SSE connect failed (non-fatal)", e); }
+
+      setInfo("Provisioning + starting via /acs/converse/web…");
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id || "unknown";
+      await sendChatMessage({
+        sessionId: cs.sessionId,
+        message: chatPrompt.trim(),
+        userId: uid,
+        agentConfigName: "general",
+        acsClient: acs,
+        autoMode: true,
+        modelAutoMode: true,
+        repoContextWeb: {
+          repo_id: selectedRepoId,
+          repo_full_name: selectedRepoFullName,
+          branch: branch.trim(),
+        },
+      });
+      setOk("Mission started. Watch SSE panel for events.");
+    } catch (e: any) {
+      setErr(e?.message || String(e));
+    }
+  }, [selectedRepoId, selectedRepoFullName, branch, chatPrompt]);
 
   // Lifecycle Operations
   const onUpdateImage = useCallback(async () => {
@@ -669,6 +738,137 @@ export default function GitHubConnectPage() {
                   <div className="text-white/60 text-xs mb-1">stderr</div>
                   <pre className="p-2 rounded bg-black/60 text-red-200 text-xs whitespace-pre-wrap max-h-56 overflow-auto">{shellErr}</pre>
                 </div>
+              </div>
+            </div>
+
+            {/* Mini Chat (E2E) */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
+              <div className="text-white/80 text-sm mb-3">Mini Chat (E2E)</div>
+
+              {/* Start Mission Section */}
+              <div className="space-y-2 mb-3">
+                <div className="text-white/60 text-xs">Repository</div>
+                <div className="text-white/80 text-xs">
+                  {selectedRepoFullName || "—"}
+                  <span className="text-white/50">{selectedRepoFullName ? `#${branch}` : ""}</span>
+                </div>
+                <div>
+                  <label className="text-white/50 text-xs">Prompt</label>
+                  <textarea
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10 min-h-[80px]"
+                    placeholder="Describe what to do…"
+                    value={chatPrompt}
+                    onChange={(e) => setChatPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        onStartMission();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-4 py-2 rounded-lg bg-white text-black disabled:opacity-50"
+                    onClick={onStartMission}
+                    disabled={!selectedRepoId || !chatPrompt.trim()}
+                    title={!selectedRepoId ? "Select a repository and branch first" : "Cmd/Ctrl+Enter to start"}
+                  >
+                    Start Mission
+                  </button>
+                  <div className="text-white/40 text-xs">Uses createSessionFast + /acs/converse/web</div>
+                </div>
+              </div>
+
+              {/* Session & SSE Status */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="text-white/60 text-xs">Session:</div>
+                <div className="text-white/80 text-xs font-mono truncate max-w-[220px]" title={chatSessionId || "—"}>
+                  {chatSessionId ? `${chatSessionId.slice(0,8)}…${chatSessionId.slice(-4)}` : "—"}
+                </div>
+                <button
+                  className="px-2 py-1 rounded bg-white/10 text-white/70 text-xs border border-white/10 disabled:opacity-50"
+                  onClick={() => chatSessionId && navigator.clipboard.writeText(chatSessionId)}
+                  disabled={!chatSessionId}
+                >Copy</button>
+                <div className="ml-auto flex items-center gap-2 text-xs">
+                  <span className="flex items-center gap-1 text-white/60">
+                    <span className={`inline-block w-2 h-2 rounded-full ${sseStatus.remoteConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
+                    Remote
+                  </span>
+                  <span className="flex items-center gap-1 text-white/60">
+                    <span className={`inline-block w-2 h-2 rounded-full ${sseStatus.relayConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
+                    Relay
+                  </span>
+                </div>
+              </div>
+
+              {/* SSE Controls */}
+              <div className="flex items-center gap-2 mb-3">
+                <label className="text-white/60 text-xs flex items-center gap-1">
+                  <input type="checkbox" checked={onlyCurrentSession} onChange={(e) => setOnlyCurrentSession(e.target.checked)} />
+                  Filter: current session only
+                </label>
+                <button
+                  className="ml-auto px-3 py-1 rounded bg-white/10 text-white border border-white/20 text-xs"
+                  onClick={() => setSseEvents([])}
+                >Clear</button>
+                <button
+                  className="px-3 py-1 rounded bg-white/10 text-white border border-white/20 text-xs"
+                  onClick={() => {
+                    try {
+                      navigator.clipboard.writeText(JSON.stringify(sseEvents, null, 2));
+                      setOk('Events copied');
+                    } catch (e) {
+                      setErr('Copy failed');
+                    }
+                  }}
+                  disabled={!sseEvents.length}
+                >Copy Events</button>
+              </div>
+
+              {/* SSE Events Feed */}
+              <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
+                {sseEvents.length === 0 ? (
+                  <div className="text-white/50 text-xs">No events yet. Start a mission to see live SSE.</div>
+                ) : (
+                  sseEvents.map((ev, idx) => {
+                    const type = ev?.event_type || 'unknown';
+                    const ts = ev?.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : '';
+                    const sid = ev?.session_id || '';
+                    const eid = ev?.event_id || '';
+                    let preview = '';
+                    if (typeof ev?.delta === 'string') preview = ev.delta.slice(0, 200);
+                    else if (ev?.tool_call?.name) preview = `tool: ${ev.tool_call.name}`;
+                    else if (ev?.error) preview = String(ev.error).slice(0, 200);
+                    else if (ev?.data) preview = JSON.stringify(ev.data).slice(0, 200);
+
+                    const chipClass = type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-200'
+                      : type === 'tool_call' ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
+                      : type === 'tool_result' ? 'bg-green-500/10 border-green-500/30 text-green-200'
+                      : 'bg-white/10 border-white/20 text-white/80';
+
+                    return (
+                      <div key={idx} className="p-2 rounded bg-black/30 border border-white/10">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className={`px-2 py-0.5 rounded border ${chipClass}`}>{type}</span>
+                          <span className="text-white/50">{ts}</span>
+                        </div>
+                        <div className="mt-1 text-white/60 text-[11px]">
+                          <span title={sid}>sid: {sid ? `${sid.slice(0,8)}…${sid.slice(-4)}` : '—'}</span>
+                          <span className="ml-3" title={eid}>eid: {eid ? `${eid.slice(0,6)}…` : '—'}</span>
+                        </div>
+                        {preview && (
+                          <div className="mt-1 text-white/80 text-xs whitespace-pre-wrap">{preview}</div>
+                        )}
+                        <details className="mt-1">
+                          <summary className="text-white/50 text-xs cursor-pointer">Details</summary>
+                          <pre className="mt-1 p-2 rounded bg-black/60 text-white/70 text-[11px] whitespace-pre-wrap overflow-auto">{JSON.stringify(ev, null, 2)}</pre>
+                        </details>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 

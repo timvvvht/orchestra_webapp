@@ -56,6 +56,25 @@ export class ACSCoreService {
   }
 
   /**
+   * Web converse: provision workspace (repo/branch) and start conversation in one call.
+   * Mirrors server-side ACSWebConverseRequest.
+   */
+  async converseWeb(
+    payload: {
+      session_id?: string;
+      repo_id: number;
+      repo_full_name: string;
+      branch: string;
+      prompt: string;
+      region?: string;
+      volume_size_gb?: number;
+    },
+    options?: RequestOptions
+  ): Promise<APIResponse<any>> {
+    return this.client.post("/acs/converse/web", payload, options);
+  }
+
+  /**
    * Send a simple message to an existing session
    */
   async sendMessage(
