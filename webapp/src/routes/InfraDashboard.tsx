@@ -35,6 +35,7 @@ export default function InfraDashboard() {
   if (!data) return <div className="min-h-screen bg-black text-white p-6">No data</div>;
 
   const s = data.summary || {};
+  const d = data.diag || {};
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
@@ -57,6 +58,30 @@ export default function InfraDashboard() {
           <Card k="Workspaces" v={s.workspaces_count} />
           <Card k="Infra Maps" v={s.infra_count} />
           <Card k="Volumes" v={s.volumes_count} />
+        </div>
+
+        {/* Diagnostic Chips */}
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="text-white/80 text-sm mb-2">Diagnostics</div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <DiagChip label="Inst. w/o Repos" count={d.installations_without_repos?.count} title="Installations without repos (sample below)" />
+            <DiagChip label="Repos w/o Workspace" count={d.repos_without_workspace?.count} title="Repos accessible but no workspace" />
+            <DiagChip label="WS w/o Infra" count={d.workspaces_without_infra?.count} title="Workspaces without infra mapping" />
+            <DiagChip label="Infra w/o Volumes" count={d.infra_without_volumes?.count} title="Infra mappings missing volumes" />
+            <DiagChip label="Missing Images" count={d.infra_missing_images?.count} title="Infra missing desired/current image metadata" />
+            <DiagChip label="Abnormal Status" count={d.infra_abnormal_status?.count} title="failed/error/terminated infra" />
+          </div>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-white/70">Diagnostic Samples</summary>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+              <Sample title="Installations w/o Repos" obj={d.installations_without_repos?.sample} />
+              <Sample title="Repos w/o Workspace" obj={d.repos_without_workspace?.sample} />
+              <Sample title="Workspaces w/o Infra" obj={d.workspaces_without_infra?.sample} />
+              <Sample title="Infra w/o Volumes" obj={d.infra_without_volumes?.sample} />
+              <Sample title="Missing Images" obj={d.infra_missing_images?.sample} />
+              <Sample title="Abnormal Status" obj={d.infra_abnormal_status?.sample} />
+            </div>
+          </details>
         </div>
 
         {/* Status distribution */}
@@ -108,6 +133,31 @@ function Section({ title, data }: { title: string; data: any[] }) {
       ) : (
         <pre className="text-xs text-white/70 whitespace-pre-wrap overflow-auto max-h-96">{JSON.stringify(data, null, 2)}</pre>
       )}
+    </div>
+  );
+}
+
+function DiagChip({ label, count, title }: { label: string; count?: number; title?: string }) {
+  const bad = typeof count === 'number' && count > 0;
+  return (
+    <span title={title}
+      className={`px-2 py-1 rounded border ${bad ? 'bg-red-500/20 border-red-500/30 text-red-200' : 'bg-white/10 border-white/10 text-white/70'}`}>
+      {label}: {typeof count === 'number' ? count : '-'}
+    </span>
+  );
+}
+
+function Sample({ title, obj }: { title: string; obj: any }) {
+  if (!obj || (Array.isArray(obj) && obj.length === 0)) return (
+    <div className="rounded border border-white/10 p-2">
+      <div className="text-white/70 text-xs mb-1">{title}</div>
+      <div className="text-white/50 text-xs">No samples</div>
+    </div>
+  );
+  return (
+    <div className="rounded border border-white/10 p-2">
+      <div className="text-white/70 text-xs mb-1">{title}</div>
+      <pre className="text-[11px] text-white/70 max-h-40 overflow-auto whitespace-pre-wrap">{JSON.stringify(obj, null, 2)}</pre>
     </div>
   );
 }
