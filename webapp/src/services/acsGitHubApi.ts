@@ -42,6 +42,32 @@ export const acsGithubApi = (config: ACSConfig) => {
       });
     },
 
+    // Startables & lifecycle
+    userStartables: async (authorization?: string) => {
+      return getJson(`${API}/infrastructure/user-startables`, {
+        method: "GET",
+        credentials: "include",
+        headers: authorization ? { Authorization: authorization } : {},
+      });
+    },
+    startRepo: async (args: {
+      repo_id: number;
+      branch: string;
+    }, authorization?: string) => {
+      return getJson(`${API}/infrastructure/repo/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authorization ? { Authorization: authorization } : {})
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          repo_id: args.repo_id,
+          branch: args.branch
+        }),
+      });
+    },
+
     // GitHub
     installUrl: async (authorization?: string) => {
       return getJson(`${API}/github/install/url`, {

@@ -47,6 +47,10 @@ export default function GitHubConnectPage() {
   const [cleanupApp, setCleanupApp] = useState(false);
 
 
+  // Startables state
+  const [startables, setStartables] = useState<Array<any>>([]);
+  const [startablesLoadedAt, setStartablesLoadedAt] = useState<string | null>(null);
+
   // Shell state
   const [shellCmd, setShellCmd] = useState<string>("");
   const [shellOut, setShellOut] = useState<string>("");
@@ -269,6 +273,42 @@ export default function GitHubConnectPage() {
     setDiag(null);
   }, [api, selectedRepoId, branch]);
 
+  // Startables handlers
+  const onShowStartables = useCallback(async () => {
+    setInfo("Fetching startable machines…");
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    const res = await api.userStartables(auth);
+    if (!res.ok) return setErr(res.data?.detail ?? "Failed to fetch startables");
+    setStartables(res.data?.items || []);
+    setStartablesLoadedAt(new Date().toLocaleTimeString());
+    setOk(`Found ${res.data?.count ?? 0} items`);
+  }, [api]);
+
+  const onStartThis = useCallback(async (item: any) => {
+    if (!item?.repo_id || !item?.branch) return setErr("Missing repo_id or branch for start");
+    setInfo(`Starting ${item.repo_full_name ?? item.repo_id}#${item.branch}…`);
+    const { data: { session } } = await supabase.auth.getSession();
+    const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+    const res = await api.startRepo({ repo_id: item.repo_id, branch: item.branch }, auth);
+    if (!res.ok) return setErr(res.data?.detail ?? "Start failed");
+    setOk("Start issued. Refreshing diagnostics…");
+    if (selectedRepoId === item.repo_id && branch.trim() === item.branch) {
+      setTimeout(() => fetchDiagnostics(), 1500);
+    }
+    setTimeout(() => onShowStartables(), 1500);
+  }, [api, fetchDiagnostics, selectedRepoId, branch, onShowStartables]);
+
+  const onDiagnoseThis = useCallback(async (item: any) => {
+    if (!item?.repo_id || !item?.branch) return setErr("Missing repo_id/branch for diagnostics");
+    setSelectedRepoId(item.repo_id);
+    setSelectedRepoFullName(item.repo_full_name || "");
+    setBranch(item.branch);
+    setInfo(`Fetching diagnostics for ${item.repo_full_name ?? item.repo_id}#${item.branch}…`);
+    await fetchDiagnostics();
+    setOk("Diagnostics updated.");
+  }, [fetchDiagnostics]);
+
   // Lifecycle Operations
   const onUpdateImage = useCallback(async () => {
     if (!selectedRepoId || !branch.trim()) return setErr("Select repo and branch.");
@@ -466,6 +506,7 @@ export default function GitHubConnectPage() {
               <div className="flex flex-wrap gap-2">
                 <button className="px-4 py-2 rounded-lg bg-white text-black" onClick={onProvisionAndDiagnose}>Provision + Diagnose</button>
                 <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onProvisionWithRepo}>Provision With Repo</button>
+                <button className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/10" onClick={onShowStartables}>Show Startables</button>
                 <label className="text-white/60 text-xs flex items-center gap-2">
                   <input type="checkbox" checked={forceRedeploy} onChange={(e) => setForceRedeploy(e.target.checked)} />
                   Force update image if different
@@ -629,6 +670,50 @@ export default function GitHubConnectPage() {
                   <pre className="p-2 rounded bg-black/60 text-red-200 text-xs whitespace-pre-wrap max-h-56 overflow-auto">{shellErr}</pre>
                 </div>
               </div>
+            </div>
+
+            {/* Startables Panel */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5">
+              <div className="text-white/80 text-sm mb-3">Startables</div>
+              {startables.length ? (
+                <div className="space-y-2 text-white/80 text-xs">
+                  <div className="text-white/50 mb-1">
+                    {`Items: ${startables.length}`} {startablesLoadedAt ? `· Updated: ${startablesLoadedAt}` : ""}
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                    {startables.map((it, i) => (
+                      <div key={i} className="p-2 rounded bg-black/30 border border-white/10 flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="text-white/90">
+                            {it.repo_full_name ?? `repo:${it.repo_id}`}<span className="text-white/50">{`#${it.branch ?? "?"}`}</span>
+                          </div>
+                          <div className="text-white/60">
+                            {`app: ${it.app_name ?? "—"} · machine: ${it.machine_id ?? "—"} · db:${it.db_status} rt:${it.runtime_state ?? "?"}`}
+                          </div>
+                          <div className="text-white/40">
+                            {`cpu:${it.cpu_count ?? "—"} mem:${it.memory_mb ?? "—"}MB vol:${it.volume_size_gb ?? "—"}GB`}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="px-3 py-1 rounded bg-white/10 text-white border border-white/20"
+                            onClick={() => onDiagnoseThis(it)}
+                          >
+                            Diagnose
+                          </button>
+                          <button
+                            className="px-3 py-1 rounded bg-white text-black disabled:opacity-50"
+                            disabled={!it.startable}
+                            onClick={() => onStartThis(it)}
+                          >Start</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-white/50 text-sm">Click “Show Startables” to load.</div>
+              )}
             </div>
           </div>
         </div>
