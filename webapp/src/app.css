@@ -1,11 +1,5 @@
 @import "tailwindcss" source(".");
 
-@theme {
-  --font-sans:
-    -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  --font-mono: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
-}
-
 :root {
   /* Foundation - The Void */
   --black: #000000;
@@ -56,6 +50,20 @@
   --radius-2xl: 16px;
   --radius-3xl: 24px;
   --radius-full: 9999px;
+
+  /* src/styles/theme/base-theme.css */
+
+  --font-family-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", sans-serif;
+  --font-family-mono:
+    "JetBrains Mono", "Fira Code", "SF Mono", "Monaco", "Inconsolata",
+    "Roboto Mono", monospace;
+}
+
+/* Ensure global application (create or update a global stylesheet imported once) */
+body {
+  font-family: var(--font-family-sans);
 }
 
 @layer base {
