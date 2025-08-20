@@ -41,6 +41,8 @@ export default function StartChat() {
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<string>("");
 
+  const [sending, setSending] = useState<boolean>(false);
+
   // Query params → preselect repo/branch when coming from /workspaces
   const paramRepoId = useMemo(() => {
     const v = searchParams.get("repoId");
@@ -151,6 +153,7 @@ export default function StartChat() {
 
     try {
       setInfo("Creating session...");
+      setSending(true);
       const cs = await createSessionFast({
         sessionName: `Task: ${trimmedPrompt.slice(0, 60)}`,
         agentConfigId: "general",
@@ -173,7 +176,27 @@ export default function StartChat() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
       const uid = session?.user?.id || "unknown";
+
+      const sessionData = {
+        id: cs.sessionId,
+        mission_title: `Task: ${trimmedPrompt.slice(0, 60)}`,
+        status: "processing",
+        last_message_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        agent_config_name: "general",
+        model_id: null,
+        latest_message_id: null,
+        latest_message_role: null,
+        latest_message_content: null,
+        latest_message_timestamp: new Date().toISOString(),
+        agent_cwd: "/workspace", // Backend will handle repo-specific workspace
+        base_dir: "/workspace",
+        archived_at: null,
+        backgroundProcessing: true,
+      };
+
       console.log("[StartChat] Calling sendChatMessage with:", {
         sessionId: cs.sessionId,
         message: trimmedPrompt,
@@ -188,8 +211,12 @@ export default function StartChat() {
         },
       });
 
+      // optimistic UI
       navigate("/mission-control", { replace: false });
-      useMissionControlStore.getState().setSelectedSession(cs.sessionId);
+      const store = useMissionControlStore.getState();
+      const sessions = store.sessions;
+      store.setSessions([sessionData, ...sessions]);
+
       await sendChatMessage({
         sessionId: cs.sessionId,
         message: trimmedPrompt,
@@ -207,6 +234,8 @@ export default function StartChat() {
       });
     } catch (e: any) {
       setError(e?.message || String(e));
+    } finally {
+      setSending(false);
     }
   }, [selectedRepoId, selectedRepoFullName, branch, prompt]);
 
@@ -501,7 +530,7 @@ export default function StartChat() {
                         const r = repos.find((x) => x.id === id);
                         setSelectedRepoFullName(r?.full_name || "");
                       }}
-                      disabled={loadingRepos || repos.length === 0}
+                      disabled={loadingRepos || repos.length === 0 || sending}
                     >
                       <option value="" disabled>
                         {loadingRepos
