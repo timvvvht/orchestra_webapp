@@ -10,7 +10,7 @@ export default function AppShell() {
     <HeaderProvider>
       <MainLayoutProvider>
         <div
-          className="h-dvh w-dvw overflow-hidden bg-black text-white flex flex-col"
+          className="h-dvh max-w-screen overflow-hidden bg-black text-white flex flex-col"
           id="app-shell"
         >
           <UserProfile />
