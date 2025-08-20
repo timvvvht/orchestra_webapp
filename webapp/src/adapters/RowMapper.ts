@@ -99,6 +99,7 @@ export class RowMapper {
           ) {
             // Create tool result event
             const toolUseId =
+              contentPart.id ||
               contentPart.tool_use_id ||
               contentPart.tool_use_id_for_output ||
               row.responding_to_tool_use_id ||

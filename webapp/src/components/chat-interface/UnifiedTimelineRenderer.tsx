@@ -22,8 +22,6 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { extractFileOperation } from '@/utils/timelineParser';
-import featureFlags from '@/utils/featureFlags';
-import ToolOutputHiddenNotice from './content-parts/ToolOutputHiddenNotice';
 
 // Custom ThinkBlockDisplay component with consistent design (from ChatDebugRefined)
 interface ThinkBlockProps {
