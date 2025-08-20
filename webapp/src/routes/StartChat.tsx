@@ -11,6 +11,7 @@ import { AUTO_MODE_PRESETS } from "@/utils";
 import { recentProjectsManager } from "@/utils/projectStorage";
 import { getDefaultACSClient } from "@/services/acs";
 import { sendChatMessage } from "@/utils/sendChatMessage";
+import { createSessionFast } from "@/hooks/useCreateSessionFast";
 
 type RepoItem = { id: number; full_name: string };
 
@@ -20,11 +21,14 @@ export default function StartChat() {
   const [searchParams] = useSearchParams();
 
   // ACS client
-  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "http://localhost:8001").replace(/\/$/, "");
+  const DEFAULT_ACS = (
+    import.meta.env?.VITE_ACS_BASE_URL || "http://localhost:8001"
+  ).replace(/\/$/, "");
   const [acsBase] = useState(DEFAULT_ACS);
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
 
   // UI state
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [loadingRepos, setLoadingRepos] = useState(true); // Start with true to prevent flash
   const [repos, setRepos] = useState<RepoItem[]>([]);
   const [selectedRepoId, setSelectedRepoId] = useState<number | "">("");
@@ -35,6 +39,7 @@ export default function StartChat() {
   const [githubRequired, setGithubRequired] = useState<boolean>(false);
   const [noRepos, setNoRepos] = useState<boolean>(false);
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<string>("");
 
   // Query params → preselect repo/branch when coming from /workspaces
   const paramRepoId = useMemo(() => {
@@ -42,7 +47,10 @@ export default function StartChat() {
     const n = v ? Number(v) : undefined;
     return Number.isFinite(n as number) ? (n as number) : undefined;
   }, [searchParams]);
-  const paramBranch = useMemo(() => searchParams.get("branch") || undefined, [searchParams]);
+  const paramBranch = useMemo(
+    () => searchParams.get("branch") || undefined,
+    [searchParams]
+  );
 
   // Derived state for progressive disclosure
   const showSetup = !githubRequired && !loadingRepos && repos.length > 0;
@@ -54,14 +62,21 @@ export default function StartChat() {
     setGithubRequired(false);
     setNoRepos(false);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const auth = session?.access_token
+        ? `Bearer ${session.access_token}`
+        : undefined;
       const res = await api.listRepos(auth);
       if (!res.ok) {
         setRepos([]);
         setGithubRequired(true);
         setNoRepos(false);
-        setError(res.data?.detail || "GitHub connection required. Please connect your account.");
+        setError(
+          res.data?.detail ||
+            "GitHub connection required. Please connect your account."
+        );
       } else {
         const mapped = (res.data.repositories || []).map((r: any) => ({
           id: r.repo_id,
@@ -94,7 +109,7 @@ export default function StartChat() {
   // Preselect repo id and full_name after repos load
   useEffect(() => {
     if (paramRepoId && repos.length > 0 && selectedRepoId === "") {
-      const r = repos.find(x => x.id === paramRepoId);
+      const r = repos.find((x) => x.id === paramRepoId);
       if (r) {
         setSelectedRepoId(paramRepoId);
         setSelectedRepoFullName(r.full_name);
@@ -105,8 +120,12 @@ export default function StartChat() {
   // Trigger GitHub App install
   const onConnectGitHub = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const auth = session?.access_token ? `Bearer ${session.access_token}` : undefined;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const auth = session?.access_token
+        ? `Bearer ${session.access_token}`
+        : undefined;
       const res = await api.installUrl(auth);
       if (!res.ok) {
         setError(res.data?.detail || "Failed to get GitHub install URL");
@@ -118,7 +137,81 @@ export default function StartChat() {
     }
   }, [api]);
 
+  // new on submit - uses startSessioNFast
+  const onSubmit = useCallback(async () => {
+    if (!selectedRepoId || !selectedRepoId || !branch.trim()) {
+      return setError("Select repo and branch.");
+    }
+
+    const trimmedPrompt = prompt.trim();
+
+    if (!trimmedPrompt) {
+      return setError("enter a prompt to start.");
+    }
+
+    try {
+      setInfo("Creating session...");
+      const cs = await createSessionFast({
+        sessionName: `Task: ${trimmedPrompt.slice(0, 60)}`,
+        agentConfigId: "general",
+      });
+
+      if (!cs.success || !cs.sessionId) {
+        return setError(cs?.error || "Failed to create session");
+      }
+
+      setChatSessionId(cs.sessionId);
+
+      const acs = getDefaultACSClient();
+      try {
+        await acs.streaming.connect(cs.sessionId);
+      } catch (e: any) {
+        console.warn("SSE Connect Failed (non-fatal)", e);
+      }
+
+      setInfo("Provisioning + starting via /acs/converse/web...");
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const uid = session?.user?.id || "unknown";
+      console.log("[StartChat] Calling sendChatMessage with:", {
+        sessionId: cs.sessionId,
+        message: trimmedPrompt,
+        userId: uid,
+        agentConfigName: "general",
+        autoMode: true,
+        modelAutoMode: true,
+        repoContextWeb: {
+          repo_id: selectedRepoId,
+          repo_full_name: selectedRepoFullName,
+          branch: branch.trim(),
+        },
+      });
+
+      navigate("/mission-control", { replace: false });
+      useMissionControlStore.getState().setSelectedSession(cs.sessionId);
+      await sendChatMessage({
+        sessionId: cs.sessionId,
+        message: trimmedPrompt,
+        endpoint: "web",
+        userId: uid,
+        agentConfigName: "general",
+        acsClient: acs,
+        autoMode: true,
+        modelAutoMode: true,
+        repoContextWeb: {
+          repo_id: selectedRepoId,
+          repo_full_name: selectedRepoFullName,
+          branch: branch.trim(),
+        },
+      });
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    }
+  }, [selectedRepoId, selectedRepoFullName, branch, prompt]);
+
   // Submit: Create session immediately and navigate to Mission Control (aligned with NewTaskModal)
+  /*
   const onSubmit = useCallback(async () => {
     setError(null);
 
@@ -187,14 +280,18 @@ export default function StartChat() {
 
       // Add to recent projects (derive name from repo)
       try {
-        const name = selectedRepoFullName.split('/').pop() || selectedRepoFullName;
+        const name =
+          selectedRepoFullName.split("/").pop() || selectedRepoFullName;
         recentProjectsManager.add({
           name,
           path: `/workspace/${name}`, // Backend will set up proper workspace path
           lastAccessed: Date.now(),
         });
       } catch (error: any) {
-        console.error(`[StartChat] Failed to add to recent projects:`, error.message);
+        console.error(
+          `[StartChat] Failed to add to recent projects:`,
+          error.message
+        );
       }
 
       // Navigate to Mission Control (no provision state needed)
@@ -219,10 +316,14 @@ export default function StartChat() {
           },
         });
       } catch (err: any) {
-        console.error("[StartChat] /acs/converse/web failed via sendChatMessage:", err);
-        toast.error("Workspace provisioning failed", { description: err?.message || "Unknown error" });
+        console.error(
+          "[StartChat] /acs/converse/web failed via sendChatMessage:",
+          err
+        );
+        toast.error("Workspace provisioning failed", {
+          description: err?.message || "Unknown error",
+        });
       }
-
     } catch (error) {
       console.error("[StartChat] Failed to create mission:", error);
       toast.error("Failed to start mission", {
@@ -230,7 +331,14 @@ export default function StartChat() {
       });
       setBusy(false);
     }
-  }, [prompt, selectedRepoId, selectedRepoFullName, branch, auth.user?.id, navigate]);
+  }, [
+    prompt,
+    selectedRepoId,
+    selectedRepoFullName,
+    branch,
+    auth.user?.id,
+    navigate,
+  ]);*/
 
   return (
     <main className="min-h-screen relative orchestra-page bg-black">
@@ -251,16 +359,17 @@ export default function StartChat() {
               <p className="text-body text-white/70 mt-2">
                 {loadingRepos
                   ? "Checking your GitHub connection..."
-                  : githubRequired 
-                    ? "Connect your GitHub account to access your repositories." 
-                    : "Select a repository and branch, then describe what you want to do."
-                }
+                  : githubRequired
+                    ? "Connect your GitHub account to access your repositories."
+                    : "Select a repository and branch, then describe what you want to do."}
               </p>
-              
+
               {/* Step indicator - only show after loading */}
               {!loadingRepos && (
                 <div className="mt-4 text-xs text-white/50">
-                  {githubRequired ? "Step 1 of 2: Connect GitHub" : "Step 2 of 2: Configure your mission"}
+                  {githubRequired
+                    ? "Step 1 of 2: Connect GitHub"
+                    : "Step 2 of 2: Configure your mission"}
                 </div>
               )}
             </div>
@@ -270,42 +379,59 @@ export default function StartChat() {
               <div className="flex items-center justify-center py-12">
                 <div className="relative">
                   <div className="w-12 h-12 rounded-full border-2 border-white/10 border-t-white/30 animate-spin" />
-                  <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-t-purple-500/30 animate-spin" style={{ animationDuration: '1.5s', animationDirection: 'reverse' }} />
+                  <div
+                    className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-t-purple-500/30 animate-spin"
+                    style={{
+                      animationDuration: "1.5s",
+                      animationDirection: "reverse",
+                    }}
+                  />
                 </div>
               </div>
             )}
 
             {/* GitHub connect state - Elegant invitation */}
             {!loadingRepos && githubRequired && (
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500/[0.03] to-blue-500/[0.03] backdrop-blur-xl border border-white/[0.08] p-6 transition-all duration-500" style={{ animation: 'fade-in 0.5s ease-out, slide-in-from-top-2 0.5s ease-out' }}>
+              <div
+                className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500/[0.03] to-blue-500/[0.03] backdrop-blur-xl border border-white/[0.08] p-6 transition-all duration-500"
+                style={{
+                  animation:
+                    "fade-in 0.5s ease-out, slide-in-from-top-2 0.5s ease-out",
+                }}
+              >
                 {/* Subtle gradient overlay for depth */}
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.02] via-transparent to-blue-500/[0.02] pointer-events-none" />
-                
+
                 {/* Floating orb for visual interest */}
                 <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-                
+
                 <div className="relative z-10 space-y-4">
                   {/* Icon and message */}
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 p-2 rounded-lg bg-white/[0.05] border border-white/[0.08]">
                       {/* GitHub icon */}
-                      <svg className="w-5 h-5 text-white/60" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                      <svg
+                        className="w-5 h-5 text-white/60"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                       </svg>
                     </div>
                     <div className="flex-1">
                       <h3 className="text-white/90 font-medium text-sm mb-1">
-                        {noRepos ? "No repositories available" : "Connect your GitHub account"}
+                        {noRepos
+                          ? "No repositories available"
+                          : "Connect your GitHub account"}
                       </h3>
                       <p className="text-white/50 text-xs leading-relaxed">
-                        {noRepos 
+                        {noRepos
                           ? "The Orchestra GitHub App is installed, but no repositories are accessible. Install the app to another organization or create a repository, then refresh."
-                          : "To start your mission, Orchestra needs access to your repositories. Install our GitHub App to enable seamless code collaboration."
-                        }
+                          : "To start your mission, Orchestra needs access to your repositories. Install our GitHub App to enable seamless code collaboration."}
                       </p>
                     </div>
                   </div>
-                  
+
                   {/* Action buttons */}
                   <div className="flex items-center gap-3">
                     <button
@@ -314,20 +440,40 @@ export default function StartChat() {
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-purple-400/0 to-blue-400/0 group-hover:from-purple-400/10 group-hover:to-blue-400/10 rounded-xl transition-all duration-300" />
                       <span className="relative z-10 flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 10V3L4 14h7v7l9-11h-7z"
+                          />
                         </svg>
                         {noRepos ? "Add to Organization" : "Connect GitHub"}
                       </span>
                     </button>
-                    
+
                     <button
                       onClick={loadRepos}
                       className="px-4 py-2.5 text-white/40 hover:text-white/60 text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                     >
                       <span className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
                         </svg>
                         Refresh
                       </span>
@@ -346,20 +492,28 @@ export default function StartChat() {
                     <label className="text-white/50 text-xs">Repository</label>
                     <select
                       className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10"
-                      value={selectedRepoId === "" ? "" : String(selectedRepoId)}
+                      value={
+                        selectedRepoId === "" ? "" : String(selectedRepoId)
+                      }
                       onChange={(e) => {
                         const id = Number(e.target.value);
                         setSelectedRepoId(id);
-                        const r = repos.find(x => x.id === id);
+                        const r = repos.find((x) => x.id === id);
                         setSelectedRepoFullName(r?.full_name || "");
                       }}
                       disabled={loadingRepos || repos.length === 0}
                     >
                       <option value="" disabled>
-                        {loadingRepos ? "Loading repositories…" : repos.length ? "Select repository…" : "No repositories available"}
+                        {loadingRepos
+                          ? "Loading repositories…"
+                          : repos.length
+                            ? "Select repository…"
+                            : "No repositories available"}
                       </option>
                       {repos.map((r) => (
-                        <option key={r.id} value={r.id}>{r.full_name}</option>
+                        <option key={r.id} value={r.id}>
+                          {r.full_name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -376,7 +530,9 @@ export default function StartChat() {
 
                 {/* Prompt */}
                 <div>
-                  <label className="text-white/50 text-xs">What should the agent do?</label>
+                  <label className="text-white/50 text-xs">
+                    What should the agent do?
+                  </label>
                   <textarea
                     className="w-full mt-1 px-4 py-3 rounded-xl bg-white/[0.06] text-white/90 border border-white/10 min-h-[120px]"
                     placeholder="Describe a feature, bug, or task…"
@@ -391,7 +547,7 @@ export default function StartChat() {
                   <button
                     onClick={onSubmit}
                     disabled={busy || !selectedRepoId || !prompt.trim()}
-                    className="group relative px-6 py-3 bg-white text-black rounded-xl font-medium transition-all duration-300 hover:scale-105 active:scale-100 disabled:opacity-50"
+                    className="group relative px-6 py-3 bg-white text-black rounded-xl font-medium transition-all duration-300 hover:scale-105 active:scale-100 disabled:opacity-50 cursor-pointer"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                     <span className="relative z-10">
@@ -401,7 +557,8 @@ export default function StartChat() {
                 </div>
 
                 <div className="text-center text-xs text-white/40">
-                  You can change branches later. Branch listing will be added soon.
+                  You can change branches later. Branch listing will be added
+                  soon.
                 </div>
               </>
             )}
