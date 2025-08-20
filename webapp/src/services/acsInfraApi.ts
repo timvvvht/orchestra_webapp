@@ -23,5 +23,18 @@ export const acsInfraApi = (config: { baseUrl: string }) => {
         headers: authorization ? { Authorization: authorization } : {},
       });
     },
+    globalOverview: async (
+      opts?: { include_runtime_ping?: boolean },
+      authorization?: string
+    ) => {
+      const p = new URLSearchParams();
+      if (opts?.include_runtime_ping) p.set("include_runtime_ping", "true");
+      const qs = p.toString();
+      return getJson(`${API}/infra-dashboard/global${qs ? `?${qs}` : ""}`, {
+        method: "GET",
+        credentials: "include",
+        headers: authorization ? { Authorization: authorization } : {},
+      });
+    },
   };
 };

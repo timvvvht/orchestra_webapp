@@ -358,6 +358,19 @@ export default function GitHubConnectPage() {
       setInfo("Provisioning + starting via /acs/converse/web…");
       const { data: { session } } = await supabase.auth.getSession();
       const uid = session?.user?.id || "unknown";
+      console.log("[GitHubConnect] Calling sendChatMessage with:", {
+        sessionId: cs.sessionId,
+        message: chatPrompt.trim(),
+        userId: uid,
+        agentConfigName: "general",
+        autoMode: true,
+        modelAutoMode: true,
+        repoContextWeb: {
+          repo_id: selectedRepoId,
+          repo_full_name: selectedRepoFullName,
+          branch: branch.trim(),
+        },
+      });
       await sendChatMessage({
         sessionId: cs.sessionId,
         message: chatPrompt.trim(),

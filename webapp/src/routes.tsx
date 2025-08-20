@@ -15,6 +15,7 @@ import InstallCallback from "./routes/github/InstallCallback";
 import StartChat from "./routes/StartChat";
 import Sessions from "./routes/Sessions";
 import InfraDashboard from "./routes/InfraDashboard";
+import GlobalInfraDashboard from "./routes/GlobalInfraDashboard";
 import WorkspaceHome from "./routes/WorkspaceHome";
 
 // Lazy load components for better performance
@@ -44,6 +45,10 @@ export const routes: RouteObject[] = [
       {
         path: "infra/dashboard",
         element: <InfraDashboard />,
+      },
+      {
+        path: "infra/global",
+        element: <GlobalInfraDashboard />,
       },
       {
         path: "workspaces",
