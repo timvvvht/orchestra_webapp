@@ -13,6 +13,7 @@ import {
   RichContentNode,
 } from "@/types/events";
 import { SupabaseDbChatMessage } from "@/types/chatTypes";
+import { sanitizeMessageContent } from "@/utils/messageUtils";
 
 // Extended type to handle properties seen in real data but not in the type definition
 interface ExtendedSupabaseDbChatMessage extends SupabaseDbChatMessage {
@@ -213,7 +214,7 @@ export class RowMapper {
         textContent = JSON.stringify(contentPart.input, null, 2);
       }
     } else if (typeof contentPart.text === "string") {
-      textContent = contentPart.text;
+      textContent = sanitizeMessageContent(contentPart.text); //contentPart.text;
     } else if (contentPart.text !== null && contentPart.text !== undefined) {
       // If text is an object or other type, stringify it
       textContent =
