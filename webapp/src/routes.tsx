@@ -13,6 +13,7 @@ import StepExchange from "./routes/github/StepExchange";
 import StepInstall from "./routes/github/StepInstall";
 import InstallCallback from "./routes/github/InstallCallback";
 import StartChat from "./routes/StartChat";
+import SessionInspector from "./routes/session-inspector";
 import Sessions from "./routes/Sessions";
 import InfraDashboard from "./routes/InfraDashboard";
 import GlobalInfraDashboard from "./routes/GlobalInfraDashboard";
@@ -36,7 +37,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "mission-control",
-        element: <MissionControl />,
+        element: <MissionControl repo={null} />,
       },
       {
         path: "sessions",
@@ -88,6 +89,10 @@ export const routes: RouteObject[] = [
         ],
       },
       { path: "mock-test", element: <MockTestPage /> },
+      {
+        path: "session",
+        element: <SessionInspector />,
+      },
       {
         path: "*",
         element: <Navigate to="/" replace />,

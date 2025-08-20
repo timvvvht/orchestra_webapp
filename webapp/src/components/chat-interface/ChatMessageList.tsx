@@ -1,5 +1,5 @@
 // webapp/src/components/chat-interface/ChatMessageList.tsx
-import React, { useMemo, JSX } from "react";
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import CheckpointPill from "./CheckpointPill";
@@ -9,6 +9,148 @@ import TouchMessage from "./TouchMessage";
 import { AssistantMessageWithFileOps } from "./UnifiedTimelineRenderer";
 import { getOptimizedToolCallsForResponse } from "@/utils/optimizedMessageFiltering";
 import { pairToolEventsAcrossMessages } from "@/utils/timelineHelpers";
+
+// Custom hook for aggregated file operations
+const useAggregatedFileOperations = (
+  messages: any[],
+  crossMessageToolEvents: any[]
+) => {
+  return useMemo(() => {
+    // Extract file operations from ALL tool events across ALL messages
+    const allFileOps: any[] = [];
+
+    // Process all assistant messages to extract file operations from their tool events
+    const assistantMessages = messages.filter((m) => m.role === "assistant");
+
+    assistantMessages.forEach((message) => {
+      // Get tool events for this message
+      const messageEvents = crossMessageToolEvents.filter((event) => {
+        const messageIdentifier = message.id;
+        const eventMessageId = event.metadata?.supabase?.messageId;
+        if (eventMessageId === messageIdentifier) return true;
+        if (event.type === "tool_interaction") {
+          const interaction = event as any;
+          const callMessageId =
+            interaction.data?.call?.rawData?.metadata?.supabase?.messageId;
+          return callMessageId === messageIdentifier;
+        }
+        return false;
+      });
+
+      // Extract file operations from tool_interaction events
+      messageEvents.forEach((event) => {
+        if (event.type === "tool_interaction") {
+          const interaction = event as any;
+          const { call, result } = interaction.data;
+
+          if (call && result) {
+            // Use the same extraction logic as UnrefinedModeTimelineRenderer
+            const fileTools = [
+              "str_replace_editor",
+              "create_file",
+              "write_file",
+              "read_files",
+              "search_files",
+              "cat",
+              "grep",
+              "mv",
+              "cp",
+              "tree",
+            ];
+
+            if (call.name && fileTools.includes(call.name.toLowerCase())) {
+              const params = call.parameters || call.input || call.arguments;
+
+              let path: string | null = null;
+              let opType: "created" | "modified" | "deleted" | null = null;
+
+              switch (call.name.toLowerCase()) {
+                case "str_replace_editor":
+                  if (params?.path) path = params.path;
+                  const cmd = String(params?.command || "").toLowerCase();
+                  if (cmd === "create") opType = "created";
+                  else if (
+                    cmd === "str_replace" ||
+                    cmd === "insert" ||
+                    cmd === "append" ||
+                    cmd === "undo_edit"
+                  )
+                    opType = "modified";
+                  break;
+                case "create_file":
+                  if (params?.path) path = params.path;
+                  opType = "created";
+                  break;
+                case "write_file":
+                  if (params?.path) path = params.path;
+                  opType = "modified";
+                  break;
+                case "read_files":
+                  if (
+                    params?.files &&
+                    Array.isArray(params.files) &&
+                    params.files.length > 0
+                  )
+                    path = params.files[0];
+                  else if (params?.file) path = params.file;
+                  opType = "modified";
+                  break;
+                case "search_files":
+                  if (
+                    params?.paths &&
+                    Array.isArray(params.paths) &&
+                    params.paths.length > 0
+                  )
+                    path = params.paths[0];
+                  else if (params?.path) path = params.path;
+                  opType = "modified";
+                  break;
+                case "cat":
+                case "grep":
+                  if (params?.file) path = params.file;
+                  opType = "modified";
+                  break;
+                case "mv":
+                case "cp":
+                  if (params?.destination) path = params.destination;
+                  else if (params?.source) path = params.source;
+                  opType = "created";
+                  break;
+                case "tree":
+                  if (params?.path) path = params.path;
+                  opType = "modified";
+                  break;
+              }
+
+              if (path && opType) {
+                const fileOp = {
+                  type: opType,
+                  path: String(path),
+                  timestamp: call.timestamp || Date.now(),
+                  success: true,
+                };
+                allFileOps.push(fileOp);
+              }
+            }
+          }
+        }
+      });
+    });
+
+    // Deduplicate by path + type
+    const seen = new Set<string>();
+    const deduped: any[] = [];
+    allFileOps.forEach((op) => {
+      const key = `${op.path}-${op.type}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(op);
+      }
+    });
+
+    return deduped;
+  }, [messages, crossMessageToolEvents]);
+};
 
 interface ChatMessageListProps {
   messages: any[];
@@ -51,12 +193,18 @@ export default function ChatMessageList({
   shouldUseUnifiedRendering,
   renderUnifiedTimelineEvent,
 }: ChatMessageListProps) {
-  if (!messages || messages.length === 0) return null;
+  if (!messages || messages.length === 0) return <></>;
 
   const crossMessageToolEvents = useMemo(() => {
     const assistantMessages = messages.filter((m) => m.role === "assistant");
     return pairToolEventsAcrossMessages(assistantMessages);
   }, [messages]);
+
+  // Extract to custom hook for better performance
+  const aggregatedFileOperations = useAggregatedFileOperations(
+    messages,
+    crossMessageToolEvents
+  );
 
   const toolCallsById = useMemo(() => {
     const out: Record<string, any[]> = {};

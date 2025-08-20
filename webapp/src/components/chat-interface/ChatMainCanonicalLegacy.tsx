@@ -24,13 +24,13 @@ import ChatHeader from "./header/ChatHeader";
 import NewChatModal from "./NewChatModal";
 import { shouldUseUnifiedRendering } from "./UnrefinedModeTimelineRenderer";
 import { renderUnifiedTimelineEvent } from "./UnifiedTimelineRenderer";
-import { LexicalChatInput } from "./LexicalChatInput";
 import { MobileChatInput } from "./MobileChatInput";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
 import ChatEmptyState from "./ChatEmptyState";
 import ChatTypingIndicator from "./ChatTypingIndicator";
 import ChatMessageList from "./ChatMessageList";
+import ChatLoadingOverlay from "./ChatLoadingOverlay";
 
 // Performance optimizations
 import {
@@ -196,6 +196,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   // Local + context loading (fallback)
   const [localIsLoading, setLocalIsLoading] = useState(false);
   const fallbackIsLoading = localIsLoading;
+  // New: track when session hydration is occurring due to a session switch
+  const [isSessionHydrating, setIsSessionHydrating] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -234,6 +236,20 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const [searchParams] = useSearchParams();
   const selections = useSelections();
   const acsOverrides = selections; // Renaming variable for clarity
+
+  // Log component mount and session info
+  useEffect(() => {
+    console.log(
+      `🚀 [ChatMainCanonicalLegacy] Component mounted for session: ${sessionId || "none"}`,
+      {
+        sessionId,
+        renderContext,
+        hideHeader,
+        hideInput,
+        sessionIsActive,
+      }
+    );
+  }, [sessionId, renderContext, hideHeader, hideInput, sessionIsActive]);
 
   // ✅ ROBUST: Check if session is idle using new centralized store
   const idleNow = useSessionStatusStore((state) =>
@@ -324,9 +340,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         currentParams.has("projectPath");
 
       if (hasBootstrapParams) {
-        console.log(
-          "🧹 [ChatMainCanonicalLegacy] Cleaning up bootstrap query parameters"
-        );
+        if (import.meta.env.DEV) {
+          console.log(
+            "🧹 [ChatMainCanonicalLegacy] Cleaning up bootstrap query parameters"
+          );
+        }
         // Navigate to clean URL without query parameters
         navigate(`/chat/${sessionId}`, { replace: true });
       }
@@ -408,7 +426,17 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       eventIds = state.bySession.get("unknown") || [];
     }
 
-    const events = eventIds.map((id) => state.byId.get(id)).filter(Boolean);
+    const events = eventIds
+      .map((id) => state.byId.get(id))
+      .filter((event): event is NonNullable<typeof event> => Boolean(event));
+
+    // Log individual events for detailed inspection
+    events.forEach((event, index) => {
+      console.log(
+        `📋 [Event ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+        event
+      );
+    });
 
     // Convert to messages
     const convertedMessages = convertEventsToMessages(events);
@@ -556,9 +584,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   // Leaving empty effect as a guard against future regression.
   useEffect(() => {
     if (searchParams.get("initialMessage")) {
-      console.warn(
-        "[ChatMain] initialMessage param detected but ignored (handled upstream)"
-      );
+      if (import.meta.env.DEV) {
+        console.warn(
+          "[ChatMain] initialMessage param detected but ignored (handled upstream)"
+        );
+      }
     }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []); // run once
@@ -568,13 +598,17 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     if (sessionId && !sessionId.startsWith("temp-")) {
       setLocalIsLoading(true);
 
+      setIsSessionHydrating(true);
+
       const store = useEventStore.getState();
 
       // PERFORMANCE: No session clearing - keep all sessions cached for faster switching
       // Previous sessions remain in store for instant switching back
-      console.log(
-        `📦 [ChatMainCanonicalLegacy] Keeping previous sessions cached. Store has ${store.bySession.size} sessions.`
-      );
+      if (import.meta.env.DEV) {
+        console.log(
+          `📦 [ChatMainCanonicalLegacy] Keeping previous sessions cached. Store has ${store.bySession.size} sessions.`
+        );
+      }
 
       // Update the previous session ID
       previousSessionIdRef.current = sessionId;
@@ -585,9 +619,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       const MAX_CACHED_SESSIONS = 20;
       const currentSessionCount = store.bySession.size;
       if (currentSessionCount > MAX_CACHED_SESSIONS) {
-        console.log(
-          `🧹 [ChatMainCanonicalLegacy] Cache size (${currentSessionCount}) exceeds limit (${MAX_CACHED_SESSIONS}), cleaning up old sessions`
-        );
+        if (import.meta.env.DEV) {
+          console.log(
+            `🧹 [ChatMainCanonicalLegacy] Cache size (${currentSessionCount}) exceeds limit (${MAX_CACHED_SESSIONS}), cleaning up old sessions`
+          );
+        }
 
         // Get all sessions with their last access time (approximate)
         const sessionEntries = Array.from(store.bySession.entries());
@@ -624,9 +660,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                 store.removeEvent(eventId);
               }
             });
-            console.log(
-              `🗑️ [ChatMainCanonicalLegacy] Removed old session ${oldSessionId} (${eventCount} events)`
-            );
+            if (import.meta.env.DEV) {
+              console.log(
+                `🗑️ [ChatMainCanonicalLegacy] Removed old session ${oldSessionId} (${eventCount} events)`
+              );
+            }
           }
         }
       }
@@ -659,39 +697,45 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
       const isSessionAlreadyHydrated = hasSessionData && isCacheFresh;
 
-      console.log(
-        `🧠 [ChatMainCanonicalLegacy] Cache analysis for ${sessionId}:`,
-        {
-          hasSessionData,
-          mostRecentEventTime:
-            mostRecentEventTime > 0
-              ? new Date(mostRecentEventTime).toISOString()
-              : "No timestamps",
-          cacheAge:
-            mostRecentEventTime > 0
-              ? `${Math.round(cacheAge / 1000)}s`
-              : "Unknown",
-          isCacheFresh,
-          isSessionAlreadyHydrated,
-          activeHydration: activeHydrationRef.current,
-        }
-      );
+      if (import.meta.env.DEV) {
+        console.log(
+          `🧠 [ChatMainCanonicalLegacy] Cache analysis for ${sessionId}:`,
+          {
+            hasSessionData,
+            mostRecentEventTime:
+              mostRecentEventTime > 0
+                ? new Date(mostRecentEventTime).toISOString()
+                : "No timestamps",
+            cacheAge:
+              mostRecentEventTime > 0
+                ? `${Math.round(cacheAge / 1000)}s`
+                : "Unknown",
+            isCacheFresh,
+            isSessionAlreadyHydrated,
+            activeHydration: activeHydrationRef.current,
+          }
+        );
+      }
 
       // ROBUSTNESS: Prevent race conditions
       if (
         activeHydrationRef.current &&
         activeHydrationRef.current !== sessionId
       ) {
-        console.warn(
-          `⚠️ [ChatMainCanonicalLegacy] Cancelling hydration for ${activeHydrationRef.current}, switching to ${sessionId}`
-        );
+        if (import.meta.env.DEV) {
+          console.warn(
+            `⚠️ [ChatMainCanonicalLegacy] Cancelling hydration for ${activeHydrationRef.current}, switching to ${sessionId}`
+          );
+        }
       }
 
       if (isSessionAlreadyHydrated) {
         // Session already hydrated - skip hydrateSession and load events directly
-        console.log(
-          `🚀 [ChatMainCanonicalLegacy] Session ${sessionId} already hydrated, skipping re-hydration`
-        );
+        if (import.meta.env.DEV) {
+          console.log(
+            `🚀 [ChatMainCanonicalLegacy] Session ${sessionId} already hydrated, skipping re-hydration`
+          );
+        }
 
         // PROGRESSIVE LOADING: Show cached data immediately, then load full context
         setLocalIsLoading(false); // Clear loading immediately for better UX
@@ -706,9 +750,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             .filter(Boolean);
           const recentMessages = convertEventsToMessages(recentEvents);
           setMessages(recentMessages);
-          console.log(
-            `⚡ [ChatMainCanonicalLegacy] Showing ${recentMessages.length} cached messages immediately`
-          );
+          if (import.meta.env.DEV) {
+            console.log(
+              `⚡ [ChatMainCanonicalLegacy] Showing ${recentMessages.length} cached messages immediately`
+            );
+          }
         } else {
           // Show empty state if no cached data
           setMessages([]);
@@ -721,9 +767,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       } else {
         // Session not hydrated or cache is stale - proceed with hydration
         const reason = !hasSessionData ? "no cached data" : "cache expired";
-        console.log(
-          `💧 [ChatMainCanonicalLegacy] Hydrating session ${sessionId} (${reason})`
-        );
+        if (import.meta.env.DEV) {
+          console.log(
+            `💧 [ChatMainCanonicalLegacy] Hydrating session ${sessionId} (${reason})`
+          );
+        }
 
         // ROBUSTNESS: Track active hydration to prevent races
         activeHydrationRef.current = sessionId;
@@ -740,16 +788,35 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               }
               const events = eventIds
                 .map((id) => state.byId.get(id))
-                .filter(Boolean);
+                .filter((event): event is NonNullable<typeof event> =>
+                  Boolean(event)
+                );
+
+              // Log events received during hydration
+              console.log(
+                `💧 [Hydration] Session ${sessionId} - Hydrated ${events.length} events:`,
+                events
+              );
+              events.forEach((event, index) => {
+                console.log(
+                  `💧 [HydratedEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+                  event
+                );
+              });
+
               const convertedMessages = convertEventsToMessages(events);
               setMessages(convertedMessages);
-              console.log(
-                `✅ [ChatMainCanonicalLegacy] Successfully hydrated ${sessionId} with ${events.length} events`
-              );
+              if (import.meta.env.DEV) {
+                console.log(
+                  `✅ [ChatMainCanonicalLegacy] Successfully hydrated ${sessionId} with ${events.length} events`
+                );
+              }
             } else {
-              console.log(
-                `🚫 [ChatMainCanonicalLegacy] Discarding hydration result for ${sessionId} (user switched to ${activeHydrationRef.current})`
-              );
+              if (import.meta.env.DEV) {
+                console.log(
+                  `🚫 [ChatMainCanonicalLegacy] Discarding hydration result for ${sessionId} (user switched to ${activeHydrationRef.current})`
+                );
+              }
             }
           })
           .catch((err) => {
@@ -768,12 +835,29 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               }
               const events = eventIds
                 .map((id) => state.byId.get(id))
-                .filter(Boolean);
+                .filter((event): event is NonNullable<typeof event> =>
+                  Boolean(event)
+                );
+
+              // Log fallback events
+              console.log(
+                `🔄 [Fallback] Session ${sessionId} - Loaded ${events.length} cached events:`,
+                events
+              );
+              events.forEach((event, index) => {
+                console.log(
+                  `🔄 [FallbackEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+                  event
+                );
+              });
+
               const convertedMessages = convertEventsToMessages(events);
               setMessages(convertedMessages);
-              console.log(
-                `🔄 [ChatMainCanonicalLegacy] Fallback: Loaded ${events.length} cached events for ${sessionId}`
-              );
+              if (import.meta.env.DEV) {
+                console.log(
+                  `🔄 [ChatMainCanonicalLegacy] Fallback: Loaded ${events.length} cached events for ${sessionId}`
+                );
+              }
             }
           })
           .finally(() => {
@@ -782,6 +866,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               activeHydrationRef.current = null;
             }
             setLocalIsLoading(false);
+            setIsSessionHydrating(false);
           });
       }
     } else if (sessionId) {
@@ -791,7 +876,22 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       if (eventIds.length === 0 && state.bySession.has("unknown")) {
         eventIds = state.bySession.get("unknown") || [];
       }
-      const events = eventIds.map((id) => state.byId.get(id)).filter(Boolean);
+      const events = eventIds
+        .map((id) => state.byId.get(id))
+        .filter((event): event is NonNullable<typeof event> => Boolean(event));
+
+      // Log temp session events
+      console.log(
+        `🆔 [TempSession] Session ${sessionId} - Loaded ${events.length} events:`,
+        events
+      );
+      events.forEach((event, index) => {
+        console.log(
+          `🆔 [TempEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+          event
+        );
+      });
+
       const convertedMessages = convertEventsToMessages(events);
       setMessages(convertedMessages);
     }
@@ -799,7 +899,40 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Subscribe to store changes
   useEffect(() => {
-    const unsubscribe = useEventStore.subscribe(loadEvents);
+    const unsubscribe = useEventStore.subscribe((state, prevState) => {
+      // Log store changes for debugging
+      const currentEventCount = state.byId.size;
+      const prevEventCount = prevState?.byId.size || 0;
+
+      if (currentEventCount > prevEventCount) {
+        console.log(
+          `🔄 [EventStore] Store updated - Events: ${prevEventCount} → ${currentEventCount} (+${currentEventCount - prevEventCount})`
+        );
+
+        // Find new events by comparing current and previous state
+        const currentEventIds = new Set(state.byId.keys());
+        const prevEventIds = new Set(prevState?.byId.keys() || []);
+
+        const newEventIds = Array.from(currentEventIds).filter(
+          (id) => !prevEventIds.has(id)
+        );
+        if (newEventIds.length > 0) {
+          console.log(`🆕 [EventStore] New events detected:`, newEventIds);
+          newEventIds.forEach((eventId) => {
+            const event = state.byId.get(eventId);
+            if (event) {
+              console.log(
+                `✨ [NewEvent] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Session: ${event.sessionId || "unknown"}`,
+                event
+              );
+            }
+          });
+        }
+      }
+
+      // Call the original loadEvents function
+      loadEvents();
+    });
     return unsubscribe;
   }, [loadEvents]);
 
@@ -1028,7 +1161,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Handle message submission
   const handleSubmit = async (message: string) => {
-    console.log("💥💥💥💥💥💥💥💥💥💥 Submitting message:", message);
+    if (import.meta.env.DEV) {
+      console.log("💥💥💥💥💥💥💥💥💥💥 Submitting message:", message);
+    }
     if (!message.trim()) return;
 
     // If a custom onSubmit handler is provided, use it instead of the default logic
@@ -1063,17 +1198,19 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       const templateVariables = await createACSTemplateVariables();
       const useStoredKeys = byokStore.useStoredKeysPreference;
 
-      console.log(
-        "🚀 [ChatMainCanonicalLegacy] Sending message with resolved overrides:",
-        {
-          agentConfigName: overrides.agentConfigName,
-          hasModelOverride: !!overrides.overrides?.model_id,
-          modelId: overrides.overrides?.model_id,
-          sessionId: sessionId.slice(0, 8) + "...",
-          useStoredKeys,
-          hasTemplateVariables: !!templateVariables,
-        }
-      );
+      if (import.meta.env.DEV) {
+        console.log(
+          "🚀 [ChatMainCanonicalLegacy] Sending message with resolved overrides:",
+          {
+            agentConfigName: overrides.agentConfigName,
+            hasModelOverride: !!overrides.overrides?.model_id,
+            modelId: overrides.overrides?.model_id,
+            sessionId: sessionId.slice(0, 8) + "...",
+            useStoredKeys,
+            hasTemplateVariables: !!templateVariables,
+          }
+        );
+      }
 
       // Use shared helper for canonical message sending with extended parameters
       await sendChatMessage({
@@ -1170,65 +1307,79 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       <PendingToolsDebugOverlay />
 
       {/* Message Display Area - Apple style with generous spacing */}
-      <ScrollArea
-        className="flex-1 overflow-hidden relative z-10 min-h-0"
-        viewportRef={(node) => {
-          if (node) {
-            node.addEventListener("scroll", handleScroll);
-            return () => node.removeEventListener("scroll", handleScroll);
-          }
-        }}
-      >
-        <div
+      <div className="relative flex-1 min-h-0">
+        {/* Keep ScrollArea mounted; overlay will sit on top */}
+        <ScrollArea
           className={cn(
-            "w-full max-w-full overflow-x-hidden transition-all duration-300",
-            renderContext === "mission-control"
-              ? "px-4 pt-4" // Mission control spacing
-              : "px-6 md:px-12 pt-8", // Default spacing
-            showTextInputArea
-              ? "pb-[calc(8rem+env(safe-area-inset-bottom))]" // Space for input when visible
-              : "pb-4" // Minimal padding when input is hidden
+            "overflow-hidden relative z-10 min-h-0",
+            renderContext === "mission-control" && "mission-control-scroll-area"
           )}
+          viewportRef={(node) => {
+            if (node) {
+              node.addEventListener("scroll", handleScroll);
+              return () => node.removeEventListener("scroll", handleScroll);
+            }
+          }}
         >
-          <ChatMessageList
-            data-testid="chat-message-list"
-            messages={displayMessages}
-            mergedMessageGroups={mergedMessageGroups}
-            refinedMode={refinedMode}
-            handleFork={handleFork}
-            formatMessageDate={formatMessageDate}
-            shouldGroupMessages={shouldGroupMessages}
-            isOptimizedFinalAssistantMessage={isOptimizedFinalAssistantMessage}
-            getOptimizedFileOperationsForResponse={
-              getOptimizedFileOperationsForResponse
-            }
-            shouldUseUnifiedRendering={shouldUseUnifiedRendering}
-            renderUnifiedTimelineEvent={(event, index, events) =>
-              renderUnifiedTimelineEvent(
-                event,
-                index,
-                events,
-                false,
-                refinedMode
-              )
-            }
-          />
+          <div
+            className={cn(
+              "w-full max-w-full overflow-x-hidden transition-all duration-300",
+              renderContext === "mission-control"
+                ? "px-4 pt-4" // Mission control spacing
+                : "px-6 md:px-12 pt-8", // Default spacing
+              showTextInputArea
+                ? "pb-[calc(8rem+env(safe-area-inset-bottom))]" // Space for input when visible
+                : "pb-4" // Minimal padding when input is hidden
+            )}
+          >
+            <ChatMessageList
+              data-testid="chat-message-list"
+              messages={displayMessages}
+              mergedMessageGroups={mergedMessageGroups}
+              refinedMode={refinedMode}
+              handleFork={handleFork}
+              formatMessageDate={formatMessageDate}
+              shouldGroupMessages={shouldGroupMessages}
+              isOptimizedFinalAssistantMessage={
+                isOptimizedFinalAssistantMessage
+              }
+              getOptimizedFileOperationsForResponse={
+                getOptimizedFileOperationsForResponse
+              }
+              shouldUseUnifiedRendering={shouldUseUnifiedRendering}
+              renderUnifiedTimelineEvent={(event, index, events) =>
+                renderUnifiedTimelineEvent(
+                  event,
+                  index,
+                  events,
+                  false,
+                  refinedMode
+                )
+              }
+            />
 
-          {/* Typing indicator - shows during loading or waiting for AI */}
-          <ChatTypingIndicator
-            isVisible={effectiveActive}
-            agentName="AI Assistant"
-          />
+            {/* Typing indicator - shows during loading or waiting for AI */}
+            <ChatTypingIndicator
+              isVisible={effectiveActive}
+              agentName="AI Assistant"
+            />
 
-          {/* Chat Scroll Anchor - invisible element at bottom for auto-scroll detection */}
-          <ChatScrollAnchor
-            isAtBottom={isAtBottom}
-            onVisibilityChange={handleAnchorVisibilityChange}
-            shouldAutoScroll={shouldAutoScroll}
-            scrollToBottom={scrollToBottom}
-          />
-        </div>
-      </ScrollArea>
+            {/* Chat Scroll Anchor - invisible element at bottom for auto-scroll detection */}
+            <ChatScrollAnchor
+              isAtBottom={isAtBottom}
+              onVisibilityChange={handleAnchorVisibilityChange}
+              shouldAutoScroll={shouldAutoScroll}
+              scrollToBottom={scrollToBottom}
+            />
+          </div>
+        </ScrollArea>
+        {/* Chat Loading Overlay - covers message list and input area */}
+        <ChatLoadingOverlay
+          context={renderContext}
+          sessionId={sessionId}
+          visible={Boolean(sessionId && isSessionHydrating)}
+        />
+      </div>
 
       {/* Scroll Button - shows "New messages" or "Back to latest" based on context */}
       <NewMessagesIndicator

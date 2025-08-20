@@ -3,44 +3,52 @@
  * This ensures every session has all required fields for proper operation.
  */
 
-import { DEFAULT_AGENT_CONFIG, DefaultAgentConfig } from '@/constants/defaultAgentConfig';
-import { SessionMetadata } from '@/types/chatTypes';
+import { SessionMetadata } from "@/types/chatTypes";
 
 /**
  * Input parameters for building session metadata.
  * All fields are optional and will be filled with defaults if not provided.
  */
 export interface SessionMetadataInput {
-  model?: string;
-  tools?: string[];
-  specialty?: string;
-  avatar?: string;
-  systemPrompt?: string;
-  temperature?: number;
+  model: string;
+  tools: string[];
+  specialty: string;
+  avatar: string;
+  systemPrompt: string;
+  temperature: number;
   [key: string]: any; // Allow additional metadata fields
 }
 
 /**
  * Builds complete session metadata by merging input with defaults.
  * This ensures no session is created with incomplete metadata.
- * 
+ *
  * @param input - Partial metadata input (all fields optional)
  * @returns Complete session metadata with all required fields
  */
-export function buildSessionMetadata(input: SessionMetadataInput = {}): SessionMetadata {
+export function buildSessionMetadata(
+  input: SessionMetadataInput
+): SessionMetadata {
   // Start with default configuration
   const metadata: SessionMetadata = {
-    model: input.model ?? DEFAULT_AGENT_CONFIG.model,
-    tools: input.tools ?? [...DEFAULT_AGENT_CONFIG.tools], // Clone array to avoid mutations
-    specialty: input.specialty ?? DEFAULT_AGENT_CONFIG.specialty,
-    avatar: input.avatar ?? DEFAULT_AGENT_CONFIG.avatar,
-    system_prompt: input.systemPrompt ?? DEFAULT_AGENT_CONFIG.systemPrompt,
-    temperature: input.temperature ?? DEFAULT_AGENT_CONFIG.temperature
+    model: input.model ?? "general",
+    tools: input.tools ?? [], // Clone array to avoid mutations
+    specialty: input.specialty,
+    avatar: input.avatar,
+    system_prompt: input.systemPrompt,
+    temperature: input.temperature,
   };
 
   // Add any additional fields from input (excluding the ones we already handled)
-  const handledFields = new Set(['model', 'tools', 'specialty', 'avatar', 'systemPrompt', 'temperature']);
-  
+  const handledFields = new Set([
+    "model",
+    "tools",
+    "specialty",
+    "avatar",
+    "systemPrompt",
+    "temperature",
+  ]);
+
   for (const [key, value] of Object.entries(input)) {
     if (!handledFields.has(key) && value !== undefined) {
       metadata[key] = value;
@@ -53,30 +61,39 @@ export function buildSessionMetadata(input: SessionMetadataInput = {}): SessionM
 /**
  * Validates that session metadata contains all required fields.
  * Used for checking existing sessions and ensuring completeness.
- * 
+ *
  * @param metadata - Metadata to validate
  * @returns true if metadata is complete, false otherwise
  */
-export function isSessionMetadataComplete(metadata: any): metadata is SessionMetadata {
-  if (!metadata || typeof metadata !== 'object') {
+export function isSessionMetadataComplete(
+  metadata: any
+): metadata is SessionMetadata {
+  if (!metadata || typeof metadata !== "object") {
     return false;
   }
 
-  const requiredFields = ['model', 'tools', 'specialty', 'avatar', 'system_prompt', 'temperature'];
-  
-  return requiredFields.every(field => {
+  const requiredFields = [
+    "model",
+    "tools",
+    "specialty",
+    "avatar",
+    "system_prompt",
+    "temperature",
+  ];
+
+  return requiredFields.every((field) => {
     const value = metadata[field];
-    
+
     switch (field) {
-      case 'model':
-      case 'specialty':
-      case 'avatar':
-      case 'system_prompt':
-        return typeof value === 'string' && value.length > 0;
-      case 'tools':
+      case "model":
+      case "specialty":
+      case "avatar":
+      case "system_prompt":
+        return typeof value === "string" && value.length > 0;
+      case "tools":
         return Array.isArray(value);
-      case 'temperature':
-        return typeof value === 'number' && value >= 0 && value <= 2;
+      case "temperature":
+        return typeof value === "number" && value >= 0 && value <= 2;
       default:
         return value !== undefined && value !== null;
     }
@@ -86,7 +103,7 @@ export function isSessionMetadataComplete(metadata: any): metadata is SessionMet
 /**
  * Repairs incomplete session metadata by filling missing fields with defaults.
  * Used for fixing existing sessions that may have incomplete metadata.
- * 
+ *
  * @param metadata - Potentially incomplete metadata
  * @returns Complete session metadata
  */
@@ -96,8 +113,8 @@ export function repairSessionMetadata(metadata: any): SessionMetadata {
   }
 
   // If metadata is completely missing or invalid, start fresh
-  if (!metadata || typeof metadata !== 'object') {
-    return buildSessionMetadata();
+  if (!metadata || typeof metadata !== "object") {
+    return buildSessionMetadata({});
   }
 
   // Repair by merging with defaults

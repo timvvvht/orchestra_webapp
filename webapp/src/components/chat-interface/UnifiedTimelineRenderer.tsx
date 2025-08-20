@@ -267,10 +267,12 @@ function ThinkBlockDisplay({ content, timestamp, defaultExpanded = false }: Thin
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
-                    <h3 className={cn(
-                      design.text.base,
-                      "transition-colors duration-200"
-                    )}>
+                    <h3
+                      className={cn(
+                        design.text.base,
+                        "transition-colors duration-200"
+                      )}
+                    >
                       Thoughts
                     </h3>
                   </div>
