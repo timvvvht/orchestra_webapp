@@ -11,6 +11,7 @@ import { createACSTemplateVariables } from '@/utils/templateVariables';
 import { registerToolsByNames } from '@/utils/toolSpecRegistry';
 
 import { httpApi } from '@/api/httpApi';
+import { supabase } from '@/auth/SupabaseClient';
 
 import { ChatRole, type ChatMessage as ChatMessageType } from '@/types/chatTypes';
 
@@ -114,6 +115,15 @@ export interface SendChatMessageParams {
     isBackgroundSession?: boolean;
     // Optional: Tools to register before sending the message (defaults to core tools if not specified)
     tools?: string[];
+
+    // Web-origin repo context: triggers /acs/converse/web flow when provided
+    repoContextWeb?: {
+        repo_id: number;
+        repo_full_name: string;
+        branch: string;
+    };
+    // Explicit endpoint selector (default: 'generic')
+    endpoint?: 'web' | 'generic';
 }
 
 export interface SendChatMessageResult {
@@ -181,6 +191,7 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Se
         modelAutoMode = false, // Default to false unless explicitly set
         overrides = {} // Default to empty object
     } = params;
+    const { repoContextWeb, endpoint = 'generic' } = params;
 
     console.log(`🚀 [sendChatMessage] [${messageId}] Starting message send process`);
     console.log(`📤 [sendChatMessage] [${messageId}] Session ID: ${sessionId}`);
@@ -300,16 +311,36 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Se
 
         console.log(`🔧 [sendChatMessage] [${messageId}] BYOK preference:`, resolvedUseStoredKeys);
 
-        // 4) Build final ACS body for /acs/converse
-        console.log(`🔨 [sendChatMessage] [${messageId}] Building ACS converse payload...`);
-        const body = buildConversePayload(
-            {
-                ...params,
-                templateVariables: resolvedTemplateVars,
-                useStoredKeys: resolvedUseStoredKeys
-            },
-            effectiveAgentCwd
-        );
+        // 4) Decide endpoint and build payload
+        const isWebOrigin = endpoint === 'web' || !!repoContextWeb;
+        console.log(`🌐 [sendChatMessage] [${messageId}] Origin:`, isWebOrigin ? 'web' : 'generic');
+        console.log(`🌐 [sendChatMessage] [${messageId}] Endpoint selected:`, isWebOrigin ? '/acs/converse/web' : '/acs/converse');
+
+        let body: any;
+        if (isWebOrigin) {
+            if (!repoContextWeb?.repo_id || !repoContextWeb?.repo_full_name || !repoContextWeb?.branch) {
+                console.error(`❌ [sendChatMessage] [${messageId}] Missing repoContextWeb fields for web-origin:`, repoContextWeb);
+                return { success: false, error: 'Missing repo context for web conversation' };
+            }
+            body = buildWebConversePayload(
+                {
+                    ...params,
+                    templateVariables: resolvedTemplateVars,
+                    useStoredKeys: resolvedUseStoredKeys
+                },
+                effectiveAgentCwd
+            );
+        } else {
+            console.log(`🔨 [sendChatMessage] [${messageId}] Building ACS generic converse payload...`);
+            body = buildConversePayload(
+                {
+                    ...params,
+                    templateVariables: resolvedTemplateVars,
+                    useStoredKeys: resolvedUseStoredKeys
+                },
+                effectiveAgentCwd
+            );
+        }
 
         console.log(`🔨 [sendChatMessage] [${messageId}] Payload built:`, {
             agent_config_name: body.agent_config_name,
@@ -323,22 +354,29 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Se
 
         // 5) POST to ACS Converse using httpApi
         const ACS_BASE = import.meta.env.VITE_ACS_BASE_URL || 'http://localhost:8000';
-        const url = `${ACS_BASE}/acs/converse`;
+        const url = `${ACS_BASE}${isWebOrigin ? '/acs/converse/web' : '/acs/converse'}`;
 
         console.log(`🌐 [sendChatMessage] [${messageId}] ACS Base URL: ${ACS_BASE}`);
         console.log(`🌐 [sendChatMessage] [${messageId}] Full URL: ${url}`);
 
         // Optional: Attach Authorization header if you have a JWT; if so, remove user_id from body
         const headers: Record<string, string> = {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(isWebOrigin ? { 'X-Orchestra-Web-Origin': 'true' } : {})
         };
-
-        const hasJwt: boolean = false;
-        console.log(`🔐 [sendChatMessage] [${messageId}] JWT authentication: ${hasJwt}`);
-
-        if (hasJwt) {
-            // add to header and remove user_id from body
-            console.log(`🔐 [sendChatMessage] [${messageId}] Would add JWT to headers`);
+        // Attach Supabase Authorization only for web-origin calls
+        if (isWebOrigin) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.access_token) {
+                    headers['Authorization'] = `Bearer ${session.access_token}`;
+                    console.log(`🔐 [sendChatMessage] [${messageId}] Attached Supabase JWT for web-origin`);
+                } else {
+                    console.warn(`⚠️ [sendChatMessage] [${messageId}] No Supabase session available for web-origin Authorization`);
+                }
+            } catch (e) {
+                console.warn(`⚠️ [sendChatMessage] [${messageId}] Unable to fetch Supabase session for Authorization`, e);
+            }
         }
 
         console.log(`📡 [sendChatMessage] [${messageId}] Preparing POST request to ACS`);
@@ -349,6 +387,7 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Se
         const requestStartTime = Date.now();
 
         // Use httpApi for the POST request
+        console.log(`📡 [sendChatMessage] [${messageId}] Posting to: ${url}`);
         const res = await httpApi.POST<ConverseResponse>(url, {
             headers,
             body
@@ -492,4 +531,74 @@ function buildConversePayload(params: SendChatMessageParams, effectiveAgentCwd?:
     };
 
     return payload;
+}
+
+type WebConverseRequest = {
+    // ACSWebConverseRequest superset
+    user_id?: string;
+    agent_config_name: string;
+    prompt: string;
+    session_id?: string;
+    repo_id: number;
+    repo_full_name: string;
+    branch: string;
+    messages_history_override?: any[];
+    model_api_keys?: Record<string, string>;
+    use_stored_keys?: boolean;
+    overrides?: Partial<ConverseRequestOverride>;
+    template_variables?: Record<string, string>;
+    auto_mode?: boolean;
+    model_auto_mode?: boolean;
+    explicit_model_id?: string;
+    role_model_overrides?: Record<string, string>;
+    is_background_session?: boolean;
+};
+
+function buildWebConversePayload(params: SendChatMessageParams, effectiveAgentCwd?: string): WebConverseRequest {
+    const {
+        sessionId,
+        message,
+        userId,
+        agentConfigName,
+        modelApiKeys,
+        useStoredKeys,
+        overrides,
+        templateVariables,
+        autoMode,
+        modelAutoMode,
+        explicitModelId,
+        roleModelOverrides,
+        isBackgroundSession,
+        repoContextWeb
+    } = params;
+
+    const mergedOverrides = {
+        ...(params.acsOverrides || {}),
+        ...(overrides || {})
+    };
+    if (effectiveAgentCwd && !mergedOverrides.agent_cwd_override) {
+        mergedOverrides.agent_cwd_override = effectiveAgentCwd;
+    }
+
+    return {
+        agent_config_name: agentConfigName,
+        prompt: message.trim(),
+        session_id: sessionId,
+        user_id: userId,
+        repo_id: repoContextWeb!.repo_id,
+        repo_full_name: repoContextWeb!.repo_full_name,
+        branch: repoContextWeb!.branch,
+        model_api_keys: modelApiKeys && Object.keys(modelApiKeys).length ? modelApiKeys : undefined,
+        use_stored_keys: useStoredKeys,
+        overrides: mergedOverrides && Object.keys(mergedOverrides).length ? mergedOverrides : undefined,
+        template_variables: templateVariables && Object.keys(templateVariables).length ? templateVariables : undefined,
+        auto_mode: autoMode,
+        model_auto_mode: modelAutoMode,
+        explicit_model_id: explicitModelId,
+        role_model_overrides:
+            roleModelOverrides && Object.keys(roleModelOverrides).length
+                ? Object.fromEntries(Object.entries(roleModelOverrides).filter(([_, value]) => typeof value === 'string'))
+                : undefined,
+        is_background_session: isBackgroundSession
+    };
 }

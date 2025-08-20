@@ -346,7 +346,7 @@ export default function GitHubConnectPage() {
     }
     try {
       setInfo("Creating session…");
-      const cs = await createSessionFast({ sessionName: `Mission: ${chatPrompt.slice(0,60)}`, agentConfigId: "general" });
+      const cs = await createSessionFast({ sessionName: `Task: ${chatPrompt.slice(0,60)}`, agentConfigId: "general" });
       if (!cs?.success || !cs.sessionId) {
         return setErr(cs?.error || "Failed to create session");
       }
@@ -374,6 +374,7 @@ export default function GitHubConnectPage() {
       await sendChatMessage({
         sessionId: cs.sessionId,
         message: chatPrompt.trim(),
+        endpoint: "web",
         userId: uid,
         agentConfigName: "general",
         acsClient: acs,

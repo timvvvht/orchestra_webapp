@@ -30,7 +30,8 @@ export const acsInfraApi = (config: { baseUrl: string }) => {
       const p = new URLSearchParams();
       if (opts?.include_runtime_ping) p.set("include_runtime_ping", "true");
       const qs = p.toString();
-      return getJson(`${API}/infra-dashboard/global${qs ? `?${qs}` : ""}`, {
+      // Moved under infrastructure router for guaranteed inclusion in deployed ACS
+      return getJson(`${API}/infrastructure/global${qs ? `?${qs}` : ""}`, {
         method: "GET",
         credentials: "include",
         headers: authorization ? { Authorization: authorization } : {},

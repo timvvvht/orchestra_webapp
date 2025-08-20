@@ -247,7 +247,7 @@ export default function StartChat() {
           <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
           <div className="relative z-10 space-y-6">
             <div className="text-center">
-              <h1 className="text-display text-white/90">Start a new mission</h1>
+              <h1 className="text-display text-white/90">Start a new task</h1>
               <p className="text-body text-white/70 mt-2">
                 {loadingRepos
                   ? "Checking your GitHub connection..."
