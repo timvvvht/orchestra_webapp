@@ -353,7 +353,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
   return (
     <ChatUIProvider>
       <SelectionProvider>
-        <div className="h-full w-full bg-black flex flex-col overflow-hidden min-h-0">
+        <div className="min-h-full w-full bg-black flex flex-col overflow-hidden min-h-0">
           {/* Subtle background */}
           <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-gray-950 via-black to-gray-950" />
           <div className="fixed inset-0 pointer-events-none">
@@ -402,8 +402,6 @@ const MissionControl: React.FC<MissionControlProps> = ({
             {/* Layout Split */}
             <LayoutSplit />
           </motion.div>
-
-
 
           {/* New Task Modal */}
           {showNewDraftModal && (
