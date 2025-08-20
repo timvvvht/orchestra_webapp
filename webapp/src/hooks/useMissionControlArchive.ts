@@ -97,12 +97,13 @@ export const useMissionControlArchive = () => {
         moveSessionToStore(sessionId, targets.ACTIVE);
 
         // Trigger UI refresh if callback is available
-        if (sessionRefetchCallback) {
-          console.log(
-            "[useMissionControlArchive] Triggering session refresh after unarchive"
-          );
-          await sessionRefetchCallback();
-        }
+        // Temporarily disabled to test optimistic UI
+        // if (sessionRefetchCallback) {
+        //   console.log(
+        //     "[useMissionControlArchive] Triggering session refresh after unarchive"
+        //   );
+        //   await sessionRefetchCallback();
+        // }
 
         return true;
       } catch (err) {
