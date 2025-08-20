@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState } from "react";
 import { motion } from "framer-motion";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Session, useLocation, useNavigate } from "react-router-dom";
 import {
   useMissionControlStore,
   type MissionControlAgent,
@@ -48,24 +48,6 @@ const itemVariants = {
   },
 };
 
-/**
- * Returns the (non-archived) sessions from the ACS
- * @returns (MissionControlAgent[]) a list of the active sessions
- */
-export const fetchAcsSessions = async (): Promise<MissionControlAgent[]> => {
-  const acs = getDefaultACSClient();
-
-  const resp = await acs.sessions.listSessions({
-    limit: 100,
-    includeMessageCount: true,
-  });
-  const list: SessionSummary[] = resp.data.sessions || [];
-  const nonArchivedSessions = list.filter(
-    (session) => session.archived_at == null
-  );
-  return nonArchivedSessions.map(mapACSSessionsToMCAgent);
-};
-
 interface MissionControlProps {
   repo: any;
 }
@@ -111,34 +93,69 @@ const MissionControl: React.FC<MissionControlProps> = ({
   //   error,
   //   refetch: refetchSessions,
   // } = useSessionsSnapshot(viewMode);
-  const isLoading = false; // still stubbed
+  const [isLoading, setIsLoading] = useState<boolean>(false); // still stubbed
   const error = null;
 
   const fetchArchivedSessions = useCallback(async () => {
     if (archiveLoading) return;
     if (archivedLoaded) return;
-    // Optionally set a loading flag in store if you want
+
     setArchivedLoading(true);
+    setArchivedSessions([]);
 
     const { data } = await supabase
-      .from("sessions")
+      .from("chat_sessions")
       .select("*")
-      .not("archived_at", "is", null);
+      .not("archived_at", "is", null)
+      .limit(100);
+
+    data?.sort((a, b) => {
+      const dateA = new Date(a.archived_at).getTime();
+      const dateB = new Date(b.archived_at).getTime();
+      return dateB - dateA;
+    });
     setArchivedSessions(data ?? []);
     setArchivedLoading(false);
-    setArchivedLoaded(true);
-  }, [setArchivedSessions, archiveLoading, archivedLoaded]);
+  }, [setArchivedSessions, archivedLoaded]);
 
   useEffect(() => {
-    if (viewMode === "archived" && !archivedLoaded) {
-      fetchArchivedSessions();
-    }
+    if (archiveLoading) return; // already fetching
+    if (archivedLoaded) return; // already fetched
+    if (viewMode !== "archived") return; // no need for (time) expensive fetch
+
+    fetchArchivedSessions();
   }, [viewMode, archivedLoaded, fetchArchivedSessions]);
 
   // Fetch plans data
   // const { plansBySession, refetch: refetchPlans } =
   //   usePlansSnapshot(sessionIds);
   const plansBySession = {};
+
+  const fetchAcsSessions: () => Promise<any[]> = useCallback(async () => {
+    if (isLoading) return [];
+    setIsLoading(true);
+
+    try {
+      const { data } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .is("archived_at", null)
+        .limit(100);
+      console.log("[data]", data);
+      setIsLoading(false);
+      return data ?? [];
+    } catch (error: any) {
+      console.error(
+        "[MissionControl][fetchAcsSessions] Failed to fetch sessions from Supabase:",
+        error.message,
+        error.stack || error || "Unknown Error"
+      );
+    } finally {
+      setIsLoading(false);
+    }
+
+    return [];
+  }, [setArchivedSessions, archiveLoading, archivedLoaded]);
 
   useEffect(() => {
     if (booted && user?.id) refetchSessions();

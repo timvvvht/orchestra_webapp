@@ -80,6 +80,7 @@ export interface CollapsedGroups {
   idleUnread: boolean;
   idleRead: boolean;
   drafts: boolean;
+  archived: boolean;
 }
 
 interface MissionControlState {
@@ -201,6 +202,7 @@ export const useMissionControlStore = create<MissionControlState>(
           idleUnread: false,
           idleRead: false,
           drafts: false,
+          archived: false,
         },
         showNewDraftModal: false,
         initialDraftCodePath: null,
@@ -307,7 +309,10 @@ export const useMissionControlStore = create<MissionControlState>(
         if (sessionIndex === -1) return false;
 
         const session = activeSessions[sessionIndex];
-        const updatedSession = { ...session, archived_at: new Date().toISOString() };
+        const updatedSession = {
+          ...session,
+          archived_at: new Date().toISOString(),
+        };
 
         set({
           activeSessions: activeSessions.filter((s) => s.id !== sessionId),
@@ -564,8 +569,6 @@ export const useMissionControlStore = create<MissionControlState>(
       setArchivedSessions: (sessions: MissionControlAgent[]) => {
         set({
           archivedSessions: sessions,
-          archivedLoaded: true,
-          archiveLoading: false,
         });
       },
 

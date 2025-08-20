@@ -4,7 +4,7 @@ import AgentListPanel from "./AgentListPanel";
 import ChatPane from "./ChatPane";
 
 const LayoutSplit: React.FC = () => {
-  const { selectedSession } = useMissionControlStore();
+  const { selectedSession, archiveLoading } = useMissionControlStore();
   // Committed width percentage (applied on mount and when drag ends)
   const [leftPanelPercentage, setLeftPanelPercentage] = useState(40);
   const [isDragging, setIsDragging] = useState(false);
