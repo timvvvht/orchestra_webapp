@@ -115,7 +115,6 @@ const getHumanReadableActivity = (
 } => {
   const role = agent.latest_message_role;
   const content = agent.latest_message_content;
-  console.log(`Role: ${role} - Content: ${content}`)
 
   // Special states
   if (agent.status === 'creating') {
@@ -229,21 +228,6 @@ const AgentCard: React.FC<AgentCardProps> = ({
   const plan = useMissionControlStore(state => state.plans[agent.id]);
   const progress = useMissionControlStore(state => state.planProgress[agent.id]);
   
-  // Modal state (only when plan exists)
-  const [showPlanModal, setShowPlanModal] = useState(false);
-  
-  // // Debug logging for plan data
-  // console.log(`[plan] AgentCard for session ${agent.id}:`, {
-  //   hasPlan: !!plan,
-  //   hasProgress: !!progress,
-  //   plan: plan,
-  //   progress: progress,
-  //   allPlansKeys: Object.keys(plans),
-  //   allProgressKeys: Object.keys(planProgress)
-  // });
-
-  // Debug logging for message content
-  // console.log('[AgentCard] latest_message_content:', agent.latest_message_content, 'role:', agent.latest_message_role, 'agent:', agent);
 
   // Memoize expensive computations
   const activityInfo = useMemo(() => getHumanReadableActivity(agent), [agent]);
