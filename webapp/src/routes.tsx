@@ -14,6 +14,10 @@ import StepInstall from "./routes/github/StepInstall";
 import InstallCallback from "./routes/github/InstallCallback";
 import StartChat from "./routes/StartChat";
 import SessionInspector from "./routes/session-inspector";
+import Sessions from "./routes/Sessions";
+import InfraDashboard from "./routes/InfraDashboard";
+import GlobalInfraDashboard from "./routes/GlobalInfraDashboard";
+import WorkspaceHome from "./routes/WorkspaceHome";
 
 // Lazy load components for better performance
 const Landing = lazy(() => import("./routes/Landing"));
@@ -34,6 +38,26 @@ export const routes: RouteObject[] = [
       {
         path: "mission-control",
         element: <MissionControl repo={null} />,
+      },
+      {
+        path: "sessions",
+        element: <Sessions />,
+      },
+      {
+        path: "infra/dashboard",
+        element: <InfraDashboard />,
+      },
+      {
+        path: "infra/global",
+        element: <GlobalInfraDashboard />,
+      },
+      {
+        path: "workspaces",
+        element: <WorkspaceHome />,
+      },
+      {
+        path: "workspaces/w/:repoId/:branch",
+        element: <WorkspaceHome />,
       },
       {
         path: "auth",

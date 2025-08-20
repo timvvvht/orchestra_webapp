@@ -3,7 +3,13 @@
  * Provides safe file I/O operations within Tauri environment
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '@/utils/runtime';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 
 /**
  * Ensure we're running in a Tauri environment
@@ -21,7 +27,7 @@ function ensureTauri() {
  */
 export async function readFileAbs(absPath: string): Promise<string> {
   ensureTauri();
-  return invoke<string>('fs_read_file_abs', { path: absPath });
+  return tauriInvoke<string>('fs_read_file_abs', { path: absPath });
 }
 
 /**
@@ -31,7 +37,7 @@ export async function readFileAbs(absPath: string): Promise<string> {
  */
 export async function writeFileAbs(absPath: string, content: string): Promise<void> {
   ensureTauri();
-  return invoke<void>('fs_write_file_abs', { path: absPath, contents: content });
+  return tauriInvoke<void>('fs_write_file_abs', { path: absPath, contents: content });
 }
 
 /**
@@ -41,5 +47,5 @@ export async function writeFileAbs(absPath: string, content: string): Promise<vo
  */
 export async function existsAbs(absPath: string): Promise<boolean> {
   ensureTauri();
-  return invoke<boolean>('fs_exists_abs', { path: absPath });
+  return tauriInvoke<boolean>('fs_exists_abs', { path: absPath });
 }

@@ -1,20 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/auth/SupabaseClient";
 import { acsGithubApi } from "@/services/acsGitHubApi";
 import { useAuth } from "@/auth/AuthContext";
 import { useMissionControlStore } from "@/stores/missionControlStore";
 import { toast } from "sonner";
 import * as taskOrchestration from "@/utils/taskOrchestration";
-import { startBackgroundSessionOps } from "@/workers/sessionBackgroundWorker";
+// import { startBackgroundSessionOps } from "@/workers/sessionBackgroundWorker";
 import { AUTO_MODE_PRESETS } from "@/utils";
 import { recentProjectsManager } from "@/utils/projectStorage";
+import { getDefaultACSClient } from "@/services/acs";
+import { sendChatMessage } from "@/utils/sendChatMessage";
 
 type RepoItem = { id: number; full_name: string };
 
 export default function StartChat() {
   const navigate = useNavigate();
   const auth = useAuth();
+  const [searchParams] = useSearchParams();
 
   // ACS client
   const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "http://localhost:8001").replace(/\/$/, "");
@@ -32,6 +35,14 @@ export default function StartChat() {
   const [githubRequired, setGithubRequired] = useState<boolean>(false);
   const [noRepos, setNoRepos] = useState<boolean>(false);
   const [busy, setBusy] = useState(false);
+
+  // Query params → preselect repo/branch when coming from /workspaces
+  const paramRepoId = useMemo(() => {
+    const v = searchParams.get("repoId");
+    const n = v ? Number(v) : undefined;
+    return Number.isFinite(n as number) ? (n as number) : undefined;
+  }, [searchParams]);
+  const paramBranch = useMemo(() => searchParams.get("branch") || undefined, [searchParams]);
 
   // Derived state for progressive disclosure
   const showSetup = !githubRequired && !loadingRepos && repos.length > 0;
@@ -72,6 +83,24 @@ export default function StartChat() {
   useEffect(() => {
     loadRepos();
   }, [loadRepos]);
+
+  // Preselect branch from URL param (do not override user edits)
+  useEffect(() => {
+    if (paramBranch && branch === "main") {
+      setBranch(paramBranch);
+    }
+  }, [paramBranch]);
+
+  // Preselect repo id and full_name after repos load
+  useEffect(() => {
+    if (paramRepoId && repos.length > 0 && selectedRepoId === "") {
+      const r = repos.find(x => x.id === paramRepoId);
+      if (r) {
+        setSelectedRepoId(paramRepoId);
+        setSelectedRepoFullName(r.full_name);
+      }
+    }
+  }, [paramRepoId, repos, selectedRepoId]);
 
   // Trigger GitHub App install
   const onConnectGitHub = useCallback(async () => {
@@ -171,45 +200,28 @@ export default function StartChat() {
       // Navigate to Mission Control (no provision state needed)
       navigate("/mission-control", { replace: false });
 
-      // Start background operations (backend handles repo provisioning + workspace setup)
-      startBackgroundSessionOps(sessionId, {
-        sessionName: title,
-        agentConfigId: "general",
-        userId: auth.user.id,
-        projectRoot: "/workspace", // Backend will resolve actual workspace path
-        originalProjectPath: "/workspace",
-        firstMessage: prompt.trim(),
-        enableWorktrees: true, // Let backend decide based on repo context
-        skipWorkspacePreparation: false, // Backend handles this
-        autoMode: true,
-        modelAutoMode: true,
-        roleModelOverrides: AUTO_MODE_PRESETS.best,
-        // Pass repo context for backend provisioning
-        repoContext: {
-          repo_id: selectedRepoId,
-          repo_full_name: selectedRepoFullName,
-          branch: branch.trim(),
-        },
-        onProgress: (step, progress) => {
-          console.log(`[StartChat] Background progress: ${step} - ${progress}%`);
-        },
-        onError: (error, step) => {
-          console.error(`[StartChat] Background error in ${step}:`, error);
-          store.setBackgroundProcessing(sessionId, false);
-          store.updateSession(sessionId, { status: "error" });
-          toast.error("Failed to set up mission", {
-            description: error.message,
-          });
-        },
-        onComplete: () => {
-          console.log("[StartChat] Background operations completed");
-          store.setBackgroundProcessing(sessionId, false);
-          store.updateSession(sessionId, { status: "active" });
-          toast.success("Mission ready", {
-            description: "Agent is now working on your mission",
-          });
-        },
-      });
+      // Minimal web-first path: provision + start via /acs/converse/web
+      try {
+        const acs = getDefaultACSClient();
+        await sendChatMessage({
+          sessionId,
+          message: prompt.trim(),
+          userId: auth.user.id,
+          agentConfigName: "general",
+          acsClient: acs,
+          autoMode: true,
+          modelAutoMode: true,
+          roleModelOverrides: AUTO_MODE_PRESETS.best,
+          repoContextWeb: {
+            repo_id: selectedRepoId,
+            repo_full_name: selectedRepoFullName,
+            branch: branch.trim(),
+          },
+        });
+      } catch (err: any) {
+        console.error("[StartChat] /acs/converse/web failed via sendChatMessage:", err);
+        toast.error("Workspace provisioning failed", { description: err?.message || "Unknown error" });
+      }
 
     } catch (error) {
       console.error("[StartChat] Failed to create mission:", error);
@@ -235,7 +247,7 @@ export default function StartChat() {
           <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
           <div className="relative z-10 space-y-6">
             <div className="text-center">
-              <h1 className="text-display text-white/90">Start a new mission</h1>
+              <h1 className="text-display text-white/90">Start a new task</h1>
               <p className="text-body text-white/70 mt-2">
                 {loadingRepos
                   ? "Checking your GitHub connection..."

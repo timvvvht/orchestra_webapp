@@ -208,6 +208,7 @@ export function getToolDisplayName(toolName: string): string {
 
         // File operations
         str_replace_editor: 'Editing files',
+        apply_patch: 'Editing files',
         read_file: 'Reading files',
         read_files: 'Reading files',
         search_files: 'Searching files',
@@ -218,6 +219,11 @@ export function getToolDisplayName(toolName: string): string {
         grep: 'Searching files',
         find: 'Finding files',
         tree: 'Exploring files',
+
+        // planning
+        plan_create_structure: 'Planning',
+        plan_add_tasks: 'Planning',
+        plan_finalize: 'Planning',
 
         // File system operations
         mv: 'Managing files',

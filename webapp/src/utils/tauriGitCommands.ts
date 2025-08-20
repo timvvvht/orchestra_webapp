@@ -5,7 +5,13 @@
  * to replace Node.js child_process.execSync calls in SimpleNodeJsBackend.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '@/utils/runtime';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 
 export interface GitCommandResult {
   success: boolean;
@@ -18,63 +24,63 @@ export interface GitCommandResult {
  * Initialize a git repository in the .orchestra directory
  */
 export async function gitInit(cwd: string, workspaceOverride?: string): Promise<GitCommandResult> {
-  return await invoke('simple_git_init', { cwd: workspaceOverride || cwd });
+  return await tauriInvoke('simple_git_init', { cwd: workspaceOverride || cwd });
 }
 
 /**
  * Check if a git repository exists in the .orchestra directory
  */
 export async function gitHasRepository(cwd: string, workspaceOverride?: string): Promise<boolean> {
-  return await invoke('simple_git_has_repository', { cwd: workspaceOverride || cwd });
+  return await tauriInvoke('simple_git_has_repository', { cwd: workspaceOverride || cwd });
 }
 
 /**
  * Get the current commit hash
  */
 export async function gitGetCurrentCommit(cwd: string, workspaceOverride?: string): Promise<string | null> {
-  return await invoke('simple_git_get_current_commit', { cwd: workspaceOverride || cwd });
+  return await tauriInvoke('simple_git_get_current_commit', { cwd: workspaceOverride || cwd });
 }
 
 /**
  * Get git log history
  */
 export async function gitGetHistory(cwd: string, limit?: number, workspaceOverride?: string): Promise<GitCommandResult> {
-  return await invoke('simple_git_get_history', { cwd: workspaceOverride || cwd, limit });
+  return await tauriInvoke('simple_git_get_history', { cwd: workspaceOverride || cwd, limit });
 }
 
 /**
  * Add all files to git staging area
  */
 export async function gitAddAll(cwd: string, workspaceOverride?: string): Promise<GitCommandResult> {
-  return await invoke('simple_git_add_all', { cwd: workspaceOverride || cwd });
+  return await tauriInvoke('simple_git_add_all', { cwd: workspaceOverride || cwd });
 }
 
 /**
  * Check if there are staged changes
  */
 export async function gitHasStagedChanges(cwd: string, workspaceOverride?: string): Promise<boolean> {
-  return await invoke('simple_git_has_staged_changes', { cwd: workspaceOverride || cwd });
+  return await tauriInvoke('simple_git_has_staged_changes', { cwd: workspaceOverride || cwd });
 }
 
 /**
  * Create a git commit
  */
 export async function gitCommit(cwd: string, message: string, workspaceOverride?: string): Promise<GitCommandResult> {
-  return await invoke('simple_git_commit', { cwd: workspaceOverride || cwd, message });
+  return await tauriInvoke('simple_git_commit', { cwd: workspaceOverride || cwd, message });
 }
 
 /**
  * Get git diff between commits or commit and working tree
  */
 export async function gitDiff(cwd: string, fromSha: string, toSha?: string, workspaceOverride?: string): Promise<GitCommandResult> {
-  return await invoke('simple_git_diff', { cwd: workspaceOverride || cwd, fromSha, toSha });
+  return await tauriInvoke('simple_git_diff', { cwd: workspaceOverride || cwd, fromSha, toSha });
 }
 
 /**
  * Reset git repository to a specific commit
  */
 export async function gitResetHard(cwd: string, sha: string, workspaceOverride?: string): Promise<GitCommandResult> {
-  return await invoke('simple_git_reset_hard', { cwd: workspaceOverride || cwd, sha });
+  return await tauriInvoke('simple_git_reset_hard', { cwd: workspaceOverride || cwd, sha });
 }
 
 /**
@@ -90,7 +96,7 @@ export async function gitShowFile(cwd: string, sha: string, filePath: string, wo
   });
   
   try {
-    const result = await invoke('simple_git_show_file', { 
+    const result = await tauriInvoke('simple_git_show_file', { 
       cwd: workspaceOverride || cwd, 
       sha, 
       filePath 
@@ -136,14 +142,14 @@ export async function gitShowFile(cwd: string, sha: string, filePath: string, wo
  * Copy files from workspace to .orchestra directory
  */
 export async function gitSyncWorkspaceToOrchestra(cwd: string, workspaceOverride?: string): Promise<boolean> {
-  return await invoke('simple_git_sync_workspace_to_orchestra', { cwd: workspaceOverride || cwd });
+  return await tauriInvoke('simple_git_sync_workspace_to_orchestra', { cwd: workspaceOverride || cwd });
 }
 
 /**
  * Copy files from .orchestra directory back to workspace
  */
 export async function gitSyncOrchestraToWorkspace(cwd: string, workspaceOverride?: string): Promise<boolean> {
-  return await invoke('simple_git_sync_orchestra_to_workspace', { cwd: workspaceOverride || cwd });
+  return await tauriInvoke('simple_git_sync_orchestra_to_workspace', { cwd: workspaceOverride || cwd });
 }
 
 /**

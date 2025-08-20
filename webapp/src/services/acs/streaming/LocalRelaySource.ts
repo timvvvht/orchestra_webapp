@@ -1,8 +1,14 @@
 /* eslint-env browser */
 /* eslint-disable import/namespace */
 import mitt from 'mitt';
-import { listen } from '@tauri-apps/api/event';
+import { isTauri } from '@/utils/runtime';
 import type { ACSRawEvent } from './ACSFirehoseService';
+
+async function tauriListen<T>(event: string, handler: (event: T) => void): Promise<() => void> {
+  if (!isTauri()) throw new Error("Tauri event listen not available in web environment");
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<T>(event, handler);
+}
 
 type Events = {
     data: ACSRawEvent;
@@ -30,7 +36,7 @@ export class LocalRelaySource {
         }
 
         try {
-            this.unlistenFn = await listen<unknown>('user_sse', ({ payload }) => {
+            this.unlistenFn = await tauriListen<unknown>('user_sse', ({ payload }) => {
                 try {
                     // Convert Tauri event payload to ACSRawEvent format
                     const payloadObj = payload as Record<string, unknown>;

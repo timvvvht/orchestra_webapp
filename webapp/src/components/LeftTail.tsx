@@ -115,6 +115,7 @@ export const LeftRail: React.FC = () => {
     //{ to: "/", label: "Home", icon: Home },
     { to: "/", label: "Home", icon: Home },
     { to: "/mission-control", label: "Mission", icon: Bot },
+    { to: "/infra/dashboard", label: "Infra", icon: Activity },
     // { to: '/dashboard', label: 'Home', icon: Home },
     //{ to: "/chat", label: "Chat", icon: Bot },
     //{ to: "/vault", label: "Notes", icon: FileText, onClick: handleVaultClick },
