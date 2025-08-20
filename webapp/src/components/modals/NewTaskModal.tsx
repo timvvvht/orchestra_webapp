@@ -697,12 +697,16 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
 
       // Insert session into store
       const store = useMissionControlStore.getState();
-      const currentSessions = useMissionControlStore.getState().sessions;
+      const currentSessions = useMissionControlStore.getState().activeSessions;
       store.setSessions([sessionData, ...currentSessions]);
 
       console.debug(
         "[NewTaskModal][sendCore] currentSessions: ",
-        JSON.stringify(useMissionControlStore.getState().sessions, null, 2)
+        JSON.stringify(
+          useMissionControlStore.getState().activeSessions,
+          null,
+          2
+        )
       );
 
       if (currentSessions.length === 0) {

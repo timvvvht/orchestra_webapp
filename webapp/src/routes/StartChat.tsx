@@ -214,7 +214,7 @@ export default function StartChat() {
       // optimistic UI
       navigate("/mission-control", { replace: false });
       const store = useMissionControlStore.getState();
-      const sessions = store.sessions;
+      const sessions = store.activeSessions;
       store.setSessions([sessionData, ...sessions]);
 
       await sendChatMessage({
