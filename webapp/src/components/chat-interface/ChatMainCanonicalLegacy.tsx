@@ -168,14 +168,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const navigate = useNavigate();
   const location = useLocation();
 
-  // SSE Streaming - REMOVED: Now handled by ChatEventOrchestrator
-  // const {
-  //   isConnected: sseConnected,
-  //   connectStreaming,
-  //   disconnectStreaming,
-  //   onSSEEvent
-  // } = useACSChatStreaming(acsClient);
-
   // State - inputMessage moved to ChatInput component for performance
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
@@ -594,12 +586,18 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []); // run once
 
+  const isSessionSwitch =
+    previousSessionIdRef.current &&
+    previousSessionIdRef.current !== sessionId &&
+    !!sessionId &&
+    !sessionId.startsWith("temp-");
+
   // Auto-hydrate on session change
   useEffect(() => {
     if (sessionId && !sessionId.startsWith("temp-")) {
       setLocalIsLoading(true);
 
-      setIsSessionHydrating(true);
+      setIsSessionHydrating(Boolean(isSessionSwitch));
 
       const store = useEventStore.getState();
 
@@ -1363,6 +1361,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             <ChatTypingIndicator
               isVisible={effectiveActive}
               agentName="AI Assistant"
+              showThinkingState={
+                (messages.length > 0 &&
+                  messages[messages.length - 1].thinking) ||
+                false
+              }
             />
 
             {/* Chat Scroll Anchor - invisible element at bottom for auto-scroll detection */}
@@ -1454,6 +1457,9 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       <NewChatModal
         isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
+        onCreateChat={(config) => {
+          console.log("🆕 [ChatMain] Creating new chat with config:", config);
+        }}
       />
 
       {/* Debug Panel */}
