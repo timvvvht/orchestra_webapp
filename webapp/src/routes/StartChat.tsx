@@ -153,6 +153,7 @@ export default function StartChat() {
 
     try {
       setInfo("Creating session...");
+      setBusy(true);
       setSending(true);
       const cs = await createSessionFast({
         sessionName: `Task: ${trimmedPrompt.slice(0, 60)}`,
@@ -236,6 +237,7 @@ export default function StartChat() {
       setError(e?.message || String(e));
     } finally {
       setSending(false);
+      setBusy(false);
     }
   }, [selectedRepoId, selectedRepoFullName, branch, prompt]);
 
@@ -576,9 +578,15 @@ export default function StartChat() {
                   <button
                     onClick={onSubmit}
                     disabled={busy || !selectedRepoId || !prompt.trim()}
-                    className="group relative px-6 py-3 bg-white text-black rounded-xl font-medium transition-all duration-300 hover:scale-105 active:scale-100 disabled:opacity-50 cursor-pointer"
+                    className={`group relative px-6 py-3 bg-white text-black rounded-xl font-medium transition-all duration-300 active:scale-100 disabled:opacity-50 cursor-pointer ${
+                      busy ? "" : "hover:scale-105"
+                    }`}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-xl opacity-0 transition-opacity ${
+                        busy ? "" : "group-hover:opacity-100"
+                      }`}
+                    />
                     <span className="relative z-10">
                       {busy ? "Starting Mission…" : "Start Mission"}
                     </span>

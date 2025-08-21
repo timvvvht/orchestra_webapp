@@ -103,18 +103,49 @@ const MissionControl: React.FC<MissionControlProps> = ({
     setArchivedLoading(true);
     setArchivedSessions([]);
 
-    const { data } = await supabase
+    // Get archived sessions
+    const { data: archivedSessions } = await supabase
       .from("chat_sessions")
       .select("*")
       .not("archived_at", "is", null)
+      .order("archived_at", { ascending: false })
       .limit(100);
 
-    data?.sort((a, b) => {
-      const dateA = new Date(a.archived_at).getTime();
-      const dateB = new Date(b.archived_at).getTime();
-      return dateB - dateA;
+    if (!archivedSessions?.length) {
+      setArchivedSessions([]);
+      setArchivedLoading(false);
+      return;
+    }
+
+    // Get latest messages for archived sessions
+    const sessionIds = archivedSessions.map(s => s.id);
+    const { data: latestMessages } = await supabase
+      .from("chat_messages")
+      .select("id, session_id, role, content, timestamp")
+      .in("session_id", sessionIds)
+      .order("timestamp", { ascending: false });
+
+    // Create a map of session_id -> latest message
+    const latestMessageMap = new Map();
+    latestMessages?.forEach(msg => {
+      if (!latestMessageMap.has(msg.session_id)) {
+        latestMessageMap.set(msg.session_id, msg);
+      }
     });
-    setArchivedSessions(data ?? []);
+
+    // Merge archived sessions with their latest messages
+    const enrichedArchivedSessions = archivedSessions.map(session => {
+      const latestMessage = latestMessageMap.get(session.id);
+      return {
+        ...session,
+        latest_message_id: latestMessage?.id || null,
+        latest_message_role: latestMessage?.role || null,
+        latest_message_content: latestMessage?.content || null,
+        latest_message_timestamp: latestMessage?.timestamp || null,
+      };
+    });
+
+    setArchivedSessions(enrichedArchivedSessions);
     setArchivedLoading(false);
   }, [setArchivedSessions, archivedLoaded]);
 
@@ -136,14 +167,50 @@ const MissionControl: React.FC<MissionControlProps> = ({
     setIsLoading(true);
 
     try {
-      const { data } = await supabase
+      // First get sessions
+      const { data: sessions } = await supabase
         .from("chat_sessions")
         .select("*")
         .is("archived_at", null)
+        .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(100);
-      console.log("[data]", data);
+
+      if (!sessions?.length) {
+        setIsLoading(false);
+        return [];
+      }
+
+      // Get latest message for each session
+      const sessionIds = sessions.map(s => s.id);
+      const { data: latestMessages } = await supabase
+        .from("chat_messages")
+        .select("id, session_id, role, content, timestamp")
+        .in("session_id", sessionIds)
+        .order("timestamp", { ascending: false });
+
+      // Create a map of session_id -> latest message
+      const latestMessageMap = new Map();
+      latestMessages?.forEach(msg => {
+        if (!latestMessageMap.has(msg.session_id)) {
+          latestMessageMap.set(msg.session_id, msg);
+        }
+      });
+
+      // Merge sessions with their latest messages
+      const enrichedSessions = sessions.map(session => {
+        const latestMessage = latestMessageMap.get(session.id);
+        return {
+          ...session,
+          latest_message_id: latestMessage?.id || null,
+          latest_message_role: latestMessage?.role || null,
+          latest_message_content: latestMessage?.content || null,
+          latest_message_timestamp: latestMessage?.timestamp || null,
+        };
+      });
+
+      console.log("[data]", enrichedSessions);
       setIsLoading(false);
-      return data ?? [];
+      return enrichedSessions;
     } catch (error: any) {
       console.error(
         "[MissionControl][fetchAcsSessions] Failed to fetch sessions from Supabase:",
