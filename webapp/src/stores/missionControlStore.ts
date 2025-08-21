@@ -70,6 +70,11 @@ export interface MissionControlAgent {
     isPending?: boolean; // Flag for sessions that are still being created/confirmed
     backgroundProcessing?: boolean; // Flag for sessions with background operations in progress
     isFinalized?: boolean; // Session worktree pruned; read-only
+    // Workspace context from generated columns
+    repo_full_name?: string | null;
+    branch?: string | null;
+    repo_id?: number | null;
+    workspace_key?: string | null;
 }
 
 export type ViewMode = 'active' | 'archived';

@@ -8,9 +8,9 @@
 import { isTauri } from '@/utils/runtime';
 
 async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<T>(cmd, args);
+    if (!isTauri()) throw new Error('Tauri invoke not available in web environment');
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke<T>(cmd, args);
 }
 import { toast } from 'sonner';
 import {
@@ -54,7 +54,7 @@ export interface RegisterSessionToolsOptions {
 export async function registerSessionTools({
     sessionId,
     tools,
-    baseUrl = 'https://orchestra-acs.fly.dev', // Default ACS server URL
+    baseUrl = 'https://orchestra-acs-web.fly.dev', // Default ACS server URL
     authToken
 }: RegisterSessionToolsOptions): Promise<void> {
     try {
@@ -395,7 +395,8 @@ export function createStrReplaceEditorToolSpec(): ToolSpec {
 export function createLsToolSpec(): ToolSpec {
     return {
         name: 'ls',
-        description: 'Lists files and directories in a single directory level (non-recursive). Supports three options: include_hidden (boolean, default false), only_dirs (boolean, default false), and path (string, default "."). Hidden files start with a dot (e.g., .gitignore). The output is an array of LsEntry objects, sorted with directories first, then alphabetically. Each LsEntry has a name (string), is_dir (boolean), and size (number).',
+        description:
+            'Lists files and directories in a single directory level (non-recursive). Supports three options: include_hidden (boolean, default false), only_dirs (boolean, default false), and path (string, default "."). Hidden files start with a dot (e.g., .gitignore). The output is an array of LsEntry objects, sorted with directories first, then alphabetically. Each LsEntry has a name (string), is_dir (boolean), and size (number).',
         input_schema: {
             type: 'object',
             properties: {

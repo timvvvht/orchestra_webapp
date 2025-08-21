@@ -1,6 +1,6 @@
 "use strict";
 // ACS API Types and Interfaces
-// Generated from OpenAPI spec: https://orchestra-acs.fly.dev/openapi.json
+// Generated from OpenAPI spec: https://orchestra-acs-web.fly.dev/openapi.json
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MODEL_PROVIDERS = exports.SSE_EVENT_TYPES = exports.ACS_ENDPOINTS = void 0;
 // ============================================================================

@@ -389,17 +389,41 @@ const AgentCard: React.FC<AgentCardProps> = ({
                 >
                   <span className="inline-flex items-center gap-2">
                     {agent.mission_title}
-                    {isWorktree ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-300" data-testid="worktree-chip" title={worktreeName ? `Worktree: ${worktreeName}` : 'Worktree active'}>
-                        <GitBranch className="w-3 h-3" />
-                        Worktree{worktreeName ? `: ${worktreeName}` : ''}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-white/60" data-testid="direct-repo-chip" title="Direct repo (no worktree)">
-                        <GitBranch className="w-3 h-3 opacity-60" />
-                        Repo
-                      </span>
-                    )}
+                    {/* Workspace chip showing repo and branch */}
+                    {(() => {
+                      const workspace = (agent as any).workspace_key || (
+                        (agent as any).repo_full_name && (agent as any).branch 
+                          ? `${(agent as any).repo_full_name}#${(agent as any).branch}` 
+                          : null
+                      );
+                      
+                      if (workspace) {
+                        const [repoName, branchName] = workspace.split('#');
+                        const shortRepo = repoName?.split('/').pop() || repoName;
+                        return (
+                          <span 
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-[10px] text-purple-300" 
+                            data-testid="workspace-chip" 
+                            title={`Workspace: ${workspace}`}
+                          >
+                            <GitBranch className="w-3 h-3" />
+                            {shortRepo}#{branchName}
+                          </span>
+                        );
+                      }
+                      
+                      return isWorktree ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-300" data-testid="worktree-chip" title={worktreeName ? `Worktree: ${worktreeName}` : 'Worktree active'}>
+                          <GitBranch className="w-3 h-3" />
+                          Worktree{worktreeName ? `: ${worktreeName}` : ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-white/60" data-testid="direct-repo-chip" title="Direct repo (no worktree)">
+                          <GitBranch className="w-3 h-3 opacity-60" />
+                          Repo
+                        </span>
+                      );
+                    })()}
                     {agent.isFinalized && (
                       <span
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-[10px] text-white/70"

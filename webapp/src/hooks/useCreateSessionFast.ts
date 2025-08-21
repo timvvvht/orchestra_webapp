@@ -66,6 +66,31 @@ export async function createSessionFast(
         throw new Error("ACS did not return a session ID");
       }
 
+      // 2-step write: Ensure metadata is written even if createSession ignores it
+      // This is a fallback mechanism to guarantee workspace context persistence
+      if (Object.keys(finalMetadata).length > 0) {
+        console.log("[useCreateSessionFast] Session created with metadata:", {
+          sessionId,
+          metadata: finalMetadata,
+          hasWorkspaceKey: !!finalMetadata.workspace_key,
+          repoContext: repoContext ? {
+            repo_id: repoContext.repo_id,
+            repo_full_name: repoContext.repo_full_name,
+            branch: repoContext.branch
+          } : null
+        });
+        
+        try {
+          await acs.sessions.updateSession(sessionId, { metadata: finalMetadata });
+          console.log("[useCreateSessionFast] ✅ Metadata written via fallback update - workspace context persisted");
+        } catch (updateError) {
+          console.warn("[useCreateSessionFast] ❌ Failed to write metadata via fallback update:", updateError);
+          // Don't fail the entire session creation if metadata update fails
+        }
+      } else {
+        console.log("[useCreateSessionFast] Session created without metadata:", { sessionId });
+      }
+
       return { sessionId, success: true };
     } else {
       // No explicit options: use convenience method with smart defaults

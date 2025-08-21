@@ -19,5 +19,10 @@ export const mapACSSessionsToMCAgent = (
     agent_cwd: s.agent_cwd || null,
     base_dir: s.base_dir || null,
     archived_at: null,
+    // Workspace context from generated columns
+    repo_full_name: s.repo_full_name || null,
+    branch: s.branch || null,
+    repo_id: s.repo_id || null,
+    workspace_key: s.workspace_key || null,
   };
 };

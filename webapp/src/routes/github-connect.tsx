@@ -346,7 +346,16 @@ export default function GitHubConnectPage() {
     }
     try {
       setInfo("Creating session…");
-      const cs = await createSessionFast({ sessionName: `Task: ${chatPrompt.slice(0,60)}`, agentConfigId: "general" });
+      // Pass repoContext so metadata + generated columns are populated immediately
+      const cs = await createSessionFast({
+        sessionName: `Task: ${chatPrompt.slice(0,60)}`,
+        agentConfigId: "general",
+        repoContext: {
+          repo_id: selectedRepoId!,
+          repo_full_name: selectedRepoFullName!,
+          branch: branch.trim(),
+        },
+      });
       if (!cs?.success || !cs.sessionId) {
         return setErr(cs?.error || "Failed to create session");
       }
