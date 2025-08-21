@@ -1,19 +1,19 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState } from "react";
 
-import { useMissionControlStore } from '@/stores/missionControlStore';
+import { useMissionControlStore } from "@/stores/missionControlStore";
 
-import { SessionIdContext } from '@/context/SessionIdContext';
-import ChatMainCanonicalLegacy from '@/components/chat-interface/ChatMainCanonicalLegacy';
-import { sendChatMessage } from '@/utils/sendChatMessage';
-import { getDefaultACSClient } from '@/services/acs';
-import { useAuth } from '@/auth/AuthContext';
-import { useSessionStatusStore } from '@/stores/sessionStatusStore';
-import { toast } from 'sonner';
-import { isTauri } from '@/utils/environment';
+import { SessionIdContext } from "@/context/SessionIdContext";
+import ChatMainCanonicalLegacy from "@/components/chat-interface/ChatMainCanonicalLegacy";
+import { sendChatMessage } from "@/utils/sendChatMessage";
+import { getDefaultACSClient } from "@/services/acs";
+import { useAuth } from "@/auth/AuthContext";
+import { useSessionStatusStore } from "@/stores/sessionStatusStore";
+import { toast } from "sonner";
+import { isTauri } from "@/utils/environment";
 
-import PlanPane from './PlanPane';
-import ChatPaneHeader from './ChatPaneHeader';
-import CheckpointsPane from './CheckpointsPane';
+import PlanPane from "./PlanPane";
+import ChatPaneHeader from "./ChatPaneHeader";
+import CheckpointsPane from "./CheckpointsPane";
 
 // Simple Error Boundary for debugging
 class ChatErrorBoundary extends React.Component<
@@ -30,7 +30,7 @@ class ChatErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ChatMainCanonicalLegacy Error:', error, errorInfo);
+    console.error("ChatMainCanonicalLegacy Error:", error, errorInfo);
   }
 
   render() {
@@ -55,119 +55,145 @@ class ChatErrorBoundary extends React.Component<
   }
 }
 
-
-
 const ChatPane: React.FC = () => {
   const auth = useAuth();
-  const { 
-    selectedSession, 
-    sessions, 
-    setShowNewDraftModal, 
+  const {
+    selectedSession,
+    activeSessions: sessions,
+    setShowNewDraftModal,
     setInitialDraftCodePath,
     updateSession,
     ensureInProcessingOrder,
     markSessionUnread,
-    markSessionRead
+    markSessionRead,
   } = useMissionControlStore();
-  const [activeView, setActiveView] = useState<'chat' | 'plan' | 'checkpoints'>('chat');
+  const [activeView, setActiveView] = useState<"chat" | "plan" | "checkpoints">(
+    "chat"
+  );
   const [isOpeningModal, setIsOpeningModal] = useState(false);
   const [pausedMap, setPausedMap] = useState<Record<string, boolean>>({});
-  
-  const selectedAgent = sessions.find(agent => agent.id === selectedSession);
-  const hasPlan = useMissionControlStore(state => selectedSession ? !!state.plans[selectedSession] : false);
 
-  const status = useSessionStatusStore(s => (selectedSession ? s.getStatus(selectedSession) : 'idle'));
+  const selectedAgent = sessions.find((agent) => agent.id === selectedSession);
+  const hasPlan = useMissionControlStore((state) =>
+    selectedSession ? !!state.plans[selectedSession] : false
+  );
+
+  const status = useSessionStatusStore((s) =>
+    selectedSession ? s.getStatus(selectedSession) : "idle"
+  );
   const paused = !!(selectedSession && pausedMap[selectedSession]);
-  const sessionIsActive = (status !== 'idle') && !paused;
+  const sessionIsActive = status !== "idle" && !paused;
   const onToggleSessionActive = (next: boolean) => {
     if (!selectedSession) return;
     // Interpret toggle as flipping paused state: next=true => active => paused=false
-    setPausedMap(prev => ({ ...prev, [selectedSession]: !next }));
+    setPausedMap((prev) => ({ ...prev, [selectedSession]: !next }));
   };
 
   // Custom submit handler for Mission Control chat messages
-  const handleSubmit = useCallback(async (message: string) => {
-    if (!selectedSession || !auth.user?.id || !selectedAgent) {
-      toast.error('Please sign in and select a session to send messages');
-      return;
-    }
+  const handleSubmit = useCallback(
+    async (message: string) => {
+      if (!selectedSession || !auth.user?.id || !selectedAgent) {
+        toast.error("Please sign in and select a session to send messages");
+        return;
+      }
 
-    // Prevent sending messages to a finalized (pruned) session
-    if (selectedAgent.isFinalized) {
-      toast.error('This session is finalized', {
-        description: 'The worktree was pruned. Create a new task to continue.'
-      });
-      return;
-    }
+      // Prevent sending messages to a finalized (pruned) session
+      if (selectedAgent.isFinalized) {
+        toast.error("This session is finalized", {
+          description:
+            "The worktree was pruned. Create a new task to continue.",
+        });
+        return;
+      }
 
-    try {
-      // 🚀 OPTIMISTIC UPDATE: Immediately move session to processing for better UX
-      console.log('[UI] Optimistic update: Moving session to processing on message send:', selectedSession);
-      
-      // Update session to processing state immediately
-      updateSession(selectedSession, {
-        status: 'working',
-        latest_message_content: 'Processing your request…',
-        latest_message_role: 'user',
-        latest_message_timestamp: new Date().toISOString(),
-        last_message_at: new Date().toISOString()
-      });
-      
-      // Move to processing bucket and mark as read (since user is actively using it)
-      ensureInProcessingOrder(selectedSession);
-      markSessionRead(selectedSession);
-      console.log('[UI] Optimistic update complete: Session moved to processing bucket and marked as read');
-      
-      const acsClient = getDefaultACSClient();
-      
-      // Build overrides object first
-      const overrides = selectedAgent.agent_cwd ? {
-        agent_cwd_override: selectedAgent.agent_cwd
-      } : undefined;
-      
-      console.log('[ChatPane] Sending message with Mission Control overrides:', {
-        sessionId: selectedSession.slice(0, 8) + '...',
-        agentConfigName: selectedAgent.agent_config_name,
-        agentCwd: selectedAgent.agent_cwd,
-        autoMode: true,
-        modelAutoMode: true
-      });
+      try {
+        // 🚀 OPTIMISTIC UPDATE: Immediately move session to processing for better UX
+        console.log(
+          "[UI] Optimistic update: Moving session to processing on message send:",
+          selectedSession
+        );
 
-      await sendChatMessage({
-        sessionId: selectedSession,
-        message,
-        userId: auth.user.id,
-        agentConfigName: selectedAgent.agent_config_name || 'general',
-        acsClient,
-        autoMode: true,          // Enable automatic agent config selection
-        modelAutoMode: true,     // Enable automatic model switching
-        ...(overrides && { acsOverrides: overrides })
-      });
+        // Update session to processing state immediately
+        updateSession(selectedSession, {
+          status: "working",
+          latest_message_content: "Processing your request…",
+          latest_message_role: "user",
+          latest_message_timestamp: new Date().toISOString(),
+          last_message_at: new Date().toISOString(),
+        });
 
-      console.log(`[ChatPane] ✅ Message sent successfully with Mission Control overrides: ${selectedSession.slice(0, 8) + '...'}`);
-    } catch (error) {
-      console.error('[ChatPane] Failed to send message:', error);
-      toast.error('Failed to send message', {
-        description: 'Please try again'
-      });
-    }
-  }, [selectedSession, selectedAgent, auth.user?.id]);
+        // Move to processing bucket and mark as read (since user is actively using it)
+        ensureInProcessingOrder(selectedSession);
+        markSessionRead(selectedSession);
+        console.log(
+          "[UI] Optimistic update complete: Session moved to processing bucket and marked as read"
+        );
+
+        const acsClient = getDefaultACSClient();
+
+        // Build overrides object first
+        const overrides = selectedAgent.agent_cwd
+          ? {
+              agent_cwd_override: selectedAgent.agent_cwd,
+            }
+          : undefined;
+
+        console.log(
+          "[ChatPane] Sending message with Mission Control overrides:",
+          {
+            sessionId: selectedSession.slice(0, 8) + "...",
+            agentConfigName: selectedAgent.agent_config_name,
+            agentCwd: selectedAgent.agent_cwd,
+            autoMode: true,
+            modelAutoMode: true,
+          }
+        );
+
+        await sendChatMessage({
+          sessionId: selectedSession,
+          message,
+          userId: auth.user.id,
+          agentConfigName: selectedAgent.agent_config_name || "general",
+          acsClient,
+          autoMode: true, // Enable automatic agent config selection
+          modelAutoMode: true, // Enable automatic model switching
+          ...(overrides && { acsOverrides: overrides }),
+        });
+
+        console.log(
+          `[ChatPane] ✅ Message sent successfully with Mission Control overrides: ${selectedSession.slice(0, 8) + "..."}`
+        );
+      } catch (error) {
+        console.error("[ChatPane] Failed to send message:", error);
+        toast.error("Failed to send message", {
+          description: "Please try again",
+        });
+      }
+    },
+    [selectedSession, selectedAgent, auth.user?.id]
+  );
 
   if (!selectedSession) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-3">
-          <p className="text-white/60">Start a Task or Open a Project to begin</p>
+          <p className="text-white/60">
+            Start a Task or Open a Project to begin
+          </p>
           {!auth?.isAuthenticated && (
             <p className="text-xs text-white/40">Sign in to start</p>
           )}
           <div className="flex gap-2">
             <button
-              onClick={() => { 
-                if (!auth?.isAuthenticated) { auth?.setShowModal(true); return; }
+              onClick={() => {
+                if (!auth?.isAuthenticated) {
+                  auth?.setShowModal(true);
+                  return;
+                }
                 if (isOpeningModal) return;
                 setIsOpeningModal(true);
-                setInitialDraftCodePath(null); setShowNewDraftModal(true); 
+                setInitialDraftCodePath(null);
+                setShowNewDraftModal(true);
                 setTimeout(() => setIsOpeningModal(false), 300);
               }}
               className="px-3 py-1.5 rounded bg-white text-black text-xs font-medium"
@@ -178,20 +204,26 @@ const ChatPane: React.FC = () => {
               onClick={async () => {
                 if (isTauri()) {
                   try {
-                    const { open } = await import('@tauri-apps/plugin-dialog');
-                    const folder = await open({ directory: true, multiple: false, title: 'Select project' });
-                    if (folder && typeof folder === 'string') {
+                    const { open } = await import("@tauri-apps/plugin-dialog");
+                    const folder = await open({
+                      directory: true,
+                      multiple: false,
+                      title: "Select project",
+                    });
+                    if (folder && typeof folder === "string") {
                       setInitialDraftCodePath(folder);
                       setShowNewDraftModal(true);
                     }
                   } catch (e) {
-                    console.warn('Folder picker failed:', e);
+                    console.warn("Folder picker failed:", e);
                   }
                 } else {
-                  const input = window.prompt('Enter absolute project path');
-                  const value = (input || '').trim();
+                  const input = window.prompt("Enter absolute project path");
+                  const value = (input || "").trim();
                   if (value) {
-                    const isAbsolute = value.startsWith('/') || /^([A-Za-z]:\\\\|\\\\\\\\)/.test(value);
+                    const isAbsolute =
+                      value.startsWith("/") ||
+                      /^([A-Za-z]:\\\\|\\\\\\\\)/.test(value);
                     if (!isAbsolute) return;
                     setInitialDraftCodePath(value);
                     setShowNewDraftModal(true);
@@ -218,12 +250,15 @@ const ChatPane: React.FC = () => {
   }
 
   return (
-    <div className="
+    <div
+      className="
       mission-control-split
       flex flex-col
       h-full
       overflow-hidden
-    " data-testid="chat-pane">
+    "
+      data-testid="chat-pane"
+    >
       {/* Enhanced header with session-specific actions */}
       <ChatPaneHeader
         sessionId={selectedSession}
@@ -232,17 +267,18 @@ const ChatPane: React.FC = () => {
         onViewChange={setActiveView}
         hasPlan={hasPlan}
       />
-      
+
       {/* Finalized banner */}
       {selectedAgent.isFinalized && (
         <div className="flex-shrink-0 bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300">
-          This session is finalized (worktree pruned). Create a new task to continue.
+          This session is finalized (worktree pruned). Create a new task to
+          continue.
         </div>
       )}
 
       {/* Content */}
       <div className="flex-1 h-full overflow-hidden">
-        {activeView === 'chat' ? (
+        {activeView === "chat" ? (
           <ChatErrorBoundary>
             <div className="h-full max-h-full overflow-hidden flex flex-col">
               <SessionIdContext.Provider value={selectedSession}>
@@ -259,13 +295,10 @@ const ChatPane: React.FC = () => {
               </SessionIdContext.Provider>
             </div>
           </ChatErrorBoundary>
-        ) : activeView === 'plan' ? (
+        ) : activeView === "plan" ? (
           <PlanPane sessionId={selectedSession} />
         ) : (
-          <CheckpointsPane 
-            sessionId={selectedSession} 
-            agent={selectedAgent}
-          />
+          <CheckpointsPane sessionId={selectedSession} agent={selectedAgent} />
         )}
       </div>
     </div>

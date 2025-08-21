@@ -16,6 +16,23 @@ import type { CoreTemplateVars } from "@/utils/templateVariables";
 export class ACSCoreService {
   constructor(private client: ACSClient) {}
 
+  async getSlashCommands(
+    options?: RequestOptions
+  ): Promise<
+    APIResponse<{
+      success: boolean;
+      count: number;
+      commands: Array<{
+        command: string;
+        agent_config_name: string;
+        description?: string | null;
+      }>;
+      timestamp: number;
+    }>
+  > {
+    return this.client.get("/acs/slash-commands", options);
+  }
+
   /**
    * Internal: prune overrides to only include fields supported by ACSConverseRequest.overrides
    * Allowed: model_id, provider_name, enabled_tools, disabled_tools, agent_cwd_override

@@ -4,7 +4,7 @@ import { Shield, Save, GitBranch } from "lucide-react";
 import { useMissionControlStore } from "@/stores/missionControlStore";
 
 const AmbientIndicators: React.FC = () => {
-  const { sessions, selectedSession } = useMissionControlStore();
+  const { activeSessions: sessions } = useMissionControlStore();
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const [lastCheckpointTime, setLastCheckpointTime] = useState<Date | null>(
     null

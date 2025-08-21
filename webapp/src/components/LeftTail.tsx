@@ -211,7 +211,6 @@ export const LeftRail: React.FC = () => {
       <div className="px-2 pt-1 pb-3 border-t border-white/10 mt-auto space-y-1">
         {/* Debug Link */}
 
-        {/* Settings Link 
         <NavLink
           to="/settings"
           className={({ isActive }) =>
@@ -227,7 +226,6 @@ export const LeftRail: React.FC = () => {
         >
           {({ isActive }) => (
             <>
-              // Icon with colored glow for active state 
               <span
                 className={clsx(
                   "flex justify-center items-center w-10 h-10 shrink-0",
@@ -244,8 +242,6 @@ export const LeftRail: React.FC = () => {
                   strokeWidth={1.5}
                 />
               </span>
-
-              // Label 
               <span
                 className={clsx(
                   "text-sm tracking-wide whitespace-nowrap font-medium",
@@ -258,7 +254,7 @@ export const LeftRail: React.FC = () => {
               </span>
             </>
           )}
-        </NavLink>*/}
+        </NavLink>
 
         {/* Logout Button - Only show when user is authenticated */}
         {isAuthenticated && (

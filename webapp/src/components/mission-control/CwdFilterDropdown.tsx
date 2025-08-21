@@ -22,7 +22,11 @@ const formatCodePath = (path: string | null): string => {
 };
 
 const CwdFilterDropdown: React.FC = () => {
-  const { sessions, cwdFilter, setCwdFilter } = useMissionControlStore();
+  const {
+    activeSessions: sessions,
+    cwdFilter,
+    setCwdFilter,
+  } = useMissionControlStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{
     top: number;

@@ -589,7 +589,7 @@ const PlanPane: React.FC<PlanPaneProps> = ({ sessionId }) => {
 
       {/* Markdown content with custom scroll - full height */}
       <div className="flex-1 overflow-hidden relative">
-        <div className="absolute inset-0 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
+        <div className="absolute inset-0 overflow-y-auto overflow-x-hidden w-full max-w-full scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
           <div className="p-6 flex justify-center">
             <AnimatePresence mode="wait">
               <motion.div
@@ -612,7 +612,7 @@ const PlanPane: React.FC<PlanPaneProps> = ({ sessionId }) => {
 
                   // Enhanced text wrapping and overflow handling - LESS AGGRESSIVE
                   "break-words hyphens-auto min-w-0",
-                  "overflow-hidden overflow-wrap-anywhere",
+                  "overflow-hidden overflow-wrap-anywhere overflow-x-hidden",
 
                   // CSS containment for layout stability - REMOVED contain-size
                   "contain-layout contain-style",

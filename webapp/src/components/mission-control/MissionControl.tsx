@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState } from "react";
 import { motion } from "framer-motion";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Session, useLocation, useNavigate } from "react-router-dom";
 import {
   useMissionControlStore,
   type MissionControlAgent,
@@ -20,6 +20,7 @@ import { getDefaultACSClient } from "@/services/acs";
 import { mapACSSessionsToMCAgent } from "@/utils/mapACSSessionsToMCAgent";
 import { useAuth } from "@/auth/AuthContext";
 import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
+import { supabase } from "@/lib/supabaseClient";
 
 // Animation variants for staggered reveals
 const containerVariants = {
@@ -47,17 +48,6 @@ const itemVariants = {
   },
 };
 
-const fetchAcsSessions = async (): Promise<MissionControlAgent[]> => {
-  const acs = getDefaultACSClient();
-
-  const resp = await acs.sessions.listSessions({
-    limit: 100,
-    includeMessageCount: true,
-  });
-  const list: SessionSummary[] = resp.data.sessions || [];
-  return list.map(mapACSSessionsToMCAgent);
-};
-
 interface MissionControlProps {
   repo: any;
 }
@@ -67,7 +57,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
 }: MissionControlProps) => {
   const { isAuthenticated, setShowModal, booted, user } = useAuth();
 
-  const sessions = useMissionControlStore((s) => s.sessions);
+  const sessions = useMissionControlStore((s) => s.activeSessions);
 
   const location = useLocation() as any;
   const navigate = useNavigate();
@@ -78,9 +68,15 @@ const MissionControl: React.FC<MissionControlProps> = ({
     setSessions,
     setPlans,
     setSessionRefetchCallback,
-    sessions: currentSessions,
+    activeSessions: currentSessions,
     initialDraftCodePath,
     setInitialDraftCodePath,
+    setArchivedSessions,
+    archivedLoaded,
+    archiveLoading,
+    setArchivedLoaded,
+    setArchivedLoading,
+    viewMode,
   } = useMissionControlStore();
 
   // Workspace provisioning state
@@ -97,13 +93,69 @@ const MissionControl: React.FC<MissionControlProps> = ({
   //   error,
   //   refetch: refetchSessions,
   // } = useSessionsSnapshot(viewMode);
-  const isLoading = false; // still stubbed
+  const [isLoading, setIsLoading] = useState<boolean>(false); // still stubbed
   const error = null;
+
+  const fetchArchivedSessions = useCallback(async () => {
+    if (archiveLoading) return;
+    if (archivedLoaded) return;
+
+    setArchivedLoading(true);
+    setArchivedSessions([]);
+
+    const { data } = await supabase
+      .from("chat_sessions")
+      .select("*")
+      .not("archived_at", "is", null)
+      .limit(100);
+
+    data?.sort((a, b) => {
+      const dateA = new Date(a.archived_at).getTime();
+      const dateB = new Date(b.archived_at).getTime();
+      return dateB - dateA;
+    });
+    setArchivedSessions(data ?? []);
+    setArchivedLoading(false);
+  }, [setArchivedSessions, archivedLoaded]);
+
+  useEffect(() => {
+    if (archiveLoading) return; // already fetching
+    if (archivedLoaded) return; // already fetched
+    if (viewMode !== "archived") return; // no need for (time) expensive fetch
+
+    fetchArchivedSessions();
+  }, [viewMode, archivedLoaded, fetchArchivedSessions]);
 
   // Fetch plans data
   // const { plansBySession, refetch: refetchPlans } =
   //   usePlansSnapshot(sessionIds);
   const plansBySession = {};
+
+  const fetchAcsSessions: () => Promise<any[]> = useCallback(async () => {
+    if (isLoading) return [];
+    setIsLoading(true);
+
+    try {
+      const { data } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .is("archived_at", null)
+        .limit(100);
+      console.log("[data]", data);
+      setIsLoading(false);
+      return data ?? [];
+    } catch (error: any) {
+      console.error(
+        "[MissionControl][fetchAcsSessions] Failed to fetch sessions from Supabase:",
+        error.message,
+        error.stack || error || "Unknown Error"
+      );
+    } finally {
+      setIsLoading(false);
+    }
+
+    return [];
+  }, [setArchivedSessions, archiveLoading, archivedLoaded]);
 
   useEffect(() => {
     if (booted && user?.id) refetchSessions();
@@ -114,7 +166,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
       const fetched = await fetchAcsSessions();
 
       // merge the fetched sessions with the local sessions (optimistic UI handling)
-      const local = useMissionControlStore.getState().sessions;
+      const local = useMissionControlStore.getState().activeSessions;
       const fetchedIds = new Set(fetched.map((s) => s.id));
       const merged = [
         // Keep local optimistic sessions that ACS doesn't know yet (e.g. just created)
@@ -160,38 +212,6 @@ const MissionControl: React.FC<MissionControlProps> = ({
       setPlans(plansArray);
     }
   }, [plansBySession, setPlans]);
-
-  // Handle workspace provisioning
-  const handleProvisionWorkspace = useCallback(async () => {
-    // try {
-    //   setWorkspaceStatus('provisioning');
-    //   setProgressText('Provisioning workspace...');
-    //   setWorkspaceError(null);
-    //   const acs = getDefaultACSClient();
-    //   // Start provisioning
-    //   await acs.infrastructure.provisionAppPerUser({
-    //     resource_spec: InfrastructureUtils.createTestResourceSpec()
-    //   });
-    //   setProgressText('Waiting for workspace to become active...');
-    //   // Poll until active
-    //   const status = await InfrastructureUtils.pollUntilActive(
-    //     () => acs.infrastructure.getAppPerUserStatus(),
-    //     {
-    //       maxRetries: 60,
-    //       delayMs: 5000,
-    //       timeoutMs: 300000
-    //     }
-    //   );
-    //   setWorkspaceStatus('active');
-    //   setProgressText(`Active at ${status.app_url}`);
-    // } catch (error) {
-    //   console.error('Workspace provisioning failed:', error);
-    //   setWorkspaceStatus('error');
-    //   setWorkspaceError(error instanceof Error ? error.message : 'Unknown error');
-    //   setProgressText('');
-    // }
-    // MOCK FOR NOW, above code is AI generated, haven't reviewed yet.
-  }, []);
 
   // Handle new session creation from draft modal (supports optimistic UI)
   const handleSessionCreated = useCallback(
@@ -353,7 +373,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
   return (
     <ChatUIProvider>
       <SelectionProvider>
-        <div className="h-full w-full bg-black flex flex-col overflow-hidden min-h-0">
+        <div className="min-h-full w-full bg-black flex flex-col overflow-hidden min-h-0">
           {/* Subtle background */}
           <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-gray-950 via-black to-gray-950" />
           <div className="fixed inset-0 pointer-events-none">
@@ -381,7 +401,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
               workspaceStatus={workspaceStatus}
               progressText={progressText}
               workspaceError={workspaceError}
-              onProvisionWorkspace={handleProvisionWorkspace}
+              onProvisionWorkspace={() => {}}
             />
 
             {/* GitHub Connection Card Section */}
@@ -402,8 +422,6 @@ const MissionControl: React.FC<MissionControlProps> = ({
             {/* Layout Split */}
             <LayoutSplit />
           </motion.div>
-
-
 
           {/* New Task Modal */}
           {showNewDraftModal && (

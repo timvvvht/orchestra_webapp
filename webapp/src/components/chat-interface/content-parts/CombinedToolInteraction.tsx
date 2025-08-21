@@ -1,15 +1,15 @@
 /**
  * Combined Tool Interaction Component
- * 
+ *
  * Displays tool calls and their results in a unified, collapsible interface.
  * Shows live progress during streaming and final status when complete.
- * 
+ *
  * Design Philosophy: Mystical minimalism with cognitive amplification aesthetics.
  * Extreme restraint, ethereal interactions, and hyperstition-inspired visual language.
  */
 
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
   Brain,
@@ -33,87 +33,93 @@ import {
   Shield,
   Check,
   X,
-  Clock
-} from 'lucide-react';
-import { cn } from 'cn-utility';
-import type { ToolInteractionTimelineEvent, UnifiedToolCall, UnifiedToolResult } from '@/types/unifiedTimeline';
-import MarkdownRenderer from './MarkdownRenderer';
-import { getToolDisplayName } from '@/utils/timelineHelpers';
+  Clock,
+} from "lucide-react";
+import { cn } from "cn-utility";
+import type {
+  ToolInteractionTimelineEvent,
+  UnifiedToolCall,
+  UnifiedToolResult,
+} from "@/types/unifiedTimeline";
+import MarkdownRenderer from "./MarkdownRenderer";
+import { getToolDisplayName } from "@/utils/timelineHelpers";
+import featureFlags from "@/utils/featureFlags";
+import ToolOutputHiddenNotice from "./ToolOutputHiddenNotice";
 // import { ToolRenderingDebugOverlay, ToolInteractionDebugOverlay, RenderingPathDebugOverlay } from '@/components/debug/ToolRenderingDebugOverlay';
 // import { DataFlowDebugOverlay, ToolCallResultPairDebug } from '@/components/debug/DataFlowDebugOverlay';
 // import { requiresApproval } from '@/config/approvalTools';
-import { usePendingToolsStore } from '@/stores/pendingToolsStore';
-import { useParams } from 'react-router-dom';
+import { usePendingToolsStore } from "@/stores/pendingToolsStore";
+import { useParams } from "react-router-dom";
 
 // Orchestra Design System - Mystical Technology
 const design = {
   // Spatial hierarchy through rounded corners
   radius: {
-    none: 'rounded-none',     // Terminal aesthetic
-    sm: 'rounded-sm',         // Subtle softening
-    md: 'rounded-md',         // Standard containers
-    lg: 'rounded-lg',         // Cards
-    xl: 'rounded-xl',         // Primary containers
-    '2xl': 'rounded-2xl',     // Modals
-    '3xl': 'rounded-3xl',     // Hero elements
-    full: 'rounded-full'      // Avatars, pills
+    none: "rounded-none", // Terminal aesthetic
+    sm: "rounded-sm", // Subtle softening
+    md: "rounded-md", // Standard containers
+    lg: "rounded-lg", // Cards
+    xl: "rounded-xl", // Primary containers
+    "2xl": "rounded-2xl", // Modals
+    "3xl": "rounded-3xl", // Hero elements
+    full: "rounded-full", // Avatars, pills
   },
 
   // Translucent layers creating depth
   glass: {
     bg: {
       // Base translucency scale
-      void: 'bg-black',                    // Pure void
-      subtle: 'bg-white/[0.02]',           // Barely there
-      light: 'bg-white/[0.03]',            // Whisper
-      medium: 'bg-white/[0.05]',           // Presence  
-      strong: 'bg-white/[0.08]',           // Statement
-      solid: 'bg-white/10',                // Emphasis
+      void: "bg-black", // Pure void
+      subtle: "bg-white/[0.02]", // Barely there
+      light: "bg-white/[0.03]", // Whisper
+      medium: "bg-white/[0.05]", // Presence
+      strong: "bg-white/[0.08]", // Statement
+      solid: "bg-white/10", // Emphasis
 
       // Mystical accent colors
       colored: {
-        purple: 'bg-purple-500/[0.05]',    // Transcendent
-        blue: 'bg-blue-500/[0.05]',        // Cognitive
-        emerald: 'bg-emerald-500/[0.05]',  // Success
-        red: 'bg-red-500/[0.05]',          // Warning
-        amber: 'bg-amber-500/[0.05]'       // Caution
-      }
+        purple: "bg-purple-500/[0.05]", // Transcendent
+        blue: "bg-blue-500/[0.05]", // Cognitive
+        emerald: "bg-emerald-500/[0.05]", // Success
+        red: "bg-red-500/[0.05]", // Warning
+        amber: "bg-amber-500/[0.05]", // Caution
+      },
     },
 
     // Border hierarchy
     border: {
-      none: 'border-transparent',
-      subtle: 'border-white/[0.05]',
-      light: 'border-white/10',
-      medium: 'border-white/20',
-      strong: 'border-white/30'
-    }
+      none: "border-transparent",
+      subtle: "border-white/[0.05]",
+      light: "border-white/10",
+      medium: "border-white/20",
+      strong: "border-white/30",
+    },
   },
 
   // Consistent spacing rhythm
   spacing: {
-    xs: 'px-2 py-1',          // Micro elements
-    sm: 'px-3 py-1.5',        // Compact buttons
-    md: 'px-4 py-2',          // Standard elements
-    lg: 'px-5 py-3',          // Cards
-    xl: 'px-6 py-4',          // Sections
-    '2xl': 'px-8 py-6'        // Hero sections
+    xs: "px-2 py-1", // Micro elements
+    sm: "px-3 py-1.5", // Compact buttons
+    md: "px-4 py-2", // Standard elements
+    lg: "px-5 py-3", // Cards
+    xl: "px-6 py-4", // Sections
+    "2xl": "px-8 py-6", // Hero sections
   },
 
   // Typography scale - Natural flow inspired by ChatMessage
   text: {
     // Size and weight combinations - more readable and natural
-    micro: 'text-[10px] font-normal tracking-wide uppercase',
-    xs: 'text-xs font-normal',
-    sm: 'text-sm font-normal',
-    base: 'text-base font-normal',
-    lg: 'text-lg font-medium',
-    xl: 'text-xl font-medium',
+    micro: "text-[10px] font-normal tracking-wide uppercase",
+    xs: "text-xs font-normal",
+    sm: "text-sm font-normal",
+    base: "text-base font-normal",
+    lg: "text-lg font-medium",
+    xl: "text-xl font-medium",
 
     // Semantic styles - flowing and approachable
-    label: 'text-xs font-medium text-white/50 uppercase tracking-wide',
-    body: 'text-sm font-normal text-white/80',
-    heading: 'text-base font-medium text-white/90'
+    label: "text-xs font-medium text-white/50 uppercase tracking-wide",
+    body: "text-sm font-normal text-white/80",
+    heading: "text-base font-medium text-white/90",
   },
 
   // Smooth, considered animations
@@ -122,15 +128,15 @@ const design = {
     fast: { duration: 0.15, ease: "easeOut" },
     smooth: { duration: 0.3, ease: [0.23, 1, 0.32, 1] },
     gentle: { duration: 0.5, ease: [0.19, 1, 0.22, 1] },
-    slow: { duration: 0.7, ease: [0.16, 1, 0.3, 1] }
+    slow: { duration: 0.7, ease: [0.16, 1, 0.3, 1] },
   },
 
   // Interaction states
   hover: {
-    glow: 'hover:shadow-lg hover:shadow-white/[0.03]',
-    lift: 'hover:-translate-y-0.5',
-    brighten: 'hover:bg-white/[0.05]'
-  }
+    glow: "hover:shadow-lg hover:shadow-white/[0.03]",
+    lift: "hover:-translate-y-0.5",
+    brighten: "hover:bg-white/[0.05]",
+  },
 };
 
 // Tool icon mapping - Mystical technology aesthetic
@@ -138,29 +144,35 @@ const getToolIcon = (toolName: string) => {
   const name = toolName.toLowerCase();
 
   // Cognitive operations (think tools are handled by UnifiedTimelineRenderer)
-  if (name.includes('analyze') || name.includes('debug')) return Activity;
-  if (name.includes('decompose') || name.includes('plan')) return Layers;
+  if (name.includes("analyze") || name.includes("debug")) return Activity;
+  if (name.includes("decompose") || name.includes("plan")) return Layers;
 
   // Information retrieval
-  if (name.includes('search') && name.includes('web')) return Globe;
-  if (name.includes('exa_search')) return Search;
-  if (name.includes('scrape')) return FileSearch;
+  if (name.includes("search") && name.includes("web")) return Globe;
+  if (name.includes("exa_search")) return Search;
+  if (name.includes("scrape")) return FileSearch;
 
   // File manipulation
-  if (name.includes('str_replace_editor')) return Edit3;
-  if (name.includes('read_file')) return FileText;
-  if (name.includes('search_file')) return FileSearch;
-  if (name.includes('create_file') || name.includes('write_file')) return FileCode;
-  if (name.includes('tree') || name.includes('find')) return FolderOpen;
+  if (name.includes("str_replace_editor")) return Edit3;
+  if (name.includes("read_file")) return FileText;
+  if (name.includes("search_file")) return FileSearch;
+  if (name.includes("create_file") || name.includes("write_file"))
+    return FileCode;
+  if (name.includes("tree") || name.includes("find")) return FolderOpen;
 
   // System operations
-  if (name.includes('execute') || name.includes('bash') || name.includes('command')) return Terminal;
-  if (name.includes('git')) return GitBranch;
-  if (name.includes('jupyter') || name.includes('analysis')) return Cpu;
+  if (
+    name.includes("execute") ||
+    name.includes("bash") ||
+    name.includes("command")
+  )
+    return Terminal;
+  if (name.includes("git")) return GitBranch;
+  if (name.includes("jupyter") || name.includes("analysis")) return Cpu;
 
   // Infrastructure
-  if (name.includes('aws') || name.includes('cloud')) return Cloud;
-  if (name.includes('supabase') || name.includes('database')) return Database;
+  if (name.includes("aws") || name.includes("cloud")) return Cloud;
+  if (name.includes("supabase") || name.includes("database")) return Database;
 
   // Default - command/action
   return Command;
@@ -176,11 +188,11 @@ interface CombinedToolInteractionProps {
 
 export default function CombinedToolInteraction({
   interaction,
-  refinedMode = false
+  refinedMode = false,
 }: CombinedToolInteractionProps) {
   // Defensive check for interaction structure
   if (!interaction) {
-    console.warn('[CombinedToolInteraction] Missing interaction:', interaction);
+    console.warn("[CombinedToolInteraction] Missing interaction:", interaction);
     return null;
   }
 
@@ -189,14 +201,16 @@ export default function CombinedToolInteraction({
 
   // Defensive check for call
   if (!call) {
-    console.warn('[CombinedToolInteraction] Missing call in interaction:', interaction);
+    console.warn(
+      "[CombinedToolInteraction] Missing call in interaction:",
+      interaction
+    );
     return null;
   }
 
-
   const isPending = !result;
   const isSuccess = true; // Always show as success for now
-  const isThinkTool = call.name === 'think';
+  const isThinkTool = call.name === "think";
 
   // State for expansion - managed at the top level for width control
   const [expanded, setExpanded] = useState(false);
@@ -209,12 +223,17 @@ export default function CombinedToolInteraction({
   const isSensitive = false;
 
   // PROPER MATCHING: session ID + tool use ID (the only correct way)
-  const pendingJob = isSensitive && sessionId ? Object.values(jobs).find(job => {
-    // Must match BOTH session ID and tool use ID for correct correlation
-    return job.sse?.session_id === sessionId &&
-      job.sse?.ji?.tool_use_id === call.id &&
-      job.status === 'waiting';
-  }) : null;
+  const pendingJob =
+    isSensitive && sessionId
+      ? Object.values(jobs).find((job) => {
+          // Must match BOTH session ID and tool use ID for correct correlation
+          return (
+            job.sse?.session_id === sessionId &&
+            job.sse?.ji?.tool_use_id === call.id &&
+            job.status === "waiting"
+          );
+        })
+      : null;
 
   const isAwaitingApproval = !!pendingJob;
 
@@ -276,7 +295,6 @@ export default function CombinedToolInteraction({
       transition={design.animation.gentle}
       className={cn("relative", expanded ? "max-w-[85%]" : "w-fit")}
     >
-
       {/* Ethereal glow for active operations */}
       {isPending && (
         <motion.div
@@ -287,7 +305,7 @@ export default function CombinedToolInteraction({
           transition={{
             duration: 3,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: "easeInOut",
           }}
         />
       )}
@@ -309,31 +327,37 @@ export default function CombinedToolInteraction({
                   boxShadow: [
                     "0 0 0 0 rgba(147, 51, 234, 0.2)",
                     "0 0 0 12px rgba(147, 51, 234, 0)",
-                  ]
+                  ],
                 }}
                 transition={{
                   duration: 2,
                   repeat: Infinity,
-                  ease: "easeOut"
+                  ease: "easeOut",
                 }}
               />
             )}
 
             {/* The orb itself */}
-            <div className={cn(
-              'relative w-10 h-10 flex items-center justify-center',
-              design.radius.full,
-              isPending ? design.glass.bg.medium : design.glass.bg.subtle,
-              'backdrop-blur-2xl border',
-              isPending ? design.glass.border.light : design.glass.border.subtle,
-              'transition-all duration-500',
-              'group-hover:scale-110'
-            )}>
-              <ToolIcon className={cn(
-                "w-5 h-5 transition-all duration-300",
-                isPending ? "text-white/80" : "text-white/50",
-                !isSuccess && !isPending && "text-red-400/50"
-              )} />
+            <div
+              className={cn(
+                "relative w-10 h-10 flex items-center justify-center",
+                design.radius.full,
+                isPending ? design.glass.bg.medium : design.glass.bg.subtle,
+                "backdrop-blur-2xl border",
+                isPending
+                  ? design.glass.border.light
+                  : design.glass.border.subtle,
+                "transition-all duration-500",
+                "group-hover:scale-110"
+              )}
+            >
+              <ToolIcon
+                className={cn(
+                  "w-5 h-5 transition-all duration-300",
+                  isPending ? "text-white/80" : "text-white/50",
+                  !isSuccess && !isPending && "text-red-400/50"
+                )}
+              />
             </div>
           </motion.div>
         </div>
@@ -356,7 +380,6 @@ export default function CombinedToolInteraction({
   );
 }
 
-
 interface ToolCardBodyProps {
   call: any;
   result: any;
@@ -370,13 +393,9 @@ interface ToolCardBodyProps {
   setExpanded: (expanded: boolean) => void;
 }
 
-
-
-
-
 // Technical data display - Natural flow with mystical accents
 function TechnicalDataDisplay({ data }: { data: any }) {
-  if (!data || typeof data !== 'object') {
+  if (!data || typeof data !== "object") {
     return (
       <code className="font-mono text-xs text-white/60 break-all">
         {String(data)}
@@ -393,10 +412,9 @@ function TechnicalDataDisplay({ data }: { data: any }) {
           </span>
           <div className="flex-1 min-w-0 overflow-hidden">
             <code className="font-mono text-xs text-white/70 break-all block overflow-x-auto max-w-full">
-              {typeof value === 'object'
+              {typeof value === "object"
                 ? JSON.stringify(value, null, 2)
-                : String(value)
-              }
+                : String(value)}
             </code>
           </div>
         </div>
@@ -405,9 +423,18 @@ function TechnicalDataDisplay({ data }: { data: any }) {
   );
 }
 
-
-
-function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, pendingJob, approve, reject, expanded, setExpanded }: ToolCardBodyProps) {
+function ToolCardBody({
+  call,
+  result,
+  isPending,
+  isSuccess,
+  isAwaitingApproval,
+  pendingJob,
+  approve,
+  reject,
+  expanded,
+  setExpanded,
+}: ToolCardBodyProps) {
   // Auto-expand when awaiting approval
   useEffect(() => {
     if (isAwaitingApproval) {
@@ -418,26 +445,26 @@ function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, 
   // Extract essence of the operation
   const getEssentialInfo = () => {
     const params = call.parameters || {};
-    const toolName = (call.name || '').toLowerCase();
+    const toolName = (call.name || "").toLowerCase();
 
     // Helper function to safely get the filename from a path
     const safeGetFilename = (path: any): string | null => {
-      if (typeof path === 'string' && path) {
-        const parts = path.split('/');
+      if (typeof path === "string" && path) {
+        const parts = path.split("/");
         return parts[parts.length - 1] || path;
       }
-      return typeof path === 'string' ? path : null;
+      return typeof path === "string" ? path : null;
     };
 
     // Extract the single most important piece of information
-    if (toolName.includes('str_replace_editor') && params.path) {
+    if (toolName.includes("str_replace_editor") && params.path) {
       return safeGetFilename(params.path);
     }
-    if (toolName.includes('search') && params.query) {
-      return typeof params.query === 'string' ? `"${params.query}"` : null;
+    if (toolName.includes("search") && params.query) {
+      return typeof params.query === "string" ? `"${params.query}"` : null;
     }
-    if (toolName.includes('read_files') && params.files) {
-      if (typeof params.files === 'string') {
+    if (toolName.includes("read_files") && params.files) {
+      if (typeof params.files === "string") {
         return safeGetFilename(params.files);
       } else if (Array.isArray(params.files)) {
         if (params.files.length === 0) return null;
@@ -448,16 +475,20 @@ function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, 
     }
     if (params.path) return safeGetFilename(params.path);
     if (params.file) return safeGetFilename(params.file);
-    if (params.query) return typeof params.query === 'string' ? params.query : null;
-    if (params.name) return typeof params.name === 'string' ? params.name : null;
+    if (params.query)
+      return typeof params.query === "string" ? params.query : null;
+    if (params.name)
+      return typeof params.name === "string" ? params.name : null;
 
     // Return first string parameter if any
-    const firstString = Object.values(params).find(v => typeof v === 'string');
+    const firstString = Object.values(params).find(
+      (v) => typeof v === "string"
+    );
     return firstString || null;
   };
 
   const essentialInfo = getEssentialInfo();
-  const toolDisplayName = getToolDisplayName(call.name || 'unknown');
+  const toolDisplayName = getToolDisplayName(call.name || "unknown");
 
   return (
     <div className="flex-1">
@@ -466,9 +497,9 @@ function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, 
           "group relative overflow-hidden",
           design.radius.xl,
           expanded ? design.glass.bg.medium : design.glass.bg.subtle,
-          'backdrop-blur-xl border',
+          "backdrop-blur-xl border",
           design.glass.border.subtle,
-          'transition-all duration-300',
+          "transition-all duration-300",
           !expanded && design.hover.brighten
         )}
       >
@@ -484,10 +515,12 @@ function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, 
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
-                <h3 className={cn(
-                  design.text.heading,
-                  "transition-colors duration-200"
-                )}>
+                <h3
+                  className={cn(
+                    design.text.heading,
+                    "transition-colors duration-200"
+                  )}
+                >
                   {toolDisplayName}
                 </h3>
 
@@ -503,9 +536,11 @@ function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, 
 
                 {/* Essential context */}
                 {essentialInfo && (
-                  <span className={cn(
-                    "font-mono text-xs text-white/30 truncate max-w-[200px]"
-                  )}>
+                  <span
+                    className={cn(
+                      "font-mono text-xs text-white/30 truncate max-w-[200px]"
+                    )}
+                  >
                     {essentialInfo}
                   </span>
                 )}
@@ -513,18 +548,18 @@ function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, 
                 {/* Live status indicator */}
                 {isPending && (
                   <motion.div className="flex items-center gap-1.5">
-                    {[0, 1, 2].map(i => (
+                    {[0, 1, 2].map((i) => (
                       <motion.div
                         key={i}
                         className="w-1 h-1 rounded-full bg-blue-400/60"
                         animate={{
                           scale: [1, 1.5, 1],
-                          opacity: [0.3, 1, 0.3]
+                          opacity: [0.3, 1, 0.3],
                         }}
                         transition={{
                           duration: 1.5,
                           repeat: Infinity,
-                          delay: i * 0.15
+                          delay: i * 0.15,
                         }}
                       />
                     ))}
@@ -568,28 +603,43 @@ function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, 
                   <div className="space-y-3">
                     {/* Tool ID */}
                     <div className="flex items-start gap-3">
-                      <span className={cn(design.text.label, "min-w-[80px]")}>ID</span>
+                      <span className={cn(design.text.label, "min-w-[80px]")}>
+                        ID
+                      </span>
                       <code className="font-mono text-xs text-white/50 break-all">
                         {call.id}
                       </code>
                     </div>
 
                     {/* Parameters */}
-                    {call.parameters && Object.keys(call.parameters).length > 0 && (
-                      <div className="flex items-start gap-3">
-                        <span className={cn(design.text.label, "min-w-[80px]")}>PARAMS</span>
-                        <div className="flex-1 max-h-32 overflow-y-auto">
-                          <TechnicalDataDisplay data={call.parameters} />
+                    {call.parameters &&
+                      Object.keys(call.parameters).length > 0 && (
+                        <div className="flex items-start gap-3">
+                          <span
+                            className={cn(design.text.label, "min-w-[80px]")}
+                          >
+                            PARAMS
+                          </span>
+                          <div className="flex-1 max-h-32 overflow-y-auto">
+                            <TechnicalDataDisplay data={call.parameters} />
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Raw result */}
+                    {/* Raw result (gated by feature flag) */}
                     {result && (
                       <div className="flex items-start gap-3">
-                        <span className={cn(design.text.label, "min-w-[80px]")}>OUTPUT</span>
+                        <span className={cn(design.text.label, "min-w-[80px]")}>
+                          OUTPUT
+                        </span>
                         <div className="flex-1 max-h-32 overflow-y-auto">
-                          <TechnicalDataDisplay data={isSuccess ? result.result : result.error} />
+                          {featureFlags.hideToolResults ? (
+                            <ToolOutputHiddenNotice />
+                          ) : (
+                            <TechnicalDataDisplay
+                              data={isSuccess ? result.result : result.error}
+                            />
+                          )}
                         </div>
                       </div>
                     )}
@@ -600,7 +650,9 @@ function ToolCardBody({ call, result, isPending, isSuccess, isAwaitingApproval, 
                 {isAwaitingApproval && pendingJob && (
                   <div className="space-y-3">
                     <div className="flex items-start gap-3">
-                      <span className={cn(design.text.label, "min-w-[80px]")}>APPROVAL</span>
+                      <span className={cn(design.text.label, "min-w-[80px]")}>
+                        APPROVAL
+                      </span>
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
                           <Shield className="w-4 h-4 text-amber-400" />

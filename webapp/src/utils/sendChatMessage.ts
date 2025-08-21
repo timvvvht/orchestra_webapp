@@ -425,6 +425,9 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Se
         console.log(`🔄 [sendChatMessage] [${messageId}] Updating session status to awaiting`);
         useSessionStatusStore.getState().markAwaiting(sessionId);
 
+        // switch the currentSession in the mission store to this one
+        
+
         console.log(`✅ [sendChatMessage] [${messageId}] Message send process completed successfully!`);
         return {
             success: true,

@@ -10,14 +10,11 @@ export default function AppShell() {
     <HeaderProvider>
       <MainLayoutProvider>
         <div
-          className="min-h-screen max-h-screen overflow-y-scroll bg-black min-w-full text-white flex"
+          className="h-dvh max-w-screen overflow-hidden bg-black text-white flex flex-col"
           id="app-shell"
         >
-          {/* Main routed content */}
-          <div className="flex flex-1 flex-col min-h-0 pt-1">
-            <UserProfile />
-            <Outlet />
-          </div>
+          <UserProfile />
+          <Outlet />
         </div>
       </MainLayoutProvider>
     </HeaderProvider>

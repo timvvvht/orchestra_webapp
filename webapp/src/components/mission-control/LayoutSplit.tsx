@@ -1,74 +1,119 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useMissionControlStore } from "@/stores/missionControlStore";
 import AgentListPanel from "./AgentListPanel";
 import ChatPane from "./ChatPane";
 
 const LayoutSplit: React.FC = () => {
-  const { selectedSession } = useMissionControlStore();
-  const [leftPanelPercentage, setLeftPanelPercentage] = useState(40); // 40% by default
+  const { selectedSession, archiveLoading } = useMissionControlStore();
+  // Committed width percentage (applied on mount and when drag ends)
+  const [leftPanelPercentage, setLeftPanelPercentage] = useState(40);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartX = useRef<number>(0);
-  const dragStartPercentage = useRef<number>(0);
 
+  // Refs for DOM and drag state
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const leftRef = useRef<HTMLDivElement | null>(null);
+  const draggingRef = useRef(false);
+  const frameRef = useRef<number>(0);
+  const committedPctRef = useRef<number>(leftPanelPercentage);
+  const pendingPctRef = useRef<number>(leftPanelPercentage);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    committedPctRef.current = leftPanelPercentage;
+    // Ensure DOM reflects committed value when not dragging
+
+    if (!draggingRef.current && leftRef.current) {
+      leftRef.current.style.width = selectedSession
+        ? `${leftPanelPercentage}%`
+        : "100%";
+    }
+  }, [leftPanelPercentage, selectedSession]);
+
+  const computePctFromClientX = useCallback((clientX: number) => {
+    if (!containerRef.current) return committedPctRef.current;
+    const rect = containerRef.current.getBoundingClientRect();
+    // Clamp clientX to the container bounds
+    const clampedX = Math.max(rect.left, Math.min(clientX, rect.right));
+    const relative = (clampedX - rect.left) / rect.width;
+    const pct = relative * 100;
+    // Enforce min/max bounds
+    return Math.max(20, Math.min(80, pct));
+  }, []);
+
+  const applyPendingWidth = useCallback(() => {
+    if (!leftRef.current) return;
+    leftRef.current.style.width = selectedSession
+      ? `${pendingPctRef.current}%`
+      : "100%";
+  }, [selectedSession]);
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
+      draggingRef.current = true;
       setIsDragging(true);
-      dragStartX.current = e.clientX;
-      dragStartPercentage.current = leftPanelPercentage;
+      // Initialize pending to current committed
+      pendingPctRef.current = computePctFromClientX(e.clientX);
+      // Apply immediately without re-render
+      applyPendingWidth();
+
+      const onMouseMove = (ev: MouseEvent) => {
+        if (!draggingRef.current) return;
+        pendingPctRef.current = computePctFromClientX(ev.clientX);
+        // rAF throttle DOM writes
+        if (frameRef.current) return;
+        frameRef.current = requestAnimationFrame(() => {
+          frameRef.current = 0;
+          applyPendingWidth();
+        });
+      };
+
+      const onMouseUp = () => {
+        if (!draggingRef.current) return;
+        draggingRef.current = false;
+        setIsDragging(false);
+        // Commit once to React state to keep width persistent
+        setLeftPanelPercentage(pendingPctRef.current);
+        // Cleanup listeners
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+        // Cancel any scheduled frame
+        if (frameRef.current) {
+          cancelAnimationFrame(frameRef.current);
+          frameRef.current = 0;
+        }
+      };
+
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
     },
-    [leftPanelPercentage]
+    [applyPendingWidth, computePctFromClientX]
   );
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isDragging) return;
-
-      const containerWidth = window.innerWidth; // You could also get this from a ref if needed
-      const deltaX = e.clientX - dragStartX.current;
-      const deltaPercentage = (deltaX / containerWidth) * 100;
-      const newPercentage = Math.max(
-        20, // Minimum 20%
-        Math.min(80, dragStartPercentage.current + deltaPercentage) // Maximum 80%
-      );
-      setLeftPanelPercentage(newPercentage);
-    },
-    [isDragging]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
+  // Cleanup on unmount just in case
+  useEffect(() => {
+    return () => {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = 0;
+      }
+      draggingRef.current = false;
+    };
   }, []);
 
-  React.useEffect(() => {
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-
-      return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
-
-  // Reset percentage when session changes
-  React.useEffect(() => {
-    if (selectedSession) {
-      setLeftPanelPercentage(40); // Reset to 40% when session changes
-    }
-  }, [selectedSession]);
-
   return (
-    <div className="flex-1 flex overflow-hidden min-h-0">
+    <div className="flex-1 flex overflow-hidden min-h-0" ref={containerRef}>
       {/* Left Panel - Agent List */}
       <div
         data-testid="mc-left-wrapper"
         className={`
-          transition-[width] duration-300 
-          relative h-full min-h-0 min-w-0 overflow-y-auto isolate
-        `}
-        style={{ width: selectedSession ? `${leftPanelPercentage}%` : "100%" }}
+                      relative h-full min-h-0 min-w-0 overflow-y-auto isolate
+                    `}
+        ref={leftRef}
+        style={{
+          width: selectedSession ? `${leftPanelPercentage}%` : "100%",
+          // Remove width transitions during drag to avoid layout thrash
+          transition: isDragging ? "none" : "width 300ms",
+        }}
       >
         <AgentListPanel />
       </div>

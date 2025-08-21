@@ -6,6 +6,7 @@ import { type ParsedPlanResult } from '@/utils/plan';
 import { baseDirFromCwd } from '@/utils/pathHelpers';
 import { type GitStatusCounts } from '@/utils/gitHelpers';
 import { supabase } from '@/lib/supabaseClient';
+import { arch } from 'os';
 // import { supabase } from "@/auth/SupabaseClient";
 
 // LocalStorage key for read state persistence
@@ -84,11 +85,15 @@ export interface CollapsedGroups {
     idleUnread: boolean;
     idleRead: boolean;
     drafts: boolean;
+    archived: boolean;
 }
 
 interface MissionControlState {
     // Data
-    sessions: MissionControlAgent[];
+    activeSessions: MissionControlAgent[];
+    archivedSessions: MissionControlAgent[];
+    archivedLoaded: boolean;
+    archiveLoading: boolean;
     plans: Record<string, Plan>; // key = session_id
     planProgress: Record<string, PlanProgress>; // key = session_id
     gitStatus: Record<string, GitStatusCounts>; // key = cwd -> git status counts
@@ -141,6 +146,10 @@ interface MissionControlState {
     toggleGroupCollapsed: (group: keyof CollapsedGroups) => void;
     setShowNewDraftModal: (show: boolean) => void;
     setInitialDraftCodePath: (path: string | null) => void;
+    setArchivedSessions: (sessions: MissionControlAgent[]) => void;
+    clearArchivedSessions: () => void;
+    setArchivedLoaded: (loaded: boolean) => void;
+    setArchivedLoading: (loading: boolean) => void;
 
     // Read state actions
     markSessionRead: (sessionId: string) => void;
@@ -156,6 +165,9 @@ interface MissionControlState {
     setLastCheckpointSaved: (timestamp: string | null) => void;
     setIsAutoSaving: (saving: boolean) => void;
 
+    moveSessionToArchive: (sessionId: string) => boolean;
+    moveSessionToActive: (sessionId: string) => boolean;
+
     // Computed getters
     getFilteredSessions: () => MissionControlAgent[];
     getSortedSessions: () => MissionControlAgent[];
@@ -170,7 +182,10 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
     // Load initial state with backwards compatibility for collapsedGroups
     const loadInitialState = () => {
         const baseState = {
-            sessions: [] as MissionControlAgent[],
+            activeSessions: [] as MissionControlAgent[],
+            archivedSessions: [] as MissionControlAgent[],
+            archivedLoaded: false,
+            archiveLoading: false,
             plans: {} as Record<string, Plan>,
             planProgress: {} as Record<string, PlanProgress>,
             gitStatus: {} as Record<string, GitStatusCounts>,
@@ -184,7 +199,8 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
                 processing: false,
                 idleUnread: false,
                 idleRead: false,
-                drafts: false
+                drafts: false,
+                archived: false
             },
             showNewDraftModal: false,
             initialDraftCodePath: null,
@@ -222,7 +238,7 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
 
         // Actions
         setSessions: sessions => {
-            set({ sessions });
+            set({ activeSessions: sessions });
 
             // Reconcile processingOrder to remove IDs not present anymore
             set(state => {
@@ -239,14 +255,59 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
 
         updateSession: (sessionId, updates) => {
             set(state => ({
-                sessions: state.sessions.map(session => (session.id === sessionId ? { ...session, ...updates } : session))
+                activeSessions: state.activeSessions.map(session => (session.id === sessionId ? { ...session, ...updates } : session))
             }));
         },
 
         setBackgroundProcessing: (sessionId, flag) => {
             set(state => ({
-                sessions: state.sessions.map(session => (session.id === sessionId ? { ...session, backgroundProcessing: flag } : session))
+                activeSessions: state.activeSessions.map(session => (session.id === sessionId ? { ...session, backgroundProcessing: flag } : session))
             }));
+        },
+
+        setArchivedLoaded: (loaded: boolean) => {
+            set({ archivedLoaded: loaded });
+        },
+
+        setArchivedLoading: (loading: boolean) => {
+            set({ archiveLoading: loading });
+        },
+
+        moveSessionToActive(sessionId) {
+            const { archivedSessions, activeSessions } = get();
+            const sessionIndex = archivedSessions.findIndex(s => s.id === sessionId);
+
+            if (sessionIndex === -1) return false;
+
+            const session = archivedSessions[sessionIndex];
+            const updatedSession = { ...session, archived_at: null };
+
+            set({
+                archivedSessions: archivedSessions.filter(s => s.id !== sessionId),
+                activeSessions: [...activeSessions, updatedSession]
+            });
+
+            return true;
+        },
+
+        moveSessionToArchive(sessionId) {
+            const { archivedSessions, activeSessions } = get();
+            const sessionIndex = activeSessions.findIndex(s => s.id === sessionId);
+
+            if (sessionIndex === -1) return false;
+
+            const session = activeSessions[sessionIndex];
+            const updatedSession = {
+                ...session,
+                archived_at: new Date().toISOString()
+            };
+
+            set({
+                activeSessions: activeSessions.filter(s => s.id !== sessionId),
+                archivedSessions: [...archivedSessions, updatedSession]
+            });
+
+            return true;
         },
 
         setPlans: plans =>
@@ -447,7 +508,7 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
 
         reconcileProcessingOrder: () =>
             set(state => {
-                const validIds = new Set(state.sessions.map(s => s.id));
+                const validIds = new Set(state.activeSessions.map(s => s.id));
                 const updated = state.processingOrder.filter(id => validIds.has(id));
                 if (updated.length !== state.processingOrder.length) {
                     saveProcessingOrder(updated);
@@ -465,9 +526,27 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
             set({ isAutoSaving: saving });
         },
 
+        setArchivedSessions: (sessions: MissionControlAgent[]) => {
+            set({
+                archivedSessions: sessions
+            });
+        },
+
+        clearArchivedSessions: () => {
+            set({ archivedSessions: [], archivedLoaded: false });
+        },
+
+        getArchivedSessions: () => {
+            const { archivedSessions, cwdFilter } = get();
+
+            return archivedSessions
+                .filter(s => !cwdFilter || (s.base_dir ?? baseDirFromCwd(s.agent_cwd)) === cwdFilter)
+                .sort((a, b) => getSessionTimestamp(b).getTime() - getSessionTimestamp(a).getTime());
+        },
+
         // Computed getters
         getFilteredSessions: () => {
-            const { sessions, cwdFilter } = get();
+            const { activeSessions: sessions, cwdFilter } = get();
             return sessions.filter(session => !cwdFilter || (session.base_dir ?? baseDirFromCwd(session.agent_cwd)) === cwdFilter);
         },
 
@@ -544,8 +623,9 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
         },
 
         getSelectedAgentCwd: () => {
-            const { selectedSession, sessions } = get();
-            return sessions.find(s => s.id === selectedSession)?.agent_cwd || null;
+            const { selectedSession, activeSessions: sessions, archivedSessions, viewMode } = get();
+            const pool = viewMode === 'archived' ? archivedSessions : sessions;
+            return pool.find(s => s.id === selectedSession)?.agent_cwd || null;
         }
     };
 });
