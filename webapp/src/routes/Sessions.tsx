@@ -132,6 +132,10 @@ export default function Sessions() {
                     <th className="text-left p-4 text-white/80 font-medium">Name</th>
                     <th className="text-left p-4 text-white/80 font-medium">User ID</th>
                     <th className="text-left p-4 text-white/80 font-medium">Agent Config</th>
+                    <th className="text-left p-4 text-white/80 font-medium">Repo</th>
+                    <th className="text-left p-4 text-white/80 font-medium">Branch</th>
+                    <th className="text-left p-4 text-white/80 font-medium">Repo ID</th>
+                    <th className="text-left p-4 text-white/80 font-medium">Workspace Key</th>
                     <th className="text-left p-4 text-white/80 font-medium">Created</th>
                     <th className="text-left p-4 text-white/80 font-medium">Last Message</th>
                     <th className="text-left p-4 text-white/80 font-medium">Display Title</th>
@@ -169,6 +173,26 @@ export default function Sessions() {
                       <td className="p-4">
                         <div className="font-mono text-sm text-green-400">
                           {session.agent_config_id ? `${session.agent_config_id.slice(0, 8)}...` : 'null'}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-white/80">
+                          {session.repo_full_name || '-'}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-white/80">
+                          {session.branch || '-'}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="font-mono text-sm text-white/70">
+                          {session.repo_id ?? '-'}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="font-mono text-xs text-white/70 break-all">
+                          {session.workspace_key || '-'}
                         </div>
                       </td>
                       <td className="p-4">
@@ -287,6 +311,22 @@ export default function Sessions() {
                   <div className="bg-white/5 border border-white/10 rounded p-3">
                     <div className="text-white/60">User</div>
                     <div className="font-mono text-blue-400 break-all">{selectedSession.user_id}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Repo</div>
+                    <div className="text-white/90 break-words">{selectedSession.repo_full_name || '-'}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Branch</div>
+                    <div className="text-white/90 break-words">{selectedSession.branch || '-'}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Repo ID</div>
+                    <div className="font-mono text-white/80 break-all">{selectedSession.repo_id ?? '-'}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3">
+                    <div className="text-white/60">Workspace Key</div>
+                    <div className="font-mono text-white/80 break-all">{selectedSession.workspace_key || '-'}</div>
                   </div>
                   <div className="bg-white/5 border border-white/10 rounded p-3">
                     <div className="text-white/60">Agent Config</div>
