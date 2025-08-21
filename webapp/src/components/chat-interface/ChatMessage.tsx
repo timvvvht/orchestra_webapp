@@ -1,10 +1,13 @@
 // webapp/src/components/chat-interface/ChatMessage.tsx
 import React, { useState } from "react";
-import type {
-  ChatMessage as ChatMessageType,
-  TextPart,
+import {
+  ChatRole,
+  type ChatMessage as ChatMessageType,
+  type TextPart,
 } from "@/types/chatTypes";
 import OptimizedTextPartDisplay from "./content-parts/OptimizedTextPartDisplay";
+import { Copy } from "lucide-react";
+import { MicroToast } from "../ui/MicroToast";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -25,7 +28,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   showTimestamp = true,
 }) => {
   // @ts-ignore
-  const isUser = message.role === "user" || message.role === "User";
+  const isUser = message.role === ChatRole.User;
 
   const [copied, setCopied] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">(
@@ -68,10 +71,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   // Handle copy to clipboard
   const handleCopy = async () => {
     const text = getMessageText();
-    if (!text) return;
+    if (!text) {
+      console.log("[copy] no text to copy");
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(text);
+      console.log("[copy] success, setting status to success");
       setCopied(true);
       setCopyStatus("success");
 
@@ -81,6 +88,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         setCopyStatus("idle");
       }, 2000);
     } catch (err) {
+      console.log("[copy] error:", err);
       setCopyStatus("error");
       setTimeout(() => setCopyStatus("idle"), 2000);
     }
@@ -100,40 +108,25 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         <div className="w-8 mr-3" />
       ) : null}
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 relative">
+        {/* Toast notification */}
+        {textParts.length > 0 && (
+          <div className="absolute top-0 right-6 z-10">
+            <MicroToast status={copyStatus} type="copy" position="top" />
+          </div>
+        )}
         <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
           <div className={`chat-message ${bubbleClasses}`}>
             {/* Copy button */}
             {textParts.length > 0 && (
-              <button
-                onClick={handleCopy}
-                title="Copy"
-                className="absolute top-1 right-1 p-1 text-white/40 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+              <div className="absolute top-1 right-1 p-1">
+                <button
+                  onClick={handleCopy}
+                  title=""
+                  className="text-white/40 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              </button>
-            )}
-            {/* Copy status indicator */}
-            {copyStatus === "success" && (
-              <div className="absolute -top-8 right-1 bg-green-600 text-white text-xs px-2 py-1 rounded">
-                Copied!
-              </div>
-            )}
-            {copyStatus === "error" && (
-              <div className="absolute -top-8 right-1 bg-red-600 text-white text-xs px-2 py-1 rounded">
-                Failed
+                  <Copy className="h-4 w-4" />
+                </button>
               </div>
             )}
             {textParts.length > 0 && (
