@@ -73,6 +73,7 @@ import ChatScrollAnchor from "./ChatScrollAnchor";
 import NewMessagesIndicator from "./NewMessagesIndicator";
 import { cn } from "@/lib/utils";
 import { cancelConversation } from "@/utils/cancelConversation";
+import { LexicalChatInput } from "./MobileLexicalChatInput";
 
 // Lazy render constants
 const INITIAL_RENDER_BATCH = 15;
@@ -1390,11 +1391,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       />
 
       {/* Message Input - Responsive */}
-      {showTextInputArea && (
+      {!hideInput && (
         <div
           ref={chatInputRef}
           className={cn(
-            "flex-shrink-0 fixed bottom-0 left-0 right-0 z-20 bg-black/90 backdrop-blur-sm border-t border-white/10 flex items-center justify-center",
+            "flex-shrink-0 sticky bottom-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/10",
             renderContext === "mission-control" && "mission-control-input-area"
           )}
         >
@@ -1414,8 +1415,17 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                 </button>
               </div>
             )}
+          <LexicalChatInput
+            onSubmit={handleSubmit}
+            onKeyDown={handleKeyDown}
+            isTyping={effectiveActive}
+            isLoading={effectiveActive}
+            disabled={effectiveDisabled}
+            placeholder="Message"
+            codePathOverride={agentCwd}
+          />
 
-          <MobileChatInput
+          {/*<MobileChatInput
             onSendMessage={handleSubmit}
             disabled={effectiveDisabled}
             placeholder="Message"
@@ -1425,7 +1435,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                 cancelConversation(sessionId);
               }
             }}
-          />
+          />*/}
         </div>
       )}
 

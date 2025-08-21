@@ -38,8 +38,8 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                 className={cn(
                   "w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm transition-all focus-visible-ring cursor-pointer",
                   activeSection === section.id
-                    ? "bg-primary/20 text-primary ses"
-                    : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+                    ? "bg-white/10 text-white shadow-sm"
+                    : "text-white/70 hover:bg-white/5"
                 )}
               >
                 <section.icon

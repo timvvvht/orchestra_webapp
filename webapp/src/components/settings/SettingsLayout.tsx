@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { Settings, Palette, CreditCard, Bell, ArrowLeft } from "lucide-react";
+import { Settings, Palette, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import SettingsSidebar from "./SettingsSidebar";
 
-import BillingSettings from "./sections/BillingSettings";
 import ApiKeysSettings from "./sections/ApiKeysSettings";
 
 type SettingsSection = {
@@ -19,12 +18,6 @@ export const sections: SettingsSection[] = [
     label: "API Key",
     icon: Palette,
     component: <ApiKeysSettings />,
-  },
-  {
-    id: "billing",
-    label: "Billing & Usage",
-    icon: CreditCard,
-    component: <BillingSettings />,
   },
 ];
 
@@ -66,7 +59,7 @@ const SettingsLayout = () => {
 
         {/* Content Area without Animation */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto py-8 px-6">
+          <div className="max-w-3xl mx-auto py-8 px-6 bg-gray-300">
             {
               sections.find((section) => section.id === activeSection)
                 ?.component
