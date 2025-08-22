@@ -12,6 +12,8 @@ import {
   StopCircle,
   ChevronDown,
   Sparkles,
+  Image,
+  Paperclip,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEnqueueMessage } from "@/hooks/useEnqueueMessage";
@@ -27,6 +29,8 @@ import { useSlashCommands } from "@/hooks/useSlashCommands";
 import type { SearchMatch } from "@/lib/tauri/fileSelector";
 import "./LexicalChatInput.css";
 import { SelectedAgentChip } from "@/components/chat-interface/SelectedAgentChip";
+
+type Base64URLString = string;
 
 interface LexicalChatInputProps {
   onSubmit: (message: string) => void;
@@ -77,6 +81,38 @@ export function LexicalChatInput({
     agent_config_name: string;
     description?: string | null;
   } | null>(null);
+
+  const [images, setImages] = useState<Base64URLString[]>([]);
+
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      console.error('Invalid file type. Please select an image.');
+      return;
+    }
+    
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      console.error('File too large. Please select an image under 10MB.');
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setImages(prev => [...prev, base64]);
+        setShowAttachmentOptions(false);
+      };
+      reader.onerror = () => console.error('Failed to read file');
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    }
+  };
+
+  const removeImage = (base64: string) => {
+    setImages(prev => prev.filter(img => img !== base64));
+  };
 
   // Queue functionality
   const { enqueue, queuedCount, list, remove } = useEnqueueMessage(
@@ -494,6 +530,29 @@ export function LexicalChatInput({
               </div>
             )}
 
+            {/* Uploaded Images */}
+            {images.length > 0 && (
+              <div className="px-3 pt-2 pb-1">
+                <div className="flex flex-wrap gap-2">
+                  {images.map((base64, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={base64}
+                        alt={`Upload ${index + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg border border-white/20"
+                      />
+                      <button
+                        onClick={() => removeImage(base64)}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Lexical Editor Container */}
             <div
               className={cn(
@@ -646,84 +705,44 @@ export function LexicalChatInput({
                 isEditorExpanded ? "bottom-2" : "top-1/2 -translate-y-1/2"
               )}
             >
-              {/* <AnimatePresence>
-                {showAttachmentOptions && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8, x: 10 }}
-                    animate={{ opacity: 1, scale: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.8, x: 10 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    className="flex items-center gap-1 mr-2"
-                  >
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="relative group p-2"
-                    >
-                      <div className="absolute inset-0 bg-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <Image className="relative h-4 w-4 text-white/60 group-hover:text-white" />
-                    </motion.button>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => setShowAttachmentOptions(false)}
-                      className="relative group p-1"
-                    >
-                      <X className="h-3 w-3 text-white/40 group-hover:text-white/60" />
-                    </motion.button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setShowAttachmentOptions(!showAttachmentOptions)}
-                className="relative group p-2"
-              >
-                <div className="absolute inset-0 bg-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Paperclip className="relative h-4 w-4 text-white/40 group-hover:text-white/60" />
-              </motion.button> */}
-
-              {/* QUEUE-MODE TOGGLE – visible only while assistant busy && NOT in queueMode */}
-              {/* {isTyping && !queueMode && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setQueueMode(true)}
-                  className="relative p-2 rounded-xl bg-violet-600 hover:bg-violet-500 transition-all shadow-lg"
-                  title="Switch to queue mode"
-                >
-                  <Clock className="h-4 w-4 text-white" />
-                </motion.button>
-              )} */}
-
               {/* STOP BUTTON – visible when session is not idle (typing or loading) */}
-              {(isTyping || isLoading) && (
+              {isLoading || isTyping ? (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleCancelConversation}
-                  className="relative p-2 rounded-xl bg-red-600 hover:bg-red-500 transition-all shadow-lg"
+                  className="relative p-2 rounded-xl bg-red-600 hover:bg-red-500 transition-all shadow-lg cursor-pointer"
                   title="Stop generation"
                 >
                   <StopCircle className="h-4 w-4 text-white" />
                 </motion.button>
+              ) : (
+                <>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="image-upload"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleImageUpload(file);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    className="relative group p-2 cursor-pointer"
+                    title="Upload Image"
+                  >
+                    <div className="absolute inset-0 bg-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <Image className="relative h-4 w-4 text-white/40 group-hover:text-white/60" />
+                  </motion.button>
+                </>
               )}
-
-              {/* QUEUE BADGE (also toggles pop-over) */}
-              {/* {queuedCount > 0 && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowQueueList(!showQueueList)}
-                  className="relative px-2 py-1 text-xs rounded-full bg-violet-800 text-white/90 hover:bg-violet-700 transition-all"
-                  title="Queued drafts"
-                >
-                  {queuedCount}
-                </motion.button>
-              )} */}
 
               <TooltipProvider>
                 <Tooltip>
