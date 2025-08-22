@@ -40,6 +40,9 @@ interface LexicalChatInputProps {
   disabled?: boolean;
   placeholder?: string;
   codePathOverride?: string;
+  onImageUpload?: (file: File) => void;
+  images?: string[];
+  onRemoveImage?: (base64: string) => void;
 }
 
 export function LexicalChatInput({
@@ -50,6 +53,9 @@ export function LexicalChatInput({
   disabled = false,
   placeholder = "Message",
   codePathOverride,
+  onImageUpload,
+  images = [],
+  onRemoveImage,
 }: LexicalChatInputProps) {
   // Get sessionId from URL params or context (for Mission Control)
   const { sessionId } = useCurrentSessionId();
@@ -82,17 +88,19 @@ export function LexicalChatInput({
     description?: string | null;
   } | null>(null);
 
-  const [images, setImages] = useState<Base64URLString[]>([]);
+  const [localImages, setLocalImages] = useState<Base64URLString[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const displayImages = images.length > 0 ? images : localImages;
 
   const handleImageUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      console.error('Invalid file type. Please select an image.');
+    if (!file.type.startsWith("image/")) {
+      console.error("Invalid file type. Please select an image.");
       return;
     }
-    
+
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      console.error('File too large. Please select an image under 10MB.');
+      console.error("File too large. Please select an image under 10MB.");
       return;
     }
 
@@ -100,18 +108,49 @@ export function LexicalChatInput({
       const reader = new FileReader();
       reader.onload = () => {
         const base64 = reader.result as string;
-        setImages(prev => [...prev, base64]);
+        if (onImageUpload) {
+          // Let parent handle the upload
+          onImageUpload(file);
+        } else {
+          // Handle locally
+          setLocalImages((prev) => [...prev, base64]);
+        }
         setShowAttachmentOptions(false);
       };
-      reader.onerror = () => console.error('Failed to read file');
+      reader.onerror = () => console.error("Failed to read file");
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error uploading image:', error);
+      console.error("Error uploading image:", error);
     }
   };
 
   const removeImage = (base64: string) => {
-    setImages(prev => prev.filter(img => img !== base64));
+    if (onRemoveImage) {
+      onRemoveImage(base64);
+    } else {
+      setLocalImages((prev) => prev.filter((img) => img !== base64));
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach((file) => {
+      if (file.type.startsWith("image/")) {
+        handleImageUpload(file);
+      }
+    });
   };
 
   // Queue functionality
@@ -515,7 +554,24 @@ export function LexicalChatInput({
       >
         <div className="relative max-w-4xl mx-auto">
           <div className="absolute inset-0 bg-white/5 rounded-2xl blur-xl" />
-          <div className="relative bg-white/[0.12] backdrop-blur-2xl rounded-2xl border border-white/20 p-1.5 shadow-2xl">
+          <div
+            className={cn(
+              "relative bg-white/[0.12] backdrop-blur-2xl rounded-2xl border p-1.5 shadow-2xl transition-colors",
+              isDragOver ? "border-blue-400 bg-blue-500/10" : "border-white/20"
+            )}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {/* Drag Overlay */}
+            {isDragOver && (
+              <div className="absolute inset-0 bg-blue-500/20 backdrop-blur-sm rounded-2xl border-2 border-dashed border-blue-400 flex items-center justify-center z-10">
+                <div className="text-center">
+                  <Image className="h-8 w-8 text-blue-400 mx-auto mb-2" />
+                  <p className="text-blue-400 font-medium">Drop images here</p>
+                </div>
+              </div>
+            )}
             {/* Selected Agent (Tag-like chip) */}
             {selectedSlashCommand && (
               <div className="px-3 pt-2 pb-1">
@@ -531,10 +587,10 @@ export function LexicalChatInput({
             )}
 
             {/* Uploaded Images */}
-            {images.length > 0 && (
+            {displayImages.length > 0 && (
               <div className="px-3 pt-2 pb-1">
                 <div className="flex flex-wrap gap-2">
-                  {images.map((base64, index) => (
+                  {displayImages.map((base64, index) => (
                     <div key={index} className="relative group">
                       <img
                         src={base64}
@@ -625,13 +681,14 @@ export function LexicalChatInput({
               </AnimatePresence>
             </div>
 
-            {/* Model Selector - Bottom left of editor */}
+            {/* Input actions - Evenly spaced with flexbox */}
             <div
               className={cn(
-                "absolute right-24 flex items-center gap-2",
+                "absolute right-2 flex items-center justify-between gap-2",
                 isEditorExpanded ? "bottom-2" : "top-1/2 -translate-y-1/2"
               )}
             >
+              {/* Model Selector */}
               <div className="relative" data-model-selector>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -696,16 +753,8 @@ export function LexicalChatInput({
                   )}
                 </AnimatePresence>
               </div>
-            </div>
 
-            {/* Input actions - Refined Apple style */}
-            <div
-              className={cn(
-                "absolute right-2 flex items-center gap-2",
-                isEditorExpanded ? "bottom-2" : "top-1/2 -translate-y-1/2"
-              )}
-            >
-              {/* STOP BUTTON – visible when session is not idle (typing or loading) */}
+              {/* Image Upload / Cancel Button - Same position */}
               {isLoading || isTyping ? (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -726,15 +775,21 @@ export function LexicalChatInput({
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        handleImageUpload(file);
+                        if (onImageUpload) {
+                          onImageUpload(file);
+                        } else {
+                          handleImageUpload(file);
+                        }
                       }
-                      e.target.value = '';
+                      e.target.value = "";
                     }}
                   />
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => document.getElementById('image-upload')?.click()}
+                    onClick={() =>
+                      document.getElementById("image-upload")?.click()
+                    }
                     className="relative group p-2 cursor-pointer"
                     title="Upload Image"
                   >
@@ -744,6 +799,7 @@ export function LexicalChatInput({
                 </>
               )}
 
+              {/* Submit Button */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

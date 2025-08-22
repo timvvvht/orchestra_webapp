@@ -12,6 +12,7 @@ interface NewMessagesIndicatorProps {
   messageCount?: number;
   onClick: () => void;
   variant?: "new-messages" | "back-to-latest";
+  className?: string;
 }
 
 export const NewMessagesIndicator: React.FC<NewMessagesIndicatorProps> = ({
@@ -19,6 +20,7 @@ export const NewMessagesIndicator: React.FC<NewMessagesIndicatorProps> = ({
   messageCount,
   onClick,
   variant = "new-messages",
+  className,
 }) => {
   const getButtonText = () => {
     if (variant === "back-to-latest") {
@@ -45,7 +47,7 @@ export const NewMessagesIndicator: React.FC<NewMessagesIndicatorProps> = ({
             duration: 0.2,
           }}
           onClick={onClick}
-          className="fixed bottom-24 right-6 z-50 group"
+          className={`fixed bottom-24 right-6 z-50 group ${className || ''}`}
           aria-label="Scroll to new messages"
         >
           {/* Glassmorphic button with our design system */}
