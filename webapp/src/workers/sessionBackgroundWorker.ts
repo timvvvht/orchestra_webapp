@@ -24,6 +24,9 @@ export interface SessionBackgroundWorkerOptions {
   // Optional first message to send
   firstMessage?: string;
 
+  // Optional images to send with the first message
+  images?: string[];
+
   // Optional flag to skip workspace preparation (worktree creation)
   skipWorkspacePreparation?: boolean;
 
@@ -322,6 +325,7 @@ export async function startBackgroundSessionOps(
         roleModelOverrides,
         useStoredKeys,
         overrides,
+        images: options.images || [], // Always include images array, even if empty
         // Spread model params if provided
         ...options.modelParams,
       };

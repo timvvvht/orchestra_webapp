@@ -4,6 +4,7 @@ import { HeaderProvider } from "@/context/HeaderContext";
 import { MainLayoutProvider } from "@/context/MainLayoutContext";
 import React from "react";
 import { Outlet } from "react-router-dom";
+import { Toaster } from "sonner";
 
 export default function AppShell() {
   return (
@@ -15,6 +16,7 @@ export default function AppShell() {
         >
           <UserProfile />
           <Outlet />
+          <Toaster />
         </div>
       </MainLayoutProvider>
     </HeaderProvider>

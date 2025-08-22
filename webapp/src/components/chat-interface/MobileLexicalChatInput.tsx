@@ -29,6 +29,7 @@ import { useSlashCommands } from "@/hooks/useSlashCommands";
 import type { SearchMatch } from "@/lib/tauri/fileSelector";
 import "./LexicalChatInput.css";
 import { SelectedAgentChip } from "@/components/chat-interface/SelectedAgentChip";
+import { toast } from "sonner";
 
 type Base64URLString = string;
 
@@ -94,13 +95,13 @@ export function LexicalChatInput({
 
   const handleImageUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      console.error("Invalid file type. Please select an image.");
+      toast.error("Please select an image file (PNG, JPG, GIF, etc.)");
       return;
     }
 
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      console.error("File too large. Please select an image under 10MB.");
+      toast.error("Please select an image under 10MB");
       return;
     }
 
@@ -116,11 +117,15 @@ export function LexicalChatInput({
           setLocalImages((prev) => [...prev, base64]);
         }
         setShowAttachmentOptions(false);
+        // Ensure input doesn't have unwanted newlines after image upload
+        setInputMessage(prev => prev.trim());
       };
-      reader.onerror = () => console.error("Failed to read file");
+      reader.onerror = () => {
+        toast.error("Failed to read the image file");
+      };
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error("Error uploading image:", error);
+      toast.error("An unexpected error occurred while uploading the image");
     }
   };
 
@@ -220,10 +225,12 @@ export function LexicalChatInput({
     if (selectedSlashCommand?.command) {
       message = `${selectedSlashCommand.command} ${message}`.trim();
     }
+    const imagesToSend = displayImages.length > 0 ? displayImages : [];
     setInputMessage(""); // Clear input immediately
-    onSubmit(message); // Pass message to parent
+    setLocalImages([]); // Clear local images
+    onSubmit(message, imagesToSend); // Pass message and images to parent
     if (selectedSlashCommand) setSelectedSlashCommand(null); // Clear ephemeral selection
-  }, [hasContent, inputMessage, onSubmit, selectedSlashCommand]);
+  }, [hasContent, inputMessage, onSubmit, selectedSlashCommand, displayImages]);
 
   // QUEUE action – used in queueMode or explicit button
   const queueDraft = useCallback(() => {
@@ -367,7 +374,9 @@ export function LexicalChatInput({
 
   // Handle content changes from Lexical editor
   const handleContentChange = useCallback((newValue: string) => {
-    setInputMessage(newValue);
+    // Prevent automatic newline insertion when images are present
+    const cleanedValue = newValue.replace(/^\n+/, '').replace(/\n+$/, '');
+    setInputMessage(cleanedValue);
   }, []);
 
   // Model selection logic
@@ -583,29 +592,6 @@ export function LexicalChatInput({
                   onClear={() => setSelectedSlashCommand(null)}
                   size="sm"
                 />
-              </div>
-            )}
-
-            {/* Uploaded Images */}
-            {displayImages.length > 0 && (
-              <div className="px-3 pt-2 pb-1">
-                <div className="flex flex-wrap gap-2">
-                  {displayImages.map((base64, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={base64}
-                        alt={`Upload ${index + 1}`}
-                        className="w-16 h-16 object-cover rounded-lg border border-white/20"
-                      />
-                      <button
-                        onClick={() => removeImage(base64)}
-                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3 h-3 text-white" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
 

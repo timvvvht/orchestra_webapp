@@ -18,6 +18,8 @@ import { sendChatMessage } from "@/utils/sendChatMessage";
 // Types
 import type { ChatMessage as ChatMessageType } from "@/types/chatTypes";
 
+type Base64URLString = string;
+
 // Components
 import AgentProfile from "./AgentProfile";
 import ChatHeader from "./header/ChatHeader";
@@ -115,7 +117,7 @@ interface ChatMainCanonicalLegacyProps {
   sidebarCollapsed: boolean;
   sessionId: string; // Optional prop - falls back to URL params if not provided
   renderContext?: "default" | "mission-control"; // New prop to specify rendering context
-  onSubmit?: (message: string) => Promise<void>; // Optional custom submit handler
+  onSubmit?: (message: string, images?: string[]) => Promise<void>; // Optional custom submit handler
   hideHeader?: boolean; // Optional prop to hide the ChatHeader component
   hideInput?: boolean; // Optional prop to hide the input area
   // NEW: single abstraction for mission control
@@ -172,7 +174,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [refinedMode, setRefinedMode] = useState(false);
 
-  const [images, setImages] = useState<Base64URLString[]>([]);
+  const [images, setImages] = useState<string[]>([]);
 
   const removeImage = useCallback((img: string) => {
     setImages((prev) => prev.filter((p) => p !== img));
@@ -1001,6 +1003,28 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     return unsubscribe;
   }, [loadEvents]);
 
+  // Handle modal submit - create new chat with message and images
+  const handleModalSubmit = useCallback(async (message: string, images: string[]) => {
+    if (!sessionId) return;
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id || "unknown";
+      
+      await sendChatMessage({
+        sessionId,
+        message,
+        endpoint: "web",
+        userId: uid,
+        agentConfigName: "general",
+        acsClient: acsClient!,
+        images: images.length > 0 ? images : [], // Ensure it's never null
+      });
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
+  }, [sessionId, acsClient]);
+
   // Cleanup RAF on unmount
   useEffect(() => {
     return () => {
@@ -1235,7 +1259,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     if (customOnSubmit) {
       try {
         setLocalIsLoading(true);
-        await customOnSubmit(message);
+        await customOnSubmit(message, images);
+        setImages([]);
       } catch (error) {
         console.error("ChatMain custom handleSubmit error:", error);
       } finally {
@@ -1277,6 +1302,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         );
       }
 
+      // Use submitted images if provided, otherwise use component state images
+
       // Use shared helper for canonical message sending with extended parameters
       await sendChatMessage({
         sessionId,
@@ -1297,12 +1324,16 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         autoMode: false, // Default to false unless explicitly set by user
         modelAutoMode: false, // Default to false unless explicitly set by user
         // Tools will default to core tools automatically: ['apply_patch', 'cat', 'tree', 'search_files', 'str_replace_editor', 'read_files', 'search_notes']
+        images: [...images],
       });
+
+      // Clear images after successful send
     } catch (error) {
       // Error handling is done in the helper
       console.error("ChatMain handleSubmit error:", error);
     } finally {
       setLocalIsLoading(false);
+      setImages([]);
     }
   };
 
@@ -1363,7 +1394,13 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                 Drop images here
               </p>
               <p className="text-blue-300/80 text-sm">
-                Supports JPG, PNG, GIF up to {Math.round(parseInt(import.meta.env.VITE_MAX_PROMPT_SIZE || '15728640') / 1024 / 1024)}MB per prompt
+                Supports JPG, PNG, GIF up to{" "}
+                {Math.round(
+                  parseInt(import.meta.env.VITE_MAX_PROMPT_SIZE || "15728640") /
+                    1024 /
+                    1024
+                )}
+                MB per prompt
               </p>
             </div>
           </div>
@@ -1541,6 +1578,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             placeholder="Message"
             codePathOverride={agentCwd}
             onImageUpload={handleImageUpload}
+            images={images}
+            onRemoveImage={removeImage}
           />
         </div>
       )}
@@ -1560,9 +1599,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       <NewChatModal
         isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
-        onCreateChat={(config) => {
-          console.log("🆕 [ChatMain] Creating new chat with config:", config);
-        }}
+        onCreateChat={handleModalSubmit}
       />
 
       {/* Debug Panel */}

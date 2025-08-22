@@ -119,10 +119,14 @@ const AgentListPanel: React.FC = () => {
         <div className="min-h-[400px]">
           <div className="py-4">
             {/* Empty State */}
-            {groupedSessions.processing.length === 0 &&
+            {((viewMode === "active" &&
+              groupedSessions.processing.length === 0 &&
               unreadIdle.length === 0 &&
               readIdle.length === 0 &&
-              (viewMode === "archived" || drafts.length === 0) && (
+              drafts.length === 0) ||
+              (viewMode === "archived" &&
+              !archiveLoading &&
+              archivedSessions.length === 0)) && (
                 <motion.div
                   className="flex flex-col items-center justify-center py-20 px-8"
                   initial={{ opacity: 0 }}

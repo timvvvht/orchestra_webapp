@@ -139,6 +139,30 @@ export default function StartChat() {
     }
   }, [api]);
 
+  const [images, setImages] = useState<string[]>([]);
+
+  const handleImageUpload = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setImages(prev => [...prev, base64String]);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const removeImage = useCallback((index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        handleImageUpload(file);
+      }
+    });
+  };
+
   // new on submit - uses startSessioNFast
   const onSubmit = useCallback(async () => {
     if (!selectedRepoId || !selectedRepoId || !branch.trim()) {
@@ -210,6 +234,7 @@ export default function StartChat() {
           repo_full_name: selectedRepoFullName,
           branch: branch.trim(),
         },
+        images,
       });
 
       // optimistic UI
@@ -232,14 +257,18 @@ export default function StartChat() {
           repo_full_name: selectedRepoFullName,
           branch: branch.trim(),
         },
+        images,
       });
+
+      // Clear images after successful send
+      setImages([]);
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
       setSending(false);
       setBusy(false);
     }
-  }, [selectedRepoId, selectedRepoFullName, branch, prompt]);
+  }, [selectedRepoId, selectedRepoFullName, branch, prompt, images]);
 
   // Submit: Create session immediately and navigate to Mission Control (aligned with NewTaskModal)
   /*
@@ -570,6 +599,37 @@ export default function StartChat() {
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                   />
+                </div>
+
+                {/* Images */}
+                <div>
+                  <label className="text-white/50 text-xs">Images (optional)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20"
+                  />
+                  {images.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {images.map((image, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={image}
+                            alt={`Upload ${index + 1}`}
+                            className="w-16 h-16 object-cover rounded-lg bg-white/5 border border-white/20"
+                          />
+                          <button
+                            onClick={() => removeImage(index)}
+                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <span className="text-white text-xs leading-none">×</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {error && <div className="text-sm text-red-400">{error}</div>}
