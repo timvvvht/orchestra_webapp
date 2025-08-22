@@ -229,9 +229,7 @@ export class OrchestACSClient {
         return this.chatEvents;
     }
 
-    getSlashCommands(){
-        
-    }
+    getSlashCommands() {}
 
     /**
      * Get comprehensive health status from all services
@@ -463,7 +461,7 @@ export class OrchestACSClient {
  */
 export function createOrchestACSClient(config: Partial<ACSClientConfig> = {}, streamingServiceFactory?: () => any): OrchestACSClient {
     const fullConfig: ACSClientConfig = {
-        baseUrl: import.meta.env.VITE_ACS_BASE_URL || 'https://orchestra-acs-web.fly.dev',
+        baseUrl: import.meta.env.VITE_ACS_BASE_URL || 'https://orchestra-acs.fly.dev',
         sseUrl: import.meta.env.VITE_SSE_BASE_URL || 'https://orchestra-sse-service.fly.dev',
         apiKey: import.meta.env.VITE_ACS_API_KEY,
         ...defaultACSConfig,

@@ -57,11 +57,11 @@ export default function InfraDashboard() {
                 className="flex-1 md:flex-none px-2 py-1 rounded bg-white/10 border border-white/10 text-white min-w-[260px] md:w-[360px]"
                 value={acsBase}
                 onChange={(e) => setAcsBase(e.target.value)}
-                placeholder="http://localhost:8001"
+                placeholder="https://orchestra-acs.fly.dev"
               />
               <button
                 className="px-2 py-1 rounded bg-white/10 border border-white/10"
-                onClick={() => setAcsBase("http://localhost:8001")}
+                onClick={() => setAcsBase("https://orchestra-acs.fly.dev")}
                 title="Swap to local ACS"
               >
                 Use localhost:8001

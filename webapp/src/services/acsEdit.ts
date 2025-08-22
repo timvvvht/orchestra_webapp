@@ -3,7 +3,7 @@
  * Integrates with Orchestra ACS backend for AI-powered text editing
  */
 
-const ACS_BASE_URL = 'https://orchestra-acs-web.fly.dev';
+const ACS_BASE_URL = 'https://orchestra-acs.fly.dev';
 const EDIT_TEXT_ENDPOINT = '/api/v1/acs/edit-text';
 
 export interface EditTextRequest {

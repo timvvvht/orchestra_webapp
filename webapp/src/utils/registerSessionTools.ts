@@ -54,7 +54,7 @@ export interface RegisterSessionToolsOptions {
 export async function registerSessionTools({
     sessionId,
     tools,
-    baseUrl = 'https://orchestra-acs-web.fly.dev', // Default ACS server URL
+    baseUrl = 'https://orchestra-acs.fly.dev', // Default ACS server URL
     authToken
 }: RegisterSessionToolsOptions): Promise<void> {
     try {

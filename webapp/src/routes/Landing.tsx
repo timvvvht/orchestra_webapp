@@ -60,7 +60,7 @@ function PlaygroundLanding() {
   const { isAuthenticated, loginGoogle } = useAuth();
   
   // ACS client for GitHub operations
-  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "http://localhost:8001").replace(/\/$/, "");
+  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs.fly.dev").replace(/\/$/, "");
   const [acsBase] = useState(DEFAULT_ACS);
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
 
