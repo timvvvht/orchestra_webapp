@@ -216,12 +216,7 @@ game.start();`;
 
   // Streaming code simulation
   const startStreamingExample = useCallback((index: number) => {
-    // Check authentication first
-    if (!isAuthenticated) {
-      setAuthModalContext(`example-${examples[index]?.title || 'app'}`);
-      setShowAuthModal(true);
-      return;
-    }
+    // No authentication required for examples - all are accessible without login
     
     setSelectedExample(index);
     setStreaming(true);
@@ -249,7 +244,7 @@ game.start();`;
       setStreamedCode(prev => prev + code.slice(i, i + chunkSize));
       i += chunkSize;
     }, durationMs / steps);
-  }, [defaultSnakeCode, isAuthenticated]);
+  }, [defaultSnakeCode]);
 
   // GitHub connect with login gate
   const onConnectGitHubEntry = useCallback(async () => {
