@@ -1,10 +1,24 @@
-import React from 'react';
-import { Outlet } from 'react-router-dom';
+import LeftRail from "@/components/LeftTail";
+import UserProfile from "@/components/UserProfile";
+import { HeaderProvider } from "@/context/HeaderContext";
+import { MainLayoutProvider } from "@/context/MainLayoutContext";
+import React from "react";
+import { Outlet } from "react-router-dom";
+import { Toaster } from "sonner";
 
 export default function AppShell() {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Outlet />
-    </div>
+    <HeaderProvider>
+      <MainLayoutProvider>
+        <div
+          className="h-dvh max-w-screen overflow-hidden bg-black text-white flex flex-col"
+          id="app-shell"
+        >
+          <UserProfile />
+          <Outlet />
+          <Toaster />
+        </div>
+      </MainLayoutProvider>
+    </HeaderProvider>
   );
 }

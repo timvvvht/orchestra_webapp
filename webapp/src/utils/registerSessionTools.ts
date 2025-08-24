@@ -5,7 +5,13 @@
  * specifically for Mission Control workflows.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '@/utils/runtime';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 import { toast } from 'sonner';
 import {
     createFindSymbolSpec,
@@ -17,7 +23,6 @@ import {
     createRestartLanguageServerSpec,
     createPingLanguageServerSpec
 } from './lspToolSpecs';
-
 export interface ToolSpec {
     name: string;
     description: string;
@@ -43,7 +48,7 @@ export interface RegisterSessionToolsOptions {
 }
 
 /**
- * Register tools for a session using Tauri invoke
+ * Register tools for a session using Tauri invoke (if available)
  */
 export async function registerSessionTools({
     sessionId,
@@ -55,21 +60,29 @@ export async function registerSessionTools({
         const toolNames = tools.map(tool => tool.name).join(', ');
         console.log(`🔧 [registerSessionTools] Registering ${tools.length} tools for session ${sessionId.slice(0, 8)}: ${toolNames}`);
 
-        await invoke('register_session_tools', {
-            sessionId,
-            tools,
-            catalogVersion: '1.0',
-            baseUrl,
-            authToken: authToken || null
-        });
-
-        console.log(`✅ [registerSessionTools] Successfully registered ${tools.length} tools: ${toolNames}`);
+        // Only attempt tool registration in Tauri environment
+        if (isTauri()) {
+            await tauriInvoke('register_session_tools', {
+                sessionId,
+                tools,
+                catalogVersion: '1.0',
+                baseUrl,
+                authToken: authToken || null
+            });
+            console.log(`✅ [registerSessionTools] Successfully registered ${tools.length} tools: ${toolNames}`);
+        } else {
+            console.log(`ℹ️ [registerSessionTools] Skipping tool registration in web environment for session ${sessionId.slice(0, 8)}`);
+            // In web environment, tools are handled differently or not needed
+        }
     } catch (error) {
         console.error('🚨 [registerSessionTools] Failed to register tools:', error);
         // Don't throw - tool registration failure shouldn't break session creation
-        toast.error('Tool registration failed', {
-            description: 'Session will continue without some tools'
-        });
+        // Only show toast in Tauri environment where tool registration is expected
+        if (isTauri()) {
+            toast.error('Tool registration failed', {
+                description: 'Session will continue without some tools'
+            });
+        }
     }
 }
 
@@ -1113,13 +1126,13 @@ export const sessionTools = [
     createGetBackgroundOsJobStatusSpec,
     createSendSignalToOsJobSpec,
     // LSP HTTP Tools
-    createFindSymbolSpec(),
-    createGetSymbolsOverviewSpec(),
-    createFindReferencingSymbolsSpec(),
-    createInsertAfterSymbolSpec(),
-    createInsertBeforeSymbolSpec(),
-    createReplaceSymbolBodySpec(),
-    // Note: createCodebaseOrientationSpec() is not implemented by the onefile LSP server
-    createRestartLanguageServerSpec(),
-    createPingLanguageServerSpec()
+    createFindSymbolSpec,
+    createGetSymbolsOverviewSpec,
+    createFindReferencingSymbolsSpec,
+    createInsertAfterSymbolSpec,
+    createInsertBeforeSymbolSpec,
+    createReplaceSymbolBodySpec,
+    // Note: createCodebaseOrientationSpec is not implemented by the onefile LSP server
+    createRestartLanguageServerSpec,
+    createPingLanguageServerSpec
 ];

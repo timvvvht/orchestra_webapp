@@ -1,7 +1,13 @@
 /**
  * Tauri API wrappers for worktree operations
  */
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '@/utils/runtime';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 import type { FinalizeResultResponse, CreateWorktreeResponse, MergePreviewSummary } from '@/types/worktreeTypes';
 import { isGitRepo } from './gitHelpers';
 
@@ -14,7 +20,7 @@ export async function checkRepoDirtyRaw(projectRoot: string): Promise<boolean> {
     try {
         console.log(`🔍 [worktreeApi] Checking if repo is dirty: ${projectRoot}`);
 
-        const result = await invoke<boolean>('check_repo_dirty', {
+        const result = await tauriInvoke<boolean>('check_repo_dirty', {
             projectRoot: projectRoot
         });
 
@@ -48,7 +54,7 @@ export async function autoCommitRepo(projectRoot: string, message: string): Prom
     try {
         console.log(`💾 [worktreeApi] Auto-committing repo: ${projectRoot} with message: "${message}"`);
 
-        await invoke<void>('auto_commit_repo', {
+        await tauriInvoke<void>('auto_commit_repo', {
             projectRoot: projectRoot,
             msg: message
         });
@@ -88,7 +94,7 @@ export async function invokeCreateWorktree(sessionId: string, projectRoot: strin
             projectRoot: projectRoot
         });
 
-        const result = await invoke<string>('create_worktree', {
+        const result = await tauriInvoke<string>('create_worktree', {
             sessionId: sessionId,
             projectRoot: projectRoot
         });
@@ -135,7 +141,7 @@ export async function invokeMergeWorktree(sessionId: string, projectRoot: string
     try {
         console.log(`🔄 [worktreeApi] Merge-only for session: ${sessionId.slice(0, 8)}... in project: ${projectRoot}`);
 
-        const result = await invoke<FinalizeResultResponse>('merge_worktree', {
+        const result = await tauriInvoke<FinalizeResultResponse>('merge_worktree', {
             sessionId: sessionId,
             projectRoot: projectRoot
         });
@@ -163,7 +169,7 @@ export async function invokeFinalizeWorktree(sessionId: string, projectRoot: str
     try {
         console.log(`🔄 [worktreeApi] Finalizing worktree for session: ${sessionId.slice(0, 8)}... in project: ${projectRoot}`);
 
-        const result = await invoke<FinalizeResultResponse>('finalize_worktree', {
+        const result = await tauriInvoke<FinalizeResultResponse>('finalize_worktree', {
             sessionId: sessionId,
             projectRoot: projectRoot,
             keepWorktree: !!keepWorktree,
@@ -269,7 +275,7 @@ export function isTauriEnvironment(): boolean {
 }
 
 export async function invokePreviewMergeWorktree(sessionId: string, projectRoot: string): Promise<MergePreviewSummary> {
-    const result = await invoke<MergePreviewSummary>('preview_merge_worktree', { sessionId, projectRoot });
+    const result = await tauriInvoke<MergePreviewSummary>('preview_merge_worktree', { sessionId, projectRoot });
     return result;
 }
 

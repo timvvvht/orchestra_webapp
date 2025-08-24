@@ -3,7 +3,7 @@
  * Optimized for velocity and momentum - Linear-inspired, Orchestra-powered
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import {
   X,
@@ -20,6 +20,7 @@ import {
   Zap,
   Settings2,
   Info,
+  Image,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -30,20 +31,27 @@ import { useAgentConfigs } from "@/hooks/useAgentConfigs";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isTauri } from "@/utils/environment";
 // Removed static Tauri imports; will use dynamic import under isTauri()
-import { recentProjectsManager } from "@/utils/projectStorage";
+import { useGitHubRepos, type RepoItem } from "@/hooks/useGitHubRepos";
 import { useFileSearch } from "@/hooks/useFileSearch";
 // Lazy-loaded Lexical editor with fallback for compatibility issues
 // Removed global keyboard shortcuts; using local key handler and hint
 import { useAuth } from "@/auth/AuthContext";
-import { startBackgroundSessionOps } from "@/workers/sessionBackgroundWorker";
 import { useMissionControlStore } from "@/stores/missionControlStore";
+import { createSessionFast } from "@/hooks/useCreateSessionFast";
+import { sendChatMessage } from "@/utils/sendChatMessage";
+import { getDefaultACSClient } from "@/services/acs";
+import { supabase } from "@/auth/SupabaseClient";
 
 // Fallback editor for when Lexical fails
 function FallbackTextEditor({
   value,
   onChange,
-  placeholder
-}: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
   return (
     <textarea
       className="w-full min-h-[120px] rounded-md border border-white/10 bg-white/[0.03] p-3 text-white/90 outline-none focus:border-white/20 resize-none"
@@ -51,40 +59,45 @@ function FallbackTextEditor({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       style={{
-        background: 'transparent',
-        fontSize: '15px',
-        lineHeight: '1.6',
-        padding: '16px 20px',
-        minHeight: '220px',
-        maxHeight: '45vh',
-        overflowY: 'auto'
+        background: "transparent",
+        fontSize: "15px",
+        lineHeight: "1.6",
+        padding: "16px 20px",
+        minHeight: "220px",
+        maxHeight: "45vh",
+        overflowY: "auto",
       }}
     />
   );
 }
 
 // Lazy-loaded Lexical editor component
-const LazyLexicalPillEditor = React.lazy(() => 
-  import("@/components/ui/LexicalPillEditor").then(module => ({
-    default: module.LexicalPillEditor
-  })).catch(error => {
-    console.warn("[NewTaskModal] Failed to load LexicalPillEditor, using fallback:", error);
-    // Return a component that will trigger the error boundary
-    throw error;
-  })
+const LazyLexicalPillEditor = React.lazy(() =>
+  import("@/components/ui/LexicalPillEditor")
+    .then((module) => ({
+      default: module.LexicalPillEditor,
+    }))
+    .catch((error) => {
+      console.warn(
+        "[NewTaskModal] Failed to load LexicalPillEditor, using fallback:",
+        error
+      );
+      // Return a component that will trigger the error boundary
+      throw error;
+    })
 );
 
 // Error boundary class for Lexical editor
 class LexicalErrorBoundary extends React.Component<
-  { 
-    children: React.ReactNode; 
+  {
+    children: React.ReactNode;
     fallback: React.ReactNode;
     onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
   },
   { hasError: boolean }
 > {
-  constructor(props: { 
-    children: React.ReactNode; 
+  constructor(props: {
+    children: React.ReactNode;
     fallback: React.ReactNode;
     onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
   }) {
@@ -122,7 +135,10 @@ function SafeLexicalEditor(props: {
   const [hasError, setHasError] = React.useState(false);
 
   const handleError = React.useCallback((error: Error) => {
-    console.warn("[NewTaskModal] Lexical editor error, switching to fallback:", error);
+    console.warn(
+      "[NewTaskModal] Lexical editor error, switching to fallback:",
+      error
+    );
     // Use setTimeout to avoid infinite re-render loops
     setTimeout(() => setHasError(true), 0);
   }, []);
@@ -176,6 +192,7 @@ interface NewTaskModalProps {
     sessionData: Partial<MissionControlAgent>
   ) => void;
   initialCodePath?: string;
+  initialImages?: string[];
 }
 
 // Rotating placeholders for inspiration - grander language
@@ -194,6 +211,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   onClose,
   onSessionCreated,
   initialCodePath,
+  initialImages = [],
 }) => {
   const { agentConfigsArray } = useAgentConfigs();
   const selections = useSelections();
@@ -201,13 +219,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const auth = useAuth();
 
   // Local keyboard shortcut hint helper
-  const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform);
-  const getShortcutHint = (action: 'send' | 'save' | 'new') => {
-    const modifier = isMac ? '⌘' : 'Ctrl+';
-    if (action === 'send') return `${modifier}↵`;
-    if (action === 'save') return `${modifier}S`;
-    if (action === 'new') return `${modifier}N`;
-    return '';
+  const isMac =
+    typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
+  const getShortcutHint = (action: "send" | "save" | "new") => {
+    const modifier = isMac ? "⌘" : "Ctrl+";
+    if (action === "send") return `${modifier}↵`;
+    if (action === "save") return `${modifier}S`;
+    if (action === "new") return `${modifier}N`;
+    return "";
   };
 
   // Core state - minimal and focused
@@ -216,15 +235,31 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const [sending, setSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
+  // Image upload state
+  const [localImages, setLocalImages] =
+    useState<Base64URLString[]>(initialImages);
+  const [isDragOver, setIsDragOver] = useState(false);
+
   // Progressive disclosure state
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [enableWorktrees, setEnableWorktrees] = useState(true); // Default to true
 
-  // Project switcher state
-  const [showProjectSwitcher, setShowProjectSwitcher] = useState(false);
-  const [recentProjects, setRecentProjects] = useState<
-    Array<{ name: string; path: string }>
-  >([]);
+  // GitHub repository state
+  const {
+    repos,
+    loadingRepos,
+    error: repoError,
+    githubRequired,
+    noRepos,
+    loadRepos,
+    connectGitHub,
+  } = useGitHubRepos();
+  const [showRepoSelector, setShowRepoSelector] = useState(false);
+  const repoButtonRef = useRef<HTMLButtonElement>(null);
+  const [repoSelectorPosition, setRepoSelectorPosition] = useState({ top: 0, left: 0 });
+  const [selectedRepoId, setSelectedRepoId] = useState<number | "">("");
+  const [selectedRepoFullName, setSelectedRepoFullName] = useState<string>("");
+  const [branch, setBranch] = useState<string>("main");
 
   // Dirty repository state management
   const [showDirtyRepoSection, setShowDirtyRepoSection] = useState(false);
@@ -255,6 +290,75 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const [showMentions, setShowMentions] = useState(false);
   const [mentionCursorPos, setMentionCursorPos] = useState(0);
 
+  const removeImage = useCallback((img: string) => {
+    setLocalImages((prev) => prev.filter((p) => p !== img));
+  }, []);
+
+  const handleImageUpload = useCallback((file: File) => {
+    const maxPromptSize = parseInt(
+      String(import.meta.env.VITE_MAX_PROMPT_SIZE * 1024 * 1044) || "15728640"
+    ); // 15MB default
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+
+      // Calculate total size using functional update to get current state
+      setLocalImages((prevImages) => {
+        const currentTotalSize = prevImages.reduce(
+          (total, img) => total + img.length,
+          0
+        );
+        const newTotalSize = currentTotalSize + base64String.length;
+
+        if (newTotalSize > maxPromptSize) {
+          toast.error(
+            `Total prompt size would exceed ${Math.round(maxPromptSize / 1024 / 1024)}MB limit`
+          );
+          console.error(
+            `Total prompt size would exceed ${Math.round(maxPromptSize / 1024 / 1024)}MB limit`
+          );
+          return prevImages;
+        }
+
+        // Only add the image if it's not already in the array
+        if (!prevImages.includes(base64String)) {
+          console.log("adding image to state inside NewTaskModal");
+          return [...prevImages, base64String];
+        }
+        return prevImages;
+      });
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const files = Array.from(e.dataTransfer.files);
+      files.forEach((file) => {
+        if (file.type.startsWith("image/")) {
+          handleImageUpload(file);
+        }
+      });
+    },
+    [handleImageUpload]
+  );
+
   const { results: fileResults, isLoading: isSearchingFiles } = useFileSearch(
     mentionQuery,
     {
@@ -268,22 +372,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   // Always use the first agent config (General)
   const agentConfigId = agentConfigsArray[0]?.id || "";
 
-  // Initialize smart defaults for codePath
+  // Initialize codePath from initialCodePath or clear it for repo selection
   useEffect(() => {
     if (initialCodePath && initialCodePath.trim()) {
       setCodePath(initialCodePath.trim());
-      return;
-    }
-
-    const projects = recentProjectsManager.get();
-    setRecentProjects(projects);
-
-    if (projects.length > 0) {
-      setCodePath(projects[0].path);
     } else {
-      setCodePath(settings.vault.path || "");
+      setCodePath(""); // Clear for GitHub repo selection
     }
-  }, [settings.vault.path, initialCodePath]);
+  }, [initialCodePath]);
 
   // Load worktree preference from localStorage
   useEffect(() => {
@@ -481,9 +577,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   useEffect(() => {
     const handleEscKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        // If project switcher is open, close it first
-        if (showProjectSwitcher) {
-          setShowProjectSwitcher(false);
+        // If repo selector is open, close it first
+        if (showRepoSelector) {
+          setShowRepoSelector(false);
           return;
         }
         // If mentions are open, close them first
@@ -498,7 +594,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
 
     document.addEventListener("keydown", handleEscKey);
     return () => document.removeEventListener("keydown", handleEscKey);
-  }, [showProjectSwitcher, showMentions]);
+  }, [showRepoSelector, showMentions]);
 
   const handleClose = (opts?: { saveDraft?: boolean }) => {
     const saveDraft = opts?.saveDraft ?? true;
@@ -636,34 +732,49 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
     setSending(true);
 
     try {
-      const selectedAgentConfig = agentConfigsArray.find(
-        (ac) => ac.id === agentConfigId
-      );
-      const agentConfigName = selectedAgentConfig?.agent.name || "General";
-
       // Truncate content for title
       const MAX_TITLE_LENGTH = 60;
       const truncatedContent =
         content.length > MAX_TITLE_LENGTH
           ? content.slice(0, MAX_TITLE_LENGTH).trimEnd() + "…"
           : content;
-      const title = `Issue: ${truncatedContent}`;
+      const title = `Task: ${truncatedContent}`;
 
-      // Create session immediately
-      const sessionId = await taskOrchestration.createTaskSession(
-        title,
-        agentConfigId
-      );
+      // Create session using createSessionFast (same as StartChat)
+      const cs = await createSessionFast({
+        sessionName: title,
+        agentConfigId: "general",
+      });
 
-      // Create session data for the store
+      if (!cs.success || !cs.sessionId) {
+        throw new Error(cs?.error || "Failed to create session");
+      }
+
+      const sessionId = cs.sessionId;
+
+      // Get ACS client and connect
+      const acs = getDefaultACSClient();
+      try {
+        await acs.streaming.connect(sessionId);
+      } catch (e: any) {
+        console.warn("SSE Connect Failed (non-fatal)", e);
+      }
+
+      // Get user session for auth
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const uid = session?.user?.id || "unknown";
+
+      // Create session data for the store (same as StartChat)
       const sessionData = {
         id: sessionId,
         mission_title: title,
         status: "processing",
         last_message_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
-        agent_config_name: agentConfigName,
-        model_id: selections.selectedModelId || null,
+        agent_config_name: "general",
+        model_id: null,
         latest_message_id: null,
         latest_message_role: null,
         latest_message_content: null,
@@ -674,9 +785,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         backgroundProcessing: true,
       };
 
+      console.log(
+        "[NewTaskModal][sendCore] Session Data Created:",
+        sessionData
+      );
+
       // Insert session into store
       const store = useMissionControlStore.getState();
-      const currentSessions = store.sessions;
+      const currentSessions = store.activeSessions;
       store.setSessions([sessionData, ...currentSessions]);
 
       // Notify parent
@@ -689,12 +805,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         description: "Orchestra is preparing your workspace...",
       });
 
-      // Add to recent projects
-      try {
-        const pathTrim = codePath.trim();
-        const name = pathTrim.split(/[\\\/]/).pop() || pathTrim;
-        recentProjectsManager.add({ name, path: pathTrim });
-      } catch {}
+      const pathTrim = codePath.trim();
+      const name = pathTrim.split(/[\\\/]/).pop() || pathTrim;
+
+      // No need to add to recent projects for GitHub repos
 
       // Clear any prefill hint
       try {
@@ -710,42 +824,27 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         codePath.trim()
       );
 
-      // Start background operations
-      startBackgroundSessionOps(sessionId, {
-        sessionName: title,
-        agentConfigId,
-        userId: auth.user.id,
-        projectRoot: codePath.trim(),
-        originalProjectPath: codePath.trim(),
-        firstMessage: remappedContent,
-        enableWorktrees: enableWorktrees, // Use user preference
-        skipWorkspacePreparation: !enableWorktrees,
-        modelMode: "auto", // Always auto
+      // Send message using sendChatMessage (same as StartChat)
+      await sendChatMessage({
+        sessionId,
+        message: remappedContent,
+        endpoint: "web", // Use local endpoint for file-based tasks
+        userId: uid,
+        agentConfigName: "general",
+        acsClient: acs,
         autoMode: true,
         modelAutoMode: true,
-        roleModelOverrides: AUTO_MODE_PRESETS.best, // Always use best preset
-        onProgress: (step, progress) => {
-          console.log(
-            `[NewTaskModal] Background progress: ${step} - ${progress}%`
-          );
-        },
-        onError: (error, step) => {
-          console.error(`[NewTaskModal] Background error in ${step}:`, error);
-          store.setBackgroundProcessing(sessionId, false);
-          store.updateSession(sessionId, { status: "error" });
-          toast.error("Failed to set up task", {
-            description: error.message,
-          });
-        },
-        onComplete: () => {
-          console.log("[NewTaskModal] Background operations completed");
-          store.setBackgroundProcessing(sessionId, false);
-          store.updateSession(sessionId, { status: "active" });
-          toast.success("Task ready", {
-            description: "Agent is now working on your task",
-          });
+        images: localImages,
+        tools: [], // Skip tool registration for task creation
+        repoContextWeb: {
+          repo_id: selectedRepoId,
+          repo_full_name: selectedRepoFullName,
+          branch: branch.trim(),
         },
       });
+
+      // Clear images after successful send
+      setLocalImages([]);
     } catch (error) {
       console.error("[NewTaskModal] Failed to create session:", error);
       toast.error("Failed to create task", {
@@ -894,48 +993,22 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       return;
     }
 
-    // Tab to switch projects (when not in textarea)
+    // Tab to switch repos (when not in textarea)
     if (e.key === "Tab" && !e.shiftKey && e.target === document.body) {
       e.preventDefault();
-      setShowProjectSwitcher(true);
+      setShowRepoSelector(true);
       return;
     }
   };
 
-  const handleProjectSelect = (projectPath: string) => {
-    setCodePath(projectPath);
-    setShowProjectSwitcher(false);
-
-    // Move selected project to top of recent list
-    const projects = recentProjectsManager.get();
-    const selected = projects.find((p) => p.path === projectPath);
-    if (selected) {
-      const filtered = projects.filter((p) => p.path !== projectPath);
-      setRecentProjects([selected, ...filtered]);
-    }
+  const handleRepoSelect = (repoId: number, repoFullName: string) => {
+    setSelectedRepoId(repoId);
+    setSelectedRepoFullName(repoFullName);
+    setCodePath(`/workspace/${repoFullName.split('/').pop()}`);
+    setShowRepoSelector(false);
   };
 
-  const handleBrowseProject = async () => {
-    if (!isTauri()) return;
 
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Select project folder",
-      });
-
-      if (selected && typeof selected === "string") {
-        setCodePath(selected);
-        const name = selected.split(/[\\\/]/).pop() || selected;
-        recentProjectsManager.add({ name, path: selected });
-        setShowProjectSwitcher(false);
-      }
-    } catch (error) {
-      console.warn("Folder selection cancelled or failed:", error);
-    }
-  };
 
   // Compute worktree blocking state
   const worktreeBlocked =
@@ -945,11 +1018,13 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
 
   const canSubmit =
     content.trim() &&
-    codePath.trim() &&
+    selectedRepoId &&
+    selectedRepoFullName &&
+    branch.trim() &&
     !sending &&
     !isCommitting &&
     !worktreeBlocked;
-  const projectName = codePath.split(/[\\\/]/).pop() || "No project selected";
+  const repoName = selectedRepoFullName || "No repository selected";
 
   // Using local getShortcutHint helper (see above)
 
@@ -962,6 +1037,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
           isClosing ? "opacity-0" : "opacity-100"
         )}
         onClick={() => handleClose({ saveDraft: true })}
+        id="new-task-modal-backdrop"
       >
         <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
         <div className="absolute inset-0 bg-gradient-to-t from-purple-900/10 via-transparent to-blue-900/10" />
@@ -971,6 +1047,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onKeyDown={handleKeyDown}
+        id="new-task-modal"
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 40 }}
@@ -987,11 +1064,24 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             "backdrop-blur-2xl backdrop-saturate-200",
             "rounded-3xl shadow-2xl",
             "border border-white/30",
-            "overflow-hidden"
+            "overflow-hidden",
+            isDragOver && "border-blue-400/50 bg-blue-500/10"
           )}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
           {/* Subtle gradient overlays for depth */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-white/[0.01] pointer-events-none" />
+
+          {/* Drag overlay covering entire modal */}
+          {isDragOver && (
+            <div className="absolute inset-0 bg-blue-500/20 border-2 border-dashed border-blue-400/50 rounded-3xl flex items-center justify-center z-50">
+              <div className="text-blue-300 text-lg font-medium">
+                Drop images here
+              </div>
+            </div>
+          )}
 
           {/* Content container */}
           <div className="relative z-10">
@@ -1023,13 +1113,62 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             {/* Main content area */}
             <div className="px-8 pb-6">
               {/* Task input with Lexical editor */}
-              <div className="relative rounded-2xl bg-black/20 border border-white/10 focus-within:border-white/20 transition-colors duration-200 overflow-hidden">
+              <div
+                className={cn(
+                  "relative rounded-2xl bg-black/20 border border-white/10 focus-within:border-white/20 transition-colors duration-200 overflow-hidden"
+                )}
+              >
                 <SafeLexicalEditor
                   value={content}
                   onChange={setContent}
                   placeholder={PLACEHOLDERS[placeholderIndex]}
                 />
+
+                {/* Image upload button */}
+                <div className="absolute bottom-3 right-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      files.forEach(handleImageUpload);
+                      e.target.value = ""; // Reset input
+                    }}
+                    className="hidden"
+                    id="image-upload-ntm"
+                  />
+                  <label
+                    htmlFor="image-upload-ntm"
+                    className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all cursor-pointer group"
+                  >
+                    <Image className="w-4 h-4 text-white/50 group-hover:text-white/70" />
+                  </label>
+                </div>
               </div>
+
+
+
+              {/* Image previews */}
+              {localImages.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {localImages.map((img, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={img}
+                        alt={`Upload ${index + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg border border-white/10"
+                      />
+                      <button
+                        onClick={() => removeImage(img)}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Inline commit bar (appears when repo is dirty and worktrees disabled) */}
@@ -1084,71 +1223,122 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
               {/* Main context bar */}
               <div className="flex items-center justify-between px-8 py-3 bg-white/[0.02]">
                 <div className="flex items-center gap-4 text-xs">
-                  {/* Project selector */}
+                  {/* Repository selector */}
                   <div className="relative">
                     <button
-                      onClick={() =>
-                        setShowProjectSwitcher(!showProjectSwitcher)
-                      }
+                      ref={repoButtonRef}
+                      onClick={() => {
+                        if (!showRepoSelector && repoButtonRef.current) {
+                          const rect = repoButtonRef.current.getBoundingClientRect();
+                          setRepoSelectorPosition({
+                            top: rect.top - 8,
+                            left: rect.left
+                          });
+                        }
+                        setShowRepoSelector(!showRepoSelector);
+                      }}
                       className="flex items-center gap-2 text-white/50 hover:text-white/70 transition-colors"
                     >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                      <span className="font-mono">{projectName}</span>
+                      <GitBranch className="w-3.5 h-3.5" />
+                      <span className="font-mono">{repoName}</span>
                       <ChevronDown
                         className={cn(
                           "w-3 h-3 transition-transform",
-                          showProjectSwitcher && "rotate-180"
+                          showRepoSelector && "rotate-180"
                         )}
                       />
                     </button>
 
-                    {/* Project switcher dropdown */}
-                    <AnimatePresence>
-                      {showProjectSwitcher && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="absolute bottom-full left-0 mb-2 w-64 bg-black/95 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl overflow-hidden"
-                        >
-                          <div className="p-2">
-                            <div className="text-xs text-white/40 px-3 py-2">
-                              Recent Projects
+                    {/* Repository selector dropdown - rendered as portal */}
+                    {showRepoSelector && ReactDOM.createPortal(
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="fixed z-[60] w-80 bg-black/95 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl overflow-hidden"
+                        style={{
+                          top: `${repoSelectorPosition.top}px`,
+                          left: `${repoSelectorPosition.left}px`,
+                          transform: 'translateY(-100%)'
+                        }}
+                      >
+                        <div className="p-2">
+                          {loadingRepos ? (
+                            <div className="px-3 py-4 text-center text-white/50">
+                              Loading repositories...
                             </div>
-                            {recentProjects.slice(0, 5).map((project) => (
+                          ) : githubRequired ? (
+                            <div className="p-3">
+                              <div className="text-xs text-white/40 mb-2">
+                                GitHub Connection Required
+                              </div>
                               <button
-                                key={project.path}
-                                onClick={() =>
-                                  handleProjectSelect(project.path)
-                                }
-                                className={cn(
-                                  "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                                  project.path === codePath
-                                    ? "bg-white/10 text-white"
-                                    : "text-white/70 hover:bg-white/5 hover:text-white/90"
-                                )}
+                                onClick={connectGitHub}
+                                className="w-full px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/90 transition-colors"
                               >
-                                <div className="font-medium">
-                                  {project.name}
-                                </div>
-                                <div className="text-xs text-white/40 truncate">
-                                  {project.path}
-                                </div>
+                                Connect GitHub
                               </button>
-                            ))}
-                            <div className="border-t border-white/10 mt-2 pt-2">
                               <button
-                                onClick={handleBrowseProject}
-                                className="w-full text-left px-3 py-2 rounded-lg text-sm text-white/70 hover:bg-white/5 hover:text-white/90 transition-colors"
+                                onClick={loadRepos}
+                                className="w-full px-3 py-1 mt-1 text-xs text-white/50 hover:text-white/70 transition-colors"
                               >
-                                Browse for project...
+                                Refresh
                               </button>
                             </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                          ) : (
+                            <>
+                              <div className="text-xs text-white/40 px-3 py-2">
+                                GitHub Repositories
+                              </div>
+                              <div className="max-h-48 overflow-y-auto">
+                                {repos.map((repo) => (
+                                  <button
+                                    key={repo.id}
+                                    onClick={() =>
+                                      handleRepoSelect(repo.id, repo.full_name)
+                                    }
+                                    className={cn(
+                                      "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
+                                      repo.id === selectedRepoId
+                                        ? "bg-white/10 text-white"
+                                        : "text-white/70 hover:bg-white/5 hover:text-white/90"
+                                    )}
+                                  >
+                                    <div className="font-medium">
+                                      {repo.full_name}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="border-t border-white/10 mt-2 pt-2">
+                                <button
+                                  onClick={loadRepos}
+                                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-white/70 hover:bg-white/5 hover:text-white/90 transition-colors"
+                                >
+                                  Refresh repositories
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </motion.div>,
+                      document.body
+                    )}
                   </div>
+
+                  {/* Branch input */}
+                  {selectedRepoId && (
+                    <div className="flex items-center gap-2 text-white/50">
+                      <span className="text-xs">Branch:</span>
+                      <input
+                        type="text"
+                        value={branch}
+                        onChange={(e) => setBranch(e.target.value)}
+                        className="bg-transparent text-xs text-white/70 border-none outline-none w-20"
+                        placeholder="main"
+                      />
+                    </div>
+                  )}
 
                   {/* Status indicators */}
                   <div className="flex items-center gap-2">

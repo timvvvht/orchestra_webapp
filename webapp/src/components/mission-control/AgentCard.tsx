@@ -7,14 +7,16 @@ import {
   FileText,
   Lock,
   Clock,
+  GitBranch,
 } from "lucide-react";
 import {
-  type MissionControlAgent,
+  MissionControlAgent,
   useMissionControlStore,
 } from "@/stores/missionControlStore";
 import { MergeWorktreeButton } from "./MergeWorktreeButton";
 import { formatTimeAgo, getSessionTimestamp } from "@/utils/time";
 import { baseDirFromCwd } from "@/utils/pathHelpers";
+import { isWorktreePath, getWorktreeName } from "@/utils/worktreeUtils";
 
 import PlanMarkdownModal from "@/components/modals/PlanMarkdownModal";
 import { ProgressBar } from "./ProgressBar";
@@ -140,7 +142,6 @@ const getHumanReadableActivity = (
 } => {
   const role = agent.latest_message_role;
   const content = agent.latest_message_content;
-  console.log(`Role: ${role} - Content: ${content}`);
 
   // Special states
   if (agent.status === "creating") {
@@ -278,22 +279,6 @@ const AgentCard: React.FC<AgentCardProps> = ({
     (state) => state.planProgress[agent.id]
   );
 
-  // Modal state (only when plan exists)
-  const [showPlanModal, setShowPlanModal] = useState(false);
-
-  // // Debug logging for plan data
-  // console.log(`[plan] AgentCard for session ${agent.id}:`, {
-  //   hasPlan: !!plan,
-  //   hasProgress: !!progress,
-  //   plan: plan,
-  //   progress: progress,
-  //   allPlansKeys: Object.keys(plans),
-  //   allProgressKeys: Object.keys(planProgress)
-  // });
-
-  // Debug logging for message content
-  // console.log('[AgentCard] latest_message_content:', agent.latest_message_content, 'role:', agent.latest_message_role, 'agent:', agent);
-
   // Memoize expensive computations
   const activityInfo = useMemo(() => getHumanReadableActivity(agent), [agent]);
   const messagePreview = useMemo(
@@ -307,6 +292,16 @@ const AgentCard: React.FC<AgentCardProps> = ({
   const codePath = useMemo(
     () => formatCodePath(agent.base_dir ?? agent.agent_cwd),
     [agent.base_dir, agent.agent_cwd]
+  );
+
+  // Worktree detection
+  const isWorktree = useMemo(
+    () => isWorktreePath(agent.agent_cwd || agent.base_dir),
+    [agent.agent_cwd, agent.base_dir]
+  );
+  const worktreeName = useMemo(
+    () => getWorktreeName(agent.agent_cwd || agent.base_dir),
+    [agent.agent_cwd, agent.base_dir]
   );
 
   // Memoize click handlers
@@ -327,9 +322,9 @@ const AgentCard: React.FC<AgentCardProps> = ({
   );
 
   const handleCardClick = useCallback(() => {
-    setSelectedSession(agent.id);
+    useMissionControlStore.getState().navigateToSession(agent.id);
     markSessionRead(agent.id);
-  }, [setSelectedSession, markSessionRead, agent.id]);
+  }, [markSessionRead, agent.id]);
 
   // Enhanced glass morphism styles based on group
   const glowStyles = {
@@ -367,6 +362,7 @@ const AgentCard: React.FC<AgentCardProps> = ({
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
       data-session-id={agent.id}
       data-selected={isSelected ? "true" : "false"}
+      data-worktree={isWorktree ? "true" : "false"}
     >
       <div
         className={cn(
@@ -466,6 +462,29 @@ const AgentCard: React.FC<AgentCardProps> = ({
                 >
                   <span className="inline-flex items-center gap-2">
                     {agent.mission_title}
+                    {isWorktree ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-300"
+                        data-testid="worktree-chip"
+                        title={
+                          worktreeName
+                            ? `Worktree: ${worktreeName}`
+                            : "Worktree active"
+                        }
+                      >
+                        <GitBranch className="w-3 h-3" />
+                        Worktree{worktreeName ? `: ${worktreeName}` : ""}
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-white/60"
+                        data-testid="direct-repo-chip"
+                        title="Direct repo (no worktree)"
+                      >
+                        <GitBranch className="w-3 h-3 opacity-60" />
+                        Repo
+                      </span>
+                    )}
                     {agent.isFinalized && (
                       <span
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-[10px] text-white/70"
@@ -477,8 +496,13 @@ const AgentCard: React.FC<AgentCardProps> = ({
                   </span>
                 </h3>
               </div>
-              <div className="text-xs text-white/50 font-mono truncate">
-                {codePath}
+              <div
+                className="text-xs text-white/60 font-mono truncate"
+                title={agent.agent_cwd || undefined}
+              >
+                {isWorktree && worktreeName
+                  ? `${baseDirFromCwd(agent.agent_cwd || agent.base_dir) || ""} • ${worktreeName}`
+                  : codePath}
               </div>
             </div>
           </div>
@@ -555,8 +579,7 @@ const AgentCard: React.FC<AgentCardProps> = ({
             {!agent.isPending &&
               !agent.backgroundProcessing &&
               !agent.isFinalized &&
-              agent.agent_cwd &&
-              agent.agent_cwd.includes("/worktrees/") && (
+              isWorktree && (
                 <div onClick={(e) => e.stopPropagation()}>
                   <MergeWorktreeButton
                     sessionId={agent.id}

@@ -1,4 +1,10 @@
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '@/utils/runtime';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 
 export interface CommitEntry {
     sha: string;
@@ -18,7 +24,7 @@ export async function getGitLog(params: GitLogParams): Promise<CommitEntry[]> {
     console.log('Fetching git log for', JSON.stringify(params, null, 2));
 
     try {
-        const result = await invoke<CommitEntry[]>('simple_git_log', {
+        const result = await tauriInvoke<CommitEntry[]>('simple_git_log', {
             projectRoot, // <-- must match the backend arg name
             limit
         });

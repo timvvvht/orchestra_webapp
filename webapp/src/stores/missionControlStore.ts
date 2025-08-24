@@ -5,6 +5,9 @@ import { analyzePlanProgressDetailed } from "@/utils/planProgress";
 import { type ParsedPlanResult } from "@/utils/plan";
 import { baseDirFromCwd } from "@/utils/pathHelpers";
 import { type GitStatusCounts } from "@/utils/gitHelpers";
+import { supabase } from "@/lib/supabaseClient";
+import { arch } from "os";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 // import { supabase } from "@/auth/SupabaseClient";
 
 // LocalStorage key for read state persistence
@@ -27,7 +30,7 @@ const saveReadMap = (readMap: Record<string, boolean>) => {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(readMap));
   } catch (error) {
-    console.error("Failed to save read state to localStorage:", error);
+    // Failed to save read state to localStorage
   }
 };
 
@@ -47,7 +50,7 @@ const saveProcessingOrder = (ids: string[]) => {
   try {
     localStorage.setItem(LS_PROCESSING_ORDER, JSON.stringify(ids));
   } catch (error) {
-    console.error("Failed to save processing order to localStorage:", error);
+    // Failed to save processing order to localStorage
   }
 };
 
@@ -78,11 +81,15 @@ export interface CollapsedGroups {
   idleUnread: boolean;
   idleRead: boolean;
   drafts: boolean;
+  archived: boolean;
 }
 
 interface MissionControlState {
   // Data
-  sessions: MissionControlAgent[];
+  activeSessions: MissionControlAgent[];
+  archivedSessions: MissionControlAgent[];
+  archivedLoaded: boolean;
+  archiveLoading: boolean;
   plans: Record<string, Plan>; // key = session_id
   planProgress: Record<string, PlanProgress>; // key = session_id
   gitStatus: Record<string, GitStatusCounts>; // key = cwd -> git status counts
@@ -117,6 +124,14 @@ interface MissionControlState {
   lastCheckpointSaved: string | null;
   isAutoSaving: boolean;
 
+  // Workspace identity
+  workspaceKey: string | null;
+  hashedWorkspaceId: string | null;
+  workspaceFilter: string | null; // Filter sessions by workspace ID
+
+  // Router navigation function injected by MissionControl
+  routerNavigate: ((path: string, opts?: { replace?: boolean }) => void) | null;
+
   // Actions
   setSessions: (sessions: MissionControlAgent[]) => void;
   updateSession: (
@@ -138,9 +153,14 @@ interface MissionControlState {
   setViewMode: (mode: ViewMode) => void;
   setSelectedSession: (sessionId: string | null) => void;
   setCwdFilter: (cwd: string | null) => void;
+  setWorkspaceFilter: (workspaceId: string | null) => void;
   toggleGroupCollapsed: (group: keyof CollapsedGroups) => void;
   setShowNewDraftModal: (show: boolean) => void;
   setInitialDraftCodePath: (path: string | null) => void;
+  setArchivedSessions: (sessions: MissionControlAgent[]) => void;
+  clearArchivedSessions: () => void;
+  setArchivedLoaded: (loaded: boolean) => void;
+  setArchivedLoading: (loading: boolean) => void;
 
   // Read state actions
   markSessionRead: (sessionId: string) => void;
@@ -156,6 +176,23 @@ interface MissionControlState {
   setLastCheckpointSaved: (timestamp: string | null) => void;
   setIsAutoSaving: (saving: boolean) => void;
 
+  moveSessionToArchive: (sessionId: string) => boolean;
+  moveSessionToActive: (sessionId: string) => boolean;
+
+  // Workspace + routing actions
+  computeHashedWorkspaceId: (
+    workspaceKey: string,
+    userId: string
+  ) => Promise<string>;
+  setWorkspaceKey: (
+    workspaceKey: string | null,
+    userId: string | null
+  ) => Promise<void>;
+  setRouterNavigate: (
+    nav: ((path: string, opts?: { replace?: boolean }) => void) | null
+  ) => void;
+  navigateToSession: (sessionId: string) => Promise<void>;
+
   // Computed getters
   getFilteredSessions: () => MissionControlAgent[];
   getSortedSessions: () => MissionControlAgent[];
@@ -166,12 +203,24 @@ interface MissionControlState {
   getSelectedAgentCwd: () => string | null;
 }
 
+// Browser-safe SHA-256 base64url helper
+async function sha256Base64Url(input: string): Promise<string> {
+  const enc = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", enc);
+  const bytes = new Uint8Array(digest);
+  let b64 = btoa(String.fromCharCode(...Array.from(bytes)));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 export const useMissionControlStore = create<MissionControlState>(
   (set, get) => {
     // Load initial state with backwards compatibility for collapsedGroups
     const loadInitialState = () => {
       const baseState = {
-        sessions: [] as MissionControlAgent[],
+        activeSessions: [] as MissionControlAgent[],
+        archivedSessions: [] as MissionControlAgent[],
+        archivedLoaded: false,
+        archiveLoading: false,
         plans: {} as Record<string, Plan>,
         planProgress: {} as Record<string, PlanProgress>,
         gitStatus: {} as Record<string, GitStatusCounts>,
@@ -186,6 +235,7 @@ export const useMissionControlStore = create<MissionControlState>(
           idleUnread: false,
           idleRead: false,
           drafts: false,
+          archived: false,
         },
         showNewDraftModal: false,
         initialDraftCodePath: null,
@@ -193,10 +243,14 @@ export const useMissionControlStore = create<MissionControlState>(
         sessionRefetchCallback: null as (() => Promise<void>) | null,
         lastCheckpointSaved: null as string | null,
         isAutoSaving: false,
+        workspaceKey: null,
+        hashedWorkspaceId: null,
+        workspaceFilter: null,
+        routerNavigate: null,
       };
 
       // Backwards compatibility: if old 'idle' state exists in localStorage, migrate it
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         try {
           const saved = localStorage.getItem("mc_collapsed_groups_v1");
           if (saved) {
@@ -210,7 +264,7 @@ export const useMissionControlStore = create<MissionControlState>(
             }
           }
         } catch (error) {
-          console.warn("Failed to migrate collapsed groups state:", error);
+          // Failed to migrate collapsed groups state
         }
       }
 
@@ -223,38 +277,90 @@ export const useMissionControlStore = create<MissionControlState>(
 
       // Actions
       setSessions: (sessions) => {
-        set({ sessions });
+        set({ activeSessions: sessions });
+
         // Reconcile processingOrder to remove IDs not present anymore
         set((state) => {
           const validIds = new Set(sessions.map((s) => s.id));
           const pruned = state.processingOrder.filter((id) => validIds.has(id));
+
           if (pruned.length !== state.processingOrder.length) {
             saveProcessingOrder(pruned);
           }
+
           return { processingOrder: pruned };
         });
       },
 
-      updateSession: (sessionId, updates) =>
+      updateSession: (sessionId, updates) => {
         set((state) => ({
-          sessions: state.sessions.map((session) =>
+          activeSessions: state.activeSessions.map((session) =>
             session.id === sessionId ? { ...session, ...updates } : session
           ),
-        })),
+        }));
+      },
 
-      setBackgroundProcessing: (sessionId, flag) =>
+      setBackgroundProcessing: (sessionId, flag) => {
         set((state) => ({
-          sessions: state.sessions.map((session) =>
+          activeSessions: state.activeSessions.map((session) =>
             session.id === sessionId
               ? { ...session, backgroundProcessing: flag }
               : session
           ),
-        })),
+        }));
+      },
+
+      setArchivedLoaded: (loaded: boolean) => {
+        set({ archivedLoaded: loaded });
+      },
+
+      setArchivedLoading: (loading: boolean) => {
+        set({ archiveLoading: loading });
+      },
+
+      moveSessionToActive(sessionId) {
+        const { archivedSessions, activeSessions } = get();
+        const sessionIndex = archivedSessions.findIndex(
+          (s) => s.id === sessionId
+        );
+
+        if (sessionIndex === -1) return false;
+
+        const session = archivedSessions[sessionIndex];
+        const updatedSession = { ...session, archived_at: null };
+
+        set({
+          archivedSessions: archivedSessions.filter((s) => s.id !== sessionId),
+          activeSessions: [...activeSessions, updatedSession],
+        });
+
+        return true;
+      },
+
+      moveSessionToArchive(sessionId) {
+        const { archivedSessions, activeSessions } = get();
+        const sessionIndex = activeSessions.findIndex(
+          (s) => s.id === sessionId
+        );
+
+        if (sessionIndex === -1) return false;
+
+        const session = activeSessions[sessionIndex];
+        const updatedSession = {
+          ...session,
+          archived_at: new Date().toISOString(),
+        };
+
+        set({
+          activeSessions: activeSessions.filter((s) => s.id !== sessionId),
+          archivedSessions: [...archivedSessions, updatedSession],
+        });
+
+        return true;
+      },
 
       setPlans: (plans) =>
         set(() => {
-          console.log("[plan] setPlans called with:", plans);
-
           // Convert plans array to session_id keyed objects
           const plansMap = plans.reduce(
             (acc, plan) => {
@@ -269,17 +375,10 @@ export const useMissionControlStore = create<MissionControlState>(
             (acc, plan) => {
               const progress = analyzePlanProgressDetailed(plan.markdown);
               acc[plan.session_id] = progress;
-              console.log(
-                `[plan] Calculated progress for session ${plan.session_id}:`,
-                progress
-              );
               return acc;
             },
             {} as Record<string, PlanProgress>
           );
-
-          // console.log('[plan] Final plans map stored in state:', plansMap);
-          // console.log('[plan] Final progress map stored in state:', progressMap);
 
           return {
             plans: plansMap,
@@ -287,37 +386,33 @@ export const useMissionControlStore = create<MissionControlState>(
           };
         }),
 
-      setPlanRefetchCallback: (callback) =>
+      setPlanRefetchCallback: (callback) => {
         set((state) =>
           state.planRefetchCallback === callback
             ? state
             : { planRefetchCallback: callback }
-        ),
+        );
+      },
 
       refetchPlans: () => {
         const { planRefetchCallback } = get();
         if (planRefetchCallback) {
-          console.log("[plan] Triggering plan refetch via callback");
           planRefetchCallback();
-        } else {
-          console.warn("[plan] No plan refetch callback available");
         }
       },
 
-      setSessionRefetchCallback: (callback) =>
+      setSessionRefetchCallback: (callback) => {
         set((state) =>
           state.sessionRefetchCallback === callback
             ? state
             : { sessionRefetchCallback: callback }
-        ),
+        );
+      },
 
       refetchSessions: async () => {
         const { sessionRefetchCallback } = get();
         if (sessionRefetchCallback) {
-          console.log("[session] Triggering session refetch via callback");
           await sessionRefetchCallback();
-        } else {
-          console.warn("[session] No session refetch callback available");
         }
       },
 
@@ -332,11 +427,9 @@ export const useMissionControlStore = create<MissionControlState>(
             .eq("session_id", sessionId)
             .maybeSingle();
           if (error) {
-            console.warn("[plan] Single fetch error:", error);
             return;
           }
           if (!plan) {
-            console.warn("[plan] No plan for session", sessionId);
             return;
           }
           const progress = analyzePlanProgressDetailed(plan.markdown);
@@ -344,26 +437,15 @@ export const useMissionControlStore = create<MissionControlState>(
             plans: { ...state.plans, [sessionId]: plan },
             planProgress: { ...state.planProgress, [sessionId]: progress },
           }));
-          console.log(
-            `[plan] Single plan refetch complete for session ${sessionId}`
-          );
         } catch (e) {
-          console.error("[plan] Single fetch exception:", e);
+          // Error fetching single plan
         }
       },
 
       patchPlanFromToolResult: (sessionId: string, parsed: ParsedPlanResult) =>
         set((state) => {
-          console.log(
-            `[plan] Patching plan for session ${sessionId} with:`,
-            parsed
-          );
-
           const currentPlan = state.plans[sessionId];
           if (!currentPlan) {
-            console.warn(
-              `[plan] No existing plan found for session ${sessionId}, skipping patch`
-            );
             return state;
           }
 
@@ -395,14 +477,6 @@ export const useMissionControlStore = create<MissionControlState>(
           // Recalculate progress for this plan
           const updatedProgress = analyzePlanProgressDetailed(updatedMarkdown);
 
-          console.log(
-            "[UI-SSE][planPatched]",
-            "session=",
-            sessionId,
-            "newProgress=",
-            updatedProgress
-          );
-
           return {
             plans: {
               ...state.plans,
@@ -415,15 +489,16 @@ export const useMissionControlStore = create<MissionControlState>(
           };
         }),
 
-      setGitStatus: (cwd, counts) =>
+      setGitStatus: (cwd, counts) => {
         set((state) => ({
           gitStatus: {
             ...state.gitStatus,
             [cwd]: counts,
           },
-        })),
+        }));
+      },
 
-      setGitStatusError: (cwd, error) =>
+      setGitStatusError: (cwd, error) => {
         set((state) => {
           const newErrors = { ...state.gitStatusErrors };
           if (error) {
@@ -432,46 +507,54 @@ export const useMissionControlStore = create<MissionControlState>(
             delete newErrors[cwd];
           }
           return { gitStatusErrors: newErrors };
-        }),
+        });
+      },
 
-      setViewMode: (mode) => set({ viewMode: mode }),
+      setViewMode: (mode) => {
+        set({ viewMode: mode });
+      },
 
-      setSelectedSession: (sessionId) => set({ selectedSession: sessionId }),
+      setSelectedSession: (sessionId) => {
+        set({ selectedSession: sessionId });
+      },
 
-      setCwdFilter: (cwd) => set({ cwdFilter: cwd }), // Note: cwd param now stores base_dir values
+      setCwdFilter: (cwd) => {
+        set({ cwdFilter: cwd });
+      },
 
-      toggleGroupCollapsed: (group) =>
+      setWorkspaceFilter: (workspaceId) => {
+        set({ workspaceFilter: workspaceId });
+      },
+
+      toggleGroupCollapsed: (group) => {
         set((state) => ({
           collapsedGroups: {
             ...state.collapsedGroups,
             [group]: !state.collapsedGroups[group],
           },
-        })),
+        }));
+      },
 
-      setShowNewDraftModal: (show) => set({ showNewDraftModal: show }),
+      setShowNewDraftModal: (show) => {
+        set({ showNewDraftModal: show });
+      },
 
-      setInitialDraftCodePath: (path) => set({ initialDraftCodePath: path }),
+      setInitialDraftCodePath: (path) => {
+        set({ initialDraftCodePath: path });
+      },
 
       // Read state actions
       markSessionRead: (sessionId) =>
         set((state) => {
-          const wasUnread = state.readMap[sessionId] !== true;
           const updatedReadMap = { ...state.readMap, [sessionId]: true };
           saveReadMap(updatedReadMap);
-          if (wasUnread) {
-            console.log("[UI] Session manually marked as READ:", sessionId);
-          }
           return { readMap: updatedReadMap };
         }),
 
       markSessionUnread: (sessionId) =>
         set((state) => {
-          const wasRead = state.readMap[sessionId] === true;
           const updatedReadMap = { ...state.readMap, [sessionId]: false };
           saveReadMap(updatedReadMap);
-          if (wasRead) {
-            console.log("[UI] Session manually marked as UNREAD:", sessionId);
-          }
           return { readMap: updatedReadMap };
         }),
 
@@ -488,11 +571,6 @@ export const useMissionControlStore = create<MissionControlState>(
             return {} as Partial<MissionControlState>;
           const updated = [...state.processingOrder, sessionId];
           saveProcessingOrder(updated);
-          console.log(
-            "[UI] Session added to processing order:",
-            sessionId,
-            `(position: ${updated.length})`
-          );
           return { processingOrder: updated };
         }),
 
@@ -504,13 +582,12 @@ export const useMissionControlStore = create<MissionControlState>(
             (id) => id !== sessionId
           );
           saveProcessingOrder(updated);
-          console.log("[UI] Session removed from processing order:", sessionId);
           return { processingOrder: updated };
         }),
 
       reconcileProcessingOrder: () =>
         set((state) => {
-          const validIds = new Set(state.sessions.map((s) => s.id));
+          const validIds = new Set(state.activeSessions.map((s) => s.id));
           const updated = state.processingOrder.filter((id) =>
             validIds.has(id)
           );
@@ -522,15 +599,69 @@ export const useMissionControlStore = create<MissionControlState>(
         }),
 
       // Ambient indicator actions
-      setLastCheckpointSaved: (timestamp: string | null) =>
-        set({ lastCheckpointSaved: timestamp }),
+      setLastCheckpointSaved: (timestamp: string | null) => {
+        set({ lastCheckpointSaved: timestamp });
+      },
 
-      setIsAutoSaving: (saving: boolean) => set({ isAutoSaving: saving }),
+      setIsAutoSaving: (saving: boolean) => {
+        set({ isAutoSaving: saving });
+      },
+
+      setArchivedSessions: (sessions: MissionControlAgent[]) => {
+        set({
+          archivedSessions: sessions,
+        });
+      },
+
+      clearArchivedSessions: () => {
+        set({ archivedSessions: [], archivedLoaded: false });
+      },
+
+      getArchivedSessions: () => {
+        const { archivedSessions, cwdFilter } = get();
+
+        return archivedSessions
+          .filter(
+            (s) =>
+              !cwdFilter ||
+              (s.base_dir ?? baseDirFromCwd(s.agent_cwd)) === cwdFilter
+          )
+          .sort(
+            (a, b) =>
+              getSessionTimestamp(b).getTime() -
+              getSessionTimestamp(a).getTime()
+          );
+      },
 
       // Computed getters
       getFilteredSessions: () => {
-        const { sessions, cwdFilter } = get();
-        return sessions.filter(
+        const { activeSessions: sessions, cwdFilter, workspaceFilter } = get();
+
+        // First filter by workspace if specified
+        let filteredSessions = sessions;
+        if (workspaceFilter) {
+          // Get workspace info from the store
+          const workspace = useWorkspaceStore.getState().getWorkspace(workspaceFilter);
+          if (workspace) {
+            filteredSessions = sessions.filter((session) => {
+              // Filter by base directory or agent_cwd that contains the repository name
+              // Also check if the session was created with this repository context
+              const sessionRepoName = session.base_dir?.split('/').pop() || 
+                                    session.agent_cwd?.split('/').pop() || '';
+              
+              return (
+                session.base_dir?.includes(workspace.repoFullName) ||
+                session.agent_cwd?.includes(workspace.repoFullName) ||
+                sessionRepoName === workspace.repoFullName.split('/').pop() ||
+                // Check if session has repository metadata that matches
+                (session as any).repoContextWeb?.repo_full_name === workspace.repoFullName
+              );
+            });
+          }
+        }
+
+        // Then filter by cwd if specified
+        return filteredSessions.filter(
           (session) =>
             !cwdFilter ||
             (session.base_dir ?? baseDirFromCwd(session.agent_cwd)) ===
@@ -635,10 +766,54 @@ export const useMissionControlStore = create<MissionControlState>(
       },
 
       getSelectedAgentCwd: () => {
-        const { selectedSession, sessions } = get();
-        return (
-          sessions.find((s) => s.id === selectedSession)?.agent_cwd || null
+        const {
+          selectedSession,
+          activeSessions: sessions,
+          archivedSessions,
+          viewMode,
+        } = get();
+        const pool = viewMode === "archived" ? archivedSessions : sessions;
+        return pool.find((s) => s.id === selectedSession)?.agent_cwd || null;
+      },
+
+      // Workspace + routing actions
+      computeHashedWorkspaceId: async (
+        workspaceKey: string,
+        userId: string
+      ) => {
+        return await sha256Base64Url(`${workspaceKey}:${userId}`);
+      },
+
+      setWorkspaceKey: async (workspaceKey, userId) => {
+        if (!workspaceKey || !userId) {
+          set({ workspaceKey: workspaceKey ?? null, hashedWorkspaceId: null });
+          return;
+        }
+        const hashed = await get().computeHashedWorkspaceId(
+          workspaceKey,
+          userId
         );
+        set({ workspaceKey, hashedWorkspaceId: hashed });
+      },
+
+      setRouterNavigate: (nav) => {
+        set({ routerNavigate: nav ?? null });
+      },
+
+      navigateToSession: async (sessionId: string) => {
+        if (!sessionId) return;
+        const { hashedWorkspaceId, routerNavigate } = get();
+        // Update selection in store for split-pane to open
+        set({ selectedSession: sessionId });
+
+        const hwid = hashedWorkspaceId ?? "unknown";
+        const path = `/project/${hwid}/${sessionId}`;
+        if (routerNavigate) {
+          routerNavigate(path);
+        } else {
+          // Fallback if not injected
+          window.history.pushState({}, "", path);
+        }
       },
     };
   }

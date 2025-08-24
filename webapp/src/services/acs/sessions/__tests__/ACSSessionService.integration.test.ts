@@ -112,6 +112,26 @@ describe('ACSSessionService - Integration Tests', () => {
       expect(testSession!.agent_cwd).toBe('/workspace');
     });
 
+    it('should create session with origin="web" from webapp', async () => {
+      const sessionPayload: CreateSessionRequest = { 
+        name: 'Origin Test Session',
+        agent_config_id: 'general'
+      };
+
+      const response = await acsClient.sessions.createSession(sessionPayload);
+      expect(response.data.success).toBe(true);
+      
+      const sessionId = response.data.data.id!;
+      createdSessionIdsForCleanup.push(sessionId);
+
+      // Fetch session details to verify origin was stored
+      const sessionDetails = await acsClient.sessions.getSession(sessionId);
+      
+      // Check for origin in the response (could be in different envelope structures)
+      const origin = sessionDetails.data?.origin || sessionDetails.data?.data?.origin;
+      expect(origin?.toLowerCase?.()).toBe('web');
+    });
+
     it('should list sessions and find the created session', async () => {
       expect(testSession).toBeDefined();
 

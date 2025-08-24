@@ -1,21 +1,61 @@
 /**
- * ChatMissionControl CSS - Webapp Stub Implementation
- * 
- * Placeholder CSS file for ChatMissionControl styling.
- * This is a stub implementation for webapp migration.
+ * Mission Control layout glue – critical subset
  */
-
-/* Placeholder styles for ChatMissionControl component */
-.chat-mission-control {
-  /* Basic styling placeholder */
+.mission-control-split {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
-
-.chat-mission-control-container {
-  /* Container styling placeholder */
+.mission-control-split .flex-1.h-full,
+.mission-control-split .h-full.max-h-full.overflow-hidden {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
-
-.chat-mission-control-panel {
-  /* Panel styling placeholder */
+.mission-control-chat {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
 }
-
-/* Additional placeholder styles can be added here as needed */
+.mission-control-scroll-area {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  flex: 1 !important;
+  flex-grow: 1 !important;
+  flex-basis: 0 !important;
+}
+.mission-control-scroll-area [data-radix-scroll-area-viewport] {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  flex: 1 !important;
+}
+.mission-control-input-area {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 10 !important;
+  flex-shrink: 0 !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+.mission-control-chat .chat-message,
+.mission-control-chat .relative.w-fit {
+  max-width: min(70%, 800px) !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  flex-shrink: 1 !important;
+}
+.mission-control-chat .chat-scroll-anchor { margin-bottom: 1rem !important; }
+.mission-control-chat .chat-message-list { gap: 0.75rem !important; }

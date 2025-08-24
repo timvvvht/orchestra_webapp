@@ -70,6 +70,7 @@ export interface CreateSessionRequest {
     agent_config_id?: string | null;
     agent_cwd?: string | null;
     base_dir?: string | null;
+    origin?: string | null; // NEW: enforce "web" from client
 }
 
 export interface UpdateSessionRequest {
@@ -77,6 +78,7 @@ export interface UpdateSessionRequest {
     agent_config_id?: string | null;
     agent_cwd?: string | null;
     base_dir?: string | null;
+    origin?: string | null; // NEW: allow origin updates
 }
 
 export interface SessionSummary {

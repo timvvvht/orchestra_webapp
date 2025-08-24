@@ -25,10 +25,12 @@ import { ScrollArea } from "@/components/ui/ScrollArea";
 import { Button } from "@/components/ui/Button";
 import ChatScrollAnchor from "./ChatScrollAnchor";
 import NewMessagesIndicator from "./NewMessagesIndicator";
+import SessionDetailDebug from "./SessionDetailDebug";
 // import { Switch } from "@/components/ui/switch";
 // import { Label } from "@/components/ui/label";
 import { cn } from "cn-utility";
 import { toast } from "sonner";
+import { Square } from "lucide-react";
 // import { Virtuoso } from 'react-virtuoso';
 
 // Import Mission Control specific styles
@@ -185,45 +187,27 @@ import type {
 // Components
 import AgentProfile from "./AgentProfile";
 import ChatHeader from "./header/ChatHeader";
-import NewChatModal from "./NewChatModal";
 import QuantumWaveIndicator from "./QuantumWaveIndicator";
-import SessionDetailsDebug from "../debug/SessionDetailsDebug";
 import { shouldUseUnifiedRendering } from "./UnrefinedModeTimelineRenderer";
 import {
-  DynamicToolStatusPill,
-  FileOperationsSummary,
   renderUnifiedTimelineEvent,
   CombinedThinkBlockDisplay,
   ThinkBlockDisplay,
   AssistantMessageWithFileOps,
 } from "./UnifiedTimelineRenderer";
-import ToolStatusPill from "./content-parts/ToolStatusPill";
 import { LexicalChatInput } from "./LexicalChatInput";
-import { StreamDebugOverlay } from "../debug/StreamDebugOverlay";
-import HydrationDebugOverlay from "../debug/HydrationDebugOverlay";
 import { MobileChatInput } from "./MobileChatInput";
-import { TouchMessage } from "./TouchMessage";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
 import ChatEmptyState from "./ChatEmptyState";
 import ChatTypingIndicator from "./ChatTypingIndicator";
 import ChatMessageList from "./ChatMessageList";
 
-// Utilities
-import {
-  isFinalAssistantMessage,
-  getVisibleMessages,
-  getFileOperationsForResponse,
-  getFinalMessageStatus,
-  type ExtendedFileOperation,
-} from "@/utils/conversationBoundaries";
-
 // Performance optimizations
 import {
   getOptimizedVisibleMessages,
   isOptimizedFinalAssistantMessage,
   getOptimizedFileOperationsForResponse,
-  getOptimizedToolCallsForResponse,
 } from "@/utils/optimizedMessageFiltering";
 
 // Chat utilities (extracted from this component)
@@ -231,24 +215,11 @@ import {
   formatMessageDate,
   isSameDay,
   shouldGroupMessages,
-  groupMessagesByDate,
   convertEventsToMessages,
-  type MessageGroup,
 } from "@/utils/chat";
 
-// Tool registration utilities
-import {
-  registerApplyPatchTool,
-  registerCatTool,
-  registerTreeTool,
-  registerSearchFilesTool,
-  registerStrReplaceEditorTool,
-  registerReadFilesTool,
-  registerSearchNotesTool,
-} from "@/utils/registerSessionTools";
-
 // Canonical store imports
-import { useEventStore } from "@/stores/eventStores";
+import { useEventStore } from "@/stores/eventStore";
 import { useSessionStatusStore } from "@/stores/sessionStatusStore";
 import { clearDuplicateCache } from "@/stores/eventReducer";
 import { hydrateSession } from "@/stores/eventBridges/historyBridge";
@@ -256,22 +227,11 @@ import { useChatUI } from "@/context/ChatUIContext";
 import { useSelections, getAcsOverrides } from "@/context/SelectionContext";
 import { supabase } from "@/auth/SupabaseClient";
 
-// SSE imports - REMOVED: Now handled by ChatEventOrchestrator
-// import { useACSChatStreaming } from '@/hooks/acs-chat/useACSChatStreaming';
-// import { toUnifiedEvents } from '@/utils/toUnifiedEvent';
-// import type { SSEEvent } from '@/services/acs';
-
-// Debug imports
-import { SSEDebugOverlay } from "@/components/debug/SSEDebugOverlay";
-import ToolEventDebugPanel from "@/components/debug/ToolEventDebugPanel";
-import EventTapDebugOverlay from "@/components/debug/EventTapDebugOverlay";
-
 // Approval imports
 import { ApprovalPanel } from "@/components/approval/ApprovalPanel";
 
-// Debug overlay imports
-import { DebugOverlay } from "./DebugOverlay";
-import { MessageTestControls } from "./MessageTestControls";
+import { httpApi } from "@/api/httpApi";
+import { cancelConversation } from "@/utils/cancelConversation";
 
 // Lazy render constants
 const INITIAL_RENDER_BATCH = 15;
@@ -313,7 +273,6 @@ if (import.meta.env.DEV && !(window as any).__STREAM_DEBUG) {
 interface ChatMainCanonicalLegacyProps {
   sidebarCollapsed: boolean;
   sessionId?: string; // Optional prop - falls back to URL params if not provided
-  renderContext?: "default" | "mission-control"; // New prop to specify rendering context
   onSubmit?: (message: string) => Promise<void>; // Optional custom submit handler
   hideHeader?: boolean; // Optional prop to hide the ChatHeader component
   hideInput?: boolean; // Optional prop to hide the input area
@@ -329,16 +288,12 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 > = ({
   sidebarCollapsed,
   sessionId: propSessionId,
-  renderContext = "default",
   onSubmit: customOnSubmit,
   hideHeader = false,
   hideInput = false,
 }) => {
-  // Responsive breakpoint detection
-  const isDesktop = useBreakpoint();
-
   // Performance monitoring
-  usePerformanceMonitor("ChatMainCanonicalLegacy");
+  usePerformanceMonitor();
 
   // Debug overlay - track container size via ResizeObserver
   const containerRef = useRef<HTMLDivElement>(null);
@@ -441,7 +396,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const [localIsLoading, setLocalIsLoading] = useState(false);
 
   // Get loading state from chat context (for startConversation operations)
-  const contextIsLoading = chatUI.isLoading || false;
+  const contextIsLoading = false; // chatUI doesn't have isLoading property
 
   // Combined loading state - true if either local or context is loading
   const isLoading = localIsLoading || contextIsLoading;
@@ -564,24 +519,48 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Load events from canonical store
   const loadEvents = useCallback(() => {
+    const loadId = `load_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     if (!sessionId) {
+      console.log(
+        `⚠️ [ChatMain] [${loadId}] No sessionId provided, skipping event load`
+      );
       return;
     }
+
+    console.log(
+      `📦 [ChatMain] [${loadId}] Loading events for session: ${sessionId}`
+    );
 
     const state = useEventStore.getState();
 
     // Try session ID first, then 'unknown'
     let eventIds = state.bySession.get(sessionId) || [];
+    console.log(
+      `🔍 [ChatMain] [${loadId}] Found ${eventIds.length} events for session ${sessionId}`
+    );
+
     if (eventIds.length === 0 && state.bySession.has("unknown")) {
       eventIds = state.bySession.get("unknown") || [];
+      console.log(
+        `🔍 [ChatMain] [${loadId}] Fallback to 'unknown' session: ${eventIds.length} events`
+      );
     }
 
     const events = eventIds.map((id) => state.byId.get(id)).filter(Boolean);
+    console.log(
+      `🔍 [ChatMain] [${loadId}] Retrieved ${events.length} valid events from store`
+    );
 
     // Convert to messages
+    console.log(`🔄 [ChatMain] [${loadId}] Converting events to messages...`);
     const convertedMessages = convertEventsToMessages(events);
+    console.log(
+      `✅ [ChatMain] [${loadId}] Converted to ${convertedMessages.length} messages`
+    );
 
     setMessages(convertedMessages);
+    console.log(`✅ [ChatMain] [${loadId}] Messages set in component state`);
   }, [sessionId]);
 
   // Auto-scroll functions - handleScroll moved below after mergedMessages is defined
@@ -802,7 +781,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         const recentEventIds = sessionEvents.slice(-5); // Check last 5 events
         for (const eventId of recentEventIds) {
           const event = store.byId.get(eventId);
-          if (event?.timestamp) {
+          if (event?.createdAt) {
             const eventTime = new Date(event.timestamp).getTime();
             mostRecentEventTime = Math.max(mostRecentEventTime, eventTime);
           }
@@ -970,8 +949,15 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Track message updates
   useEffect(() => {
-    // Monitor when messages change
-  }, [messages]);
+    const updateId = `update_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`📝 [ChatMain] [${updateId}] Messages updated:`, {
+      sessionId: sessionId,
+      messageCount: messages.length,
+      messageIds: messages.map((m) => m.id),
+      roles: messages.map((m) => m.role),
+      streamingCount: messages.filter((m) => m.isStreaming).length,
+    });
+  }, [messages, sessionId]);
 
   // ✅ ROBUST: Check if session is idle using new centralized store
   const idleNow = useSessionStatusStore((state) =>
@@ -1140,6 +1126,16 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     sessionId ? s.getStatus(sessionId) === "awaiting" : false
   );
 
+  // Handle stop generating
+  const handleStopGenerating = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      await cancelConversation(sessionId);
+    } catch (error: any) {
+      console.error("Failed to cancel conversation", error);
+    }
+  }, [sessionId]);
+
   // Recompute groups based on displayMessages for lazy rendering
   const mergedMessageGroups = useMemo(() => {
     if (!displayMessages.length) {
@@ -1175,7 +1171,12 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // Handle message submission
   const handleSubmit = async (message: string) => {
-    console.log("💥💥💥💥💥💥💥💥💥💥 Submitting message:", message);
+    const submitId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`🚀 [ChatMain] [${submitId}] Message submission started:`, {
+      messageLength: message?.length || 0,
+      sessionId: sessionId,
+      userId: auth.user?.id,
+    });
     if (!message.trim()) return;
 
     // If a custom onSubmit handler is provided, use it instead of the default logic
@@ -1251,51 +1252,23 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     }
   };
 
-  // Handle keyboard shortcuts (optional - ChatInput handles Enter key internally)
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // ChatInput component now handles Enter key submission internally
-    // This is just for any additional keyboard shortcuts if needed
-  };
-
   // Handle message forking
   const handleFork = async (messageId: string) => {
     toast.info("Forking not yet implemented in canonical mode");
   };
 
-  // Generate context-specific CSS classes
+  // Generate context-specific CSS classes - now always Mission Control
   const getContextClasses = () => {
-    const baseClasses =
-      "flex-1 flex flex-col overflow-hidden relative bg-black";
-
-    if (renderContext === "mission-control") {
-      console.log(
-        "🎯 [ChatMainCanonicalLegacy] Applying Mission Control styles",
-        { renderContext, sessionId }
-      );
-      return `${baseClasses} h-full max-h-full mission-control-chat`;
-    }
-
-    console.log("🎯 [ChatMainCanonicalLegacy] Applying default styles", {
-      renderContext,
-      sessionId,
-    });
-    return `${baseClasses} h-full`;
+    return "flex-1 flex flex-col overflow-hidden relative bg-black h-full max-h-full mission-control-chat";
   };
 
   // Empty state - Apple style
   if (!sessionId) {
-    return (
-      <ChatEmptyState
-        onNewChatClick={() => setIsNewChatModalOpen(true)}
-        isNewChatModalOpen={isNewChatModalOpen}
-        onCloseNewChatModal={() => setIsNewChatModalOpen(false)}
-        chatUI={chatUI}
-      />
-    );
+    return <ChatEmptyState onStartChat={() => setIsNewChatModalOpen(true)} />;
   }
 
   return (
-    <div ref={mainContainerRef} className={getContextClasses()}>
+    <div ref={mainContainerRef} className={getContextClasses()} id="chat-main">
       {/* Subtle gradient overlay for depth */}
       {/* DEBUG SIZE OVERLAY */}
       {/* {process.env.NODE_ENV !== 'production' && (
@@ -1317,9 +1290,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         <div className="flex-shrink-0">
           <ChatHeader
             sessionId={sessionId}
-            onOpenAgentSelector={() => {}}
-            // Pass down refined mode props
-            refinedMode={refinedMode}
             onToggleRefinedMode={setRefinedMode}
             hasMessages={messages.length > 0}
             // Pass down stream debug overlay props
@@ -1340,7 +1310,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
       {/* Session Details Debug Component */}
       <div className="flex-shrink-0">
-        <SessionDetailsDebug />
+        <SessionDetailDebug />
       </div>
 
       {/* Tool Approval Panel - Shows pending tool approvals for user interaction */}
@@ -1349,48 +1319,24 @@ const ChatMainCanonicalLegacyComponent: React.FC<
           sessionId={sessionId}
           className={cn(
             "py-4 border-b border-white/10",
-            renderContext === "mission-control"
-              ? "px-4" // Consistent with mission control spacing
-              : "px-6 md:px-12" // Default generous spacing
+            "px-4" // Mission Control spacing
           )}
         />
       </div>
-
-      {/* Debug overlay */}
-      <StreamDebugOverlay isOpen={streamDebugOverlayOpen} />
-
-      {/* Hydration debug overlay */}
-      <HydrationDebugOverlay
-        open={hydrationDebugOverlayOpen}
-        onClose={() => setHydrationDebugOverlayOpen(false)}
-      />
-
-      {/* Pending Tools Debug Overlay */}
-      {/* <PendingToolsDebugOverlay /> */}
-
-      {/* Message Display Area - Apple style with generous spacing */}
       <ScrollArea
-        ref={scrollAreaRef}
         className={cn(
           "flex-1 flex-shrink overflow-y-auto overflow-x-hidden relative z-10 min-h-0 [&>[data-radix-scroll-area-viewport]]:!h-full",
-          renderContext === "mission-control" && "mission-control-scroll-area"
+          "mission-control-scroll-area"
         )}
         onScrollCapture={handleScroll}
       >
-        <div
-          className={cn(
-            "w-full max-w-full overflow-x-hidden",
-            renderContext === "mission-control"
-              ? "px-4 pt-4 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Proper spacing for input area in mission control
-              : "px-6 md:px-12 pt-8 pb-[calc(8rem+env(safe-area-inset-bottom))]" // Default generous spacing
-          )}
-        >
+        <div className="w-full max-w-full overflow-x-hidden px-4 pt-4 pb-[calc(8rem+env(safe-area-inset-bottom))]">
           <ChatMessageList
             data-testid="chat-message-list"
-            messages={displayMessages}
+            messages={displayMessages as any}
             mergedMessageGroups={mergedMessageGroups}
             refinedMode={refinedMode}
-            isDesktop={isDesktop}
+            isDesktop={false}
             handleFork={handleFork}
             formatMessageDate={formatMessageDate}
             shouldGroupMessages={shouldGroupMessages}
@@ -1399,7 +1345,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               getOptimizedFileOperationsForResponse
             }
             shouldUseUnifiedRendering={shouldUseUnifiedRendering}
-            renderUnifiedTimelineEvent={(event, index, events) =>
+            renderUnifiedTimelineEvent={(event: any, index: any, events: any) =>
               renderUnifiedTimelineEvent(
                 event,
                 index,
@@ -1444,26 +1390,15 @@ const ChatMainCanonicalLegacyComponent: React.FC<
           ref={chatInputRef}
           className={cn(
             "flex-shrink-0 sticky bottom-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/10",
-            renderContext === "mission-control" && "mission-control-input-area"
+            "mission-control-input-area"
           )}
         >
-          {isDesktop ? (
-            <LexicalChatInput
-              onSubmit={handleSubmit}
-              onKeyDown={handleKeyDown}
-              isTyping={isTyping}
-              isLoading={isLoading}
-              disabled={isWaitingForAI}
-              placeholder="Message"
-            />
-          ) : (
-            <MobileChatInput
-              onSubmit={handleSubmit}
-              disabled={isTyping || isLoading || isWaitingForAI}
-              placeholder="Message"
-              isTyping={isTyping}
-            />
-          )}
+          <MobileChatInput
+            onSendMessage={handleSubmit}
+            onCancelButtonClick={handleStopGenerating}
+            disabled={isTyping || isLoading || isWaitingForAI}
+            placeholder="Message"
+          />
         </div>
       )}
 
@@ -1478,12 +1413,12 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         )}
       </AnimatePresence>
 
-      {/* New Chat Modal */}
+      {/* New Chat Modal 
       <NewChatModal
-        isVisible={isNewChatModalOpen}
+        isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
         chat={chatUI}
-      />
+      />*/}
 
       {/* Debug Panel */}
       <AnimatePresence>
@@ -1529,7 +1464,10 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                           .eq("session_id", sessionId)
                           .order("timestamp", { ascending: true })
                           .limit(10);
-
+                        console.log(
+                          "inline data: ",
+                          JSON.stringify(data, null, 2)
+                        );
                         if (!error && data) {
                           setDebugData((prev) => ({
                             ...prev,
@@ -1762,8 +1700,7 @@ const ChatMainCanonicalLegacy = React.memo(
     // Only re-render if the props that actually matter have changed
     return (
       prevProps.sessionId === nextProps.sessionId &&
-      prevProps.sidebarCollapsed === nextProps.sidebarCollapsed &&
-      prevProps.renderContext === nextProps.renderContext
+      prevProps.sidebarCollapsed === nextProps.sidebarCollapsed
     );
   }
 );

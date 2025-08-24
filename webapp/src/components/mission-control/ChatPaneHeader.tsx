@@ -25,6 +25,8 @@ import { supabase } from "@/auth/SupabaseClient";
 import { SCMManager } from "@/services/scm/SCMManager";
 import { getDefaultACSClient } from "@/services/acs";
 import { useMissionControlArchive } from "@/hooks/useMissionControlArchive";
+import SubmitGitHubPRButton from "../chat-interface/SubmitGitHubPRButton";
+import { GitHubPRModal } from "../modals/PullRequestModal";
 
 interface ChatPaneHeaderProps {
   sessionId: string;
@@ -35,7 +37,6 @@ interface ChatPaneHeaderProps {
 }
 
 interface ExtendedDiffStats extends DiffStats {
-  earliestHash?: string;
   latestHash?: string;
 }
 
@@ -49,6 +50,7 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
   const [diffStats, setDiffStats] = useState<ExtendedDiffStats | null>(null);
   const [isLoadingDiff, setIsLoadingDiff] = useState(false);
   const [checkpointCount, setCheckpointCount] = useState(0);
+  const [showPRModal, setShowPRModal] = useState<boolean>(false);
   const { archiveSession } = useMissionControlArchive();
 
   // Auto-load diff stats when session is complete
@@ -110,6 +112,11 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
     }
   };
 
+  const handleGitHubPRButtonPress = () => {
+    console.log("[ChatPaneHeader] Opening PR Creation Modal");
+    setShowPRModal(true);
+  };
+
   const handleArchive = async () => {
     try {
       await archiveSession(sessionId);
@@ -122,7 +129,10 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
   const canMerge = isComplete && agent.agent_cwd && !agent.isFinalized;
 
   return (
-    <div className="flex-shrink-0 border-b border-white/[0.06] bg-black/50 backdrop-blur-sm">
+    <div
+      className="flex-shrink-0 border-b border-white/[0.06] bg-black/50 backdrop-blur-sm"
+      id="ChatPaneHeader"
+    >
       <div className="px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Left: Session Info + Status */}
@@ -236,6 +246,14 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
               </button>
             </div>
 
+            {/* Submit PR Button (Stub) */}
+            {sessionId && (
+              <SubmitGitHubPRButton
+                sessionId={sessionId}
+                onClick={handleGitHubPRButtonPress}
+              />
+            )}
+
             {/* Merge Button - Prominent when ready */}
             <AnimatePresence>
               {canMerge && (
@@ -303,6 +321,14 @@ const ChatPaneHeader: React.FC<ChatPaneHeaderProps> = ({
           </div>
         </div>
       </div>
+      {showPRModal && (
+        <GitHubPRModal
+          sessionId={sessionId}
+          onClose={() => {
+            setShowPRModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };

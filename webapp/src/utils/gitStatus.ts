@@ -1,4 +1,10 @@
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '@/utils/runtime';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) throw new Error("Tauri invoke not available in web environment");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 import type { RepoStatusEntry } from './gitTypes';
 
 /**
@@ -10,7 +16,7 @@ export async function getRepoPorcelainStatus(project_root: string): Promise<Repo
     console.log(`[GitStatus] About to invoke 'git_repo_status_porcelain' with projectRoot:`, project_root);
     
     try {
-        const result = await invoke<RepoStatusEntry[]>('git_repo_status_porcelain', { projectRoot: project_root });
+        const result = await tauriInvoke<RepoStatusEntry[]>('git_repo_status_porcelain', { projectRoot: project_root });
         console.log(`[GitStatus][Porcelain] Raw result from Tauri:`, result);
         console.log(`[GitStatus][Porcelain] Result type:`, typeof result);
         console.log(`[GitStatus][Porcelain] Result length:`, Array.isArray(result) ? result.length : 'not an array');

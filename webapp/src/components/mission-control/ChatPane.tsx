@@ -3,10 +3,11 @@ import React, { useCallback, useState } from "react";
 import { useMissionControlStore } from "@/stores/missionControlStore";
 
 import { SessionIdContext } from "@/context/SessionIdContext";
-import ChatMain from "@/components/chat-interface/ChatMain";
+import ChatMainCanonicalLegacy from "@/components/chat-interface/ChatMainCanonicalLegacy";
 import { sendChatMessage } from "@/utils/sendChatMessage";
 import { getDefaultACSClient } from "@/services/acs";
 import { useAuth } from "@/auth/AuthContext";
+import { useSessionStatusStore } from "@/stores/sessionStatusStore";
 import { toast } from "sonner";
 import { isTauri } from "@/utils/environment";
 
@@ -58,7 +59,9 @@ const ChatPane: React.FC = () => {
   const auth = useAuth();
   const {
     selectedSession,
-    sessions,
+    activeSessions,
+    archivedSessions,
+    viewMode,
     setShowNewDraftModal,
     setInitialDraftCodePath,
     updateSession,
@@ -70,11 +73,36 @@ const ChatPane: React.FC = () => {
     "chat"
   );
   const [isOpeningModal, setIsOpeningModal] = useState(false);
+  const [pausedMap, setPausedMap] = useState<Record<string, boolean>>({});
 
-  const selectedAgent = sessions.find((agent) => agent.id === selectedSession);
+  // Find selected agent in both active and archived sessions
+  const selectedAgent = React.useMemo(() => {
+    if (!selectedSession) return null;
+    
+    // First look in active sessions
+    let agent = activeSessions.find((agent) => agent.id === selectedSession);
+    
+    // If not found and we're in archived mode, look in archived sessions
+    if (!agent && viewMode === 'archived') {
+      agent = archivedSessions.find((agent) => agent.id === selectedSession);
+    }
+    
+    return agent || null;
+  }, [selectedSession, activeSessions, archivedSessions, viewMode]);
   const hasPlan = useMissionControlStore((state) =>
     selectedSession ? !!state.plans[selectedSession] : false
   );
+
+  const status = useSessionStatusStore((s) =>
+    selectedSession ? s.getStatus(selectedSession) : "idle"
+  );
+  const paused = !!(selectedSession && pausedMap[selectedSession]);
+  const sessionIsActive = status !== "idle" && !paused;
+  const onToggleSessionActive = (next: boolean) => {
+    if (!selectedSession) return;
+    // Interpret toggle as flipping paused state: next=true => active => paused=false
+    setPausedMap((prev) => ({ ...prev, [selectedSession]: !next }));
+  };
 
   // Custom submit handler for Mission Control chat messages
   const handleSubmit = useCallback(
@@ -157,7 +185,7 @@ const ChatPane: React.FC = () => {
         });
       }
     },
-    [selectedSession, selectedAgent, auth.user?.id]
+    [selectedSession, selectedAgent, auth.user?.id, updateSession, ensureInProcessingOrder, markSessionRead]
   );
 
   if (!selectedSession) {
@@ -231,7 +259,14 @@ const ChatPane: React.FC = () => {
   if (!selectedAgent) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-white/50">Agent not found</p>
+        <div className="text-center">
+          <p className="text-white/50 mb-2">Session not found</p>
+          <p className="text-white/30 text-sm">
+            {viewMode === 'archived' 
+              ? 'This archived session may have been removed or is not accessible.'
+              : 'This session may have been archived or removed.'}
+          </p>
+        </div>
       </div>
     );
   }
@@ -274,6 +309,10 @@ const ChatPane: React.FC = () => {
                   sidebarCollapsed={true}
                   onSubmit={handleSubmit}
                   hideHeader={true}
+                  renderContext="mission-control"
+                  sessionIsActive={sessionIsActive}
+                  onToggleSessionActive={onToggleSessionActive}
+                  agentCwd={selectedAgent.agent_cwd || undefined}
                 />
               </SessionIdContext.Provider>
             </div>

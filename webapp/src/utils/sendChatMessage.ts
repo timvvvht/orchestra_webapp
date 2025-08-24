@@ -3,38 +3,44 @@
  * Extracted from ChatMainCanonicalLegacy to eliminate code duplication
  */
 
-import { toast } from 'sonner';
-import { useSessionStatusStore } from '@/stores/sessionStatusStore';
-import { useEventStore } from '@/stores/eventStores';
-import { useBYOKStore } from '@/stores/byokStore';
-import { createACSTemplateVariables } from '@/utils/templateVariables';
-import { registerToolsByNames } from '@/utils/toolSpecRegistry';
+import { toast } from "sonner";
+import { useSessionStatusStore } from "@/stores/sessionStatusStore";
+import { useEventStore } from "@/stores/eventStore";
+import { useBYOKStore } from "@/stores/byokStore";
+import { createACSTemplateVariables } from "@/utils/templateVariables";
+import { registerToolsByNames } from "@/utils/toolSpecRegistry";
 
-import { ChatRole, type ChatMessage as ChatMessageType } from '@/types/chatTypes';
+import { httpApi } from "@/api/httpApi";
+import { supabase } from "@/auth/SupabaseClient";
+
+import {
+  ChatRole,
+  type ChatMessage as ChatMessageType,
+} from "@/types/chatTypes";
 
 /**
  * The 4 specific ACS roles that support model overrides
  */
-export type ACSRoles = 'explore' | 'plan' | 'execute' | 'debug';
+export type ACSRoles = "explore" | "plan" | "execute" | "debug";
 
 /**
  * Role-specific model overrides with strict typing for the 4 ACS roles
  * Each role can optionally specify a model ID to override the default
  */
 export interface RoleModelOverrides {
-    explore?: string;
-    plan?: string;
-    execute?: string;
-    debug?: string;
+  explore?: string;
+  plan?: string;
+  execute?: string;
+  debug?: string;
 }
 
 /**
  * Available model options for each ACS role based on user specifications
  */
-export const EXPLORE_MODELS = ['gpt-4.1', 'z-ai/glm-4.5'] as const;
-export const DEBUG_MODELS = ['o3'] as const;
-export const PLAN_MODELS = ['o3'] as const;
-export const EXECUTE_MODELS = ['claude-4-sonnet', 'z-ai/glm-4.5'] as const;
+export const EXPLORE_MODELS = ["gpt-4.1", "z-ai/glm-4.5"] as const;
+export const DEBUG_MODELS = ["o3"] as const;
+export const PLAN_MODELS = ["o3"] as const;
+export const EXECUTE_MODELS = ["claude-4-sonnet", "z-ai/glm-4.5"] as const;
 
 /**
  * Type for available models per role
@@ -50,88 +56,98 @@ export type ExecuteModels = (typeof EXECUTE_MODELS)[number];
  * @returns Array of available model IDs for the role
  */
 export function getModelsForRole(role: ACSRoles): readonly string[] {
-    switch (role) {
-        case 'explore':
-            return EXPLORE_MODELS;
-        case 'debug':
-            return DEBUG_MODELS;
-        case 'plan':
-            return PLAN_MODELS;
-        case 'execute':
-            return EXECUTE_MODELS;
-        default:
-            // TypeScript should prevent this, but fallback for runtime safety
-            const _exhaustiveCheck: never = role;
-            return [];
-    }
+  switch (role) {
+    case "explore":
+      return EXPLORE_MODELS;
+    case "debug":
+      return DEBUG_MODELS;
+    case "plan":
+      return PLAN_MODELS;
+    case "execute":
+      return EXECUTE_MODELS;
+    default:
+      // TypeScript should prevent this, but fallback for runtime safety
+      const _exhaustiveCheck: never = role;
+      return [];
+  }
 }
 
 export interface SendChatMessageParams {
-    sessionId: string;
-    message: string;
-    userId: string;
-    agentConfigName: string;
-    acsClient: any; // ACS client instance
-    acsOverrides?: {
-        agent_cwd_override?: string; // 🎯 CRITICAL: Working directory override for agent execution
-        [key: string]: any; // Other overrides (model selection, etc.)
-    };
-    // Optional: Session data for fallback agent_cwd lookup
-    sessionData?: {
-        agent_cwd?: string;
-        [key: string]: any;
-    };
-    // Optional: Enable role-based auto mode for agent configuration selection (defaults to false)
-    // Flows via camelCase autoMode key in options to ACSCoreService.sendMessage
-    autoMode?: boolean;
-    // Optional: Enable role-based auto mode for AI model selection (defaults to false)
-    // Flows via camelCase modelAutoMode key in options to ACSCoreService.sendMessage
-    modelAutoMode?: boolean;
-    // Optional: Model API keys to use for this request (overrides stored keys)
-    modelApiKeys?: { [provider: string]: string };
-    // Optional: Whether to use stored API keys (defaults to true)
-    useStoredKeys?: boolean;
-    // Optional: Agent configuration overrides for model selection, tools, etc.
-    overrides?: {
-        model_id?: string;
-        provider_name?: string;
-        system_prompt?: string;
-        enabled_tool_groups?: string[];
-        enabled_tools?: string[];
-        disabled_tools?: string[];
-    };
-    // Optional: Template variables for prompt substitution
-    templateVariables?: { [key: string]: string };
-    // Optional: Explicit model ID to use (overrides auto mode and role overrides)
-    // Flows via camelCase explicitModelId key in options to ACSCoreService.sendMessage
-    explicitModelId?: string;
-    // Optional: Role-specific model overrides for auto mode (restricted to 4 ACS roles)
-    // Flows via camelCase roleModelOverrides key in options to ACSCoreService.sendMessage
-    roleModelOverrides?: RoleModelOverrides;
-    // Optional: Whether this is a background session (no SSE events, no Supabase updates)
-    isBackgroundSession?: boolean;
-    // Optional: Tools to register before sending the message (defaults to core tools if not specified)
-    tools?: string[];
+  sessionId: string;
+  message: string;
+  userId: string;
+  agentConfigName: string;
+  acsClient: any; // ACS client instance
+  acsOverrides?: {
+    agent_cwd_override?: string; // 🎯 CRITICAL: Working directory override for agent execution
+    [key: string]: any; // Other overrides (model selection, etc.)
+  };
+  // Optional: Session data for fallback agent_cwd lookup
+  sessionData?: {
+    agent_cwd?: string;
+    [key: string]: any;
+  };
+  // Optional: Enable role-based auto mode for agent configuration selection (defaults to false)
+  // Flows via camelCase autoMode key in options to ACSCoreService.sendMessage
+  autoMode?: boolean;
+  // Optional: Enable role-based auto mode for AI model selection (defaults to false)
+  // Flows via camelCase modelAutoMode key in options to ACSCoreService.sendMessage
+  modelAutoMode?: boolean;
+  // Optional: Model API keys to use for this request (overrides stored keys)
+  modelApiKeys?: { [provider: string]: string };
+  // Optional: Whether to use stored API keys (defaults to true)
+  useStoredKeys?: boolean;
+  // Optional: Agent configuration overrides for model selection, tools, etc.
+  overrides?: {
+    model_id?: string;
+    provider_name?: string;
+    system_prompt?: string;
+    enabled_tool_groups?: string[];
+    enabled_tools?: string[];
+    disabled_tools?: string[];
+  };
+  // Optional: Template variables for prompt substitution
+  templateVariables?: { [key: string]: string };
+  // Optional: Explicit model ID to use (overrides auto mode and role overrides)
+  // Flows via camelCase explicitModelId key in options to ACSCoreService.sendMessage
+  explicitModelId?: string;
+  // Optional: Role-specific model overrides for auto mode (restricted to 4 ACS roles)
+  // Flows via camelCase roleModelOverrides key in options to ACSCoreService.sendMessage
+  roleModelOverrides?: RoleModelOverrides;
+  // Optional: Whether this is a background session (no SSE events, no Supabase updates)
+  isBackgroundSession?: boolean;
+  // Optional: Tools to register before sending the message (defaults to core tools if not specified)
+  tools?: string[];
+
+  // Web-origin repo context: triggers /acs/converse/web flow when provided
+  repoContextWeb?: {
+    repo_id: number;
+    repo_full_name: string;
+    branch: string;
+  };
+  // Explicit endpoint selector (default: 'generic')
+  endpoint?: "web" | "generic";
+  images?: string[];
 }
 
 export interface SendChatMessageResult {
-    success: boolean;
-    userMessageId?: string;
-    error?: string;
+  success: boolean;
+  userMessageId?: string;
+  error?: string;
 }
 
 // Type alias for backward compatibility and easier importing
 export type SendChatMessageOptions = SendChatMessageParams;
 
 // Valid keys for AgentConfigOverrides
-const VALID_OVERRIDE_KEYS = [
-    'model_id',
-    'provider_name',
-    'system_prompt',
-    'enabled_tool_groups',
-    'enabled_tools',
-    'disabled_tools',
-    'agent_cwd_override'
+export const VALID_OVERRIDE_KEYS = [
+  "model_id",
+  "provider_name",
+  "system_prompt",
+  "enabled_tool_groups",
+  "enabled_tools",
+  "disabled_tools",
+  "agent_cwd_override",
 ] as const;
 
 /**
@@ -139,123 +155,24 @@ const VALID_OVERRIDE_KEYS = [
  * @param overrides - The overrides object to validate
  * @returns boolean - True if all keys are valid, false otherwise
  */
-export function isValidAgentConfigOverrides(overrides: Record<string, any>): boolean {
-    if (!overrides || typeof overrides !== 'object') {
-        return false;
-    }
+export function isValidAgentConfigOverrides(
+  overrides: Record<string, any>
+): boolean {
+  if (!overrides || typeof overrides !== "object") {
+    return false;
+  }
 
-    const overrideKeys = Object.keys(overrides);
-    return overrideKeys.every(key => VALID_OVERRIDE_KEYS.includes(key as any));
+  const overrideKeys = Object.keys(overrides);
+  return overrideKeys.every((key) => VALID_OVERRIDE_KEYS.includes(key as any));
 }
 
-/**
- * Build the *options* object expected by ACSCoreService.sendMessage.
- * This MUST use camelCase keys (autoMode, modelAutoMode, agentCwd, templateVariables …).
- */
-function buildSendMessageOptions(
-    params: SendChatMessageParams,
-    effectiveAgentCwd?: string
-): {
-    modelApiKeys?: Record<string, string>;
-    useStoredKeys?: boolean;
-    overrides?: Record<string, any>;
-    templateVariables: { [k: string]: string };
-    agentCwd?: string;
-    autoMode?: boolean;
-    modelAutoMode?: boolean;
-    explicitModelId?: string;
-    roleModelOverrides?: Record<string, string>;
-} {
-    const { autoMode, modelAutoMode, modelApiKeys, useStoredKeys, overrides, templateVariables, explicitModelId, roleModelOverrides } = params;
-
-    const opts: any = {
-        templateVariables
-    };
-    if (modelApiKeys && Object.keys(modelApiKeys).length) opts.modelApiKeys = modelApiKeys;
-    if (useStoredKeys !== undefined) opts.useStoredKeys = useStoredKeys;
-    if (overrides && Object.keys(overrides).length) opts.overrides = overrides;
-    if (autoMode !== undefined) opts.autoMode = autoMode;
-    if (modelAutoMode !== undefined) opts.modelAutoMode = modelAutoMode;
-    if (explicitModelId) opts.explicitModelId = explicitModelId;
-    if (roleModelOverrides && Object.keys(roleModelOverrides).length) opts.roleModelOverrides = roleModelOverrides;
-    if (effectiveAgentCwd) opts.agentCwd = effectiveAgentCwd;
-    return opts;
-}
-
-/**
- * Builds the ACS payload by mapping client-side parameters to server-side field names
- * @deprecated Use buildSendMessageOptions instead for proper camelCase option keys
- * @param params - The sendChatMessage parameters
- * @param effectiveAgentCwd - The effective agent working directory
- * @returns Object - The properly formatted ACS payload
- */
-function buildAcsPayload(params: SendChatMessageParams, effectiveAgentCwd?: string): Record<string, any> {
-    const { autoMode, modelAutoMode, useStoredKeys, overrides, templateVariables, explicitModelId, roleModelOverrides, isBackgroundSession } = params;
-
-    // Runtime assertion: Check for conflicting model selection
-    if (explicitModelId && overrides?.model_id) {
-        throw new Error(
-            'Conflicting model selection: Cannot provide both explicitModelId and overrides.model_id. ' +
-                'Use explicitModelId for direct model override or overrides.model_id for agent config override.'
-        );
-    }
-
-    const payload: Record<string, any> = {};
-
-    // Guard against deprecated root snake_case keys
-    if ('auto_mode' in payload || 'model_auto_mode' in payload) {
-        console.warn('[buildAcsPayload] Deprecated root snake_case keys detected – should not be used');
-    }
-
-    // API key management
-    if (params.modelApiKeys && Object.keys(params.modelApiKeys).length > 0) {
-        payload.model_api_keys = params.modelApiKeys;
-    }
-    if (useStoredKeys !== undefined) {
-        payload.use_stored_keys = useStoredKeys;
-    }
-
-    // Agent configuration overrides
-    if (overrides && Object.keys(overrides).length > 0) {
-        // Filter out invalid keys but keep valid ones
-        const filteredOverrides: Record<string, any> = {};
-        const invalidKeys: string[] = [];
-
-        Object.keys(overrides).forEach(key => {
-            if (VALID_OVERRIDE_KEYS.includes(key as any)) {
-                filteredOverrides[key as keyof typeof filteredOverrides] = overrides[key as keyof typeof overrides];
-            } else {
-                invalidKeys.push(key);
-            }
-        });
-
-        if (Object.keys(filteredOverrides).length > 0) {
-            payload.overrides = filteredOverrides;
-        }
-
-        if (invalidKeys.length > 0) {
-            const invalidOverrides = Object.fromEntries(invalidKeys.map(key => [key, overrides[key as keyof typeof overrides]]));
-            console.warn('⚠️ [buildAcsPayload] Invalid overrides detected, skipping:', invalidOverrides);
-        }
-    }
-
-    // Template variables
-    if (templateVariables && Object.keys(templateVariables).length > 0) {
-        payload.template_variables = templateVariables;
-    }
-
-    // Session management
-    if (isBackgroundSession) {
-        payload.is_background_session = isBackgroundSession;
-    }
-
-    // Agent working directory (from legacy logic) - deprecated, use buildSendMessageOptions instead
-    if (effectiveAgentCwd) {
-        payload.agent_cwd = effectiveAgentCwd;
-    }
-
-    return payload;
-}
+type ConverseResponse = {
+  session_id: string;
+  response_messages: any[];
+  final_text_response: string | null;
+  current_agent_cwd?: string;
+  conversation_suspended: boolean;
+};
 
 /**
  * Canonical message sending function that handles:
@@ -266,194 +183,638 @@ function buildAcsPayload(params: SendChatMessageParams, effectiveAgentCwd?: stri
  * - Actual message transmission via ACS
  * - Error handling with user feedback
  */
-export async function sendChatMessage(params: SendChatMessageParams): Promise<SendChatMessageResult> {
-    const {
-        sessionId,
-        message,
-        userId,
-        agentConfigName,
-        acsClient,
-        acsOverrides,
-        sessionData,
-        autoMode = false, // Default to false unless explicitly set
-        modelAutoMode = false, // Default to false unless explicitly set
-        overrides = {} // Default to empty object
-    } = params;
+export async function sendChatMessage(
+  params: SendChatMessageParams
+): Promise<SendChatMessageResult> {
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  if (!params.images) params.images = [];
 
-    console.log('📤 [sendChatMessage] Received params:', {
-        sessionId: sessionId.slice(0, 8) + '...',
-        messageLength: message.length,
-        agentConfigName,
-        autoMode,
-        modelAutoMode,
-        hasAcsOverrides: !!acsOverrides,
-        hasSessionData: !!sessionData,
-        tools: params.tools || 'none'
+  const {
+    sessionId,
+    message,
+    userId,
+    agentConfigName,
+    acsOverrides,
+    sessionData,
+    autoMode = false, // Default to false unless explicitly set
+    modelAutoMode = false, // Default to false unless explicitly set
+    overrides = {}, // Default to empty object
+    images = [], // default empty
+    repoContextWeb,
+    endpoint = "web",
+  } = params;
+
+  console.log(
+    `🚀 [sendChatMessage] [${messageId}] Starting message send process`
+  );
+  console.log(`📤 [sendChatMessage] [${messageId}] Session ID: ${sessionId}`);
+  console.log(`📤 [sendChatMessage] [${messageId}] User ID: ${userId}`);
+  console.log(
+    `📤 [sendChatMessage] [${messageId}] Agent Config: ${agentConfigName}`
+  );
+  // amazonq-ignore-next-line
+
+  // amazonq-ignore-next-line
+  console.log(
+    `📤 [sendChatMessage] [${messageId}] Message length: ${message?.length || 0}`
+  );
+  console.log(
+    `📤 [sendChatMessage] [${messageId}] Images count: ${images.length}`
+  );
+  // amazonq-ignore-next-line
+  console.log(`📤 [sendChatMessage] [${messageId}] Full params:`, params);
+
+  if (!message) {
+    console.error(`❌ [sendChatMessage] [${messageId}] Message is empty`);
+    return { success: false, error: "Message is empty" };
+  }
+
+  const trimmedMessage = message.trim();
+  if (!trimmedMessage) {
+    console.error(
+      `❌ [sendChatMessage] [${messageId}] Message is empty after trim`
+    );
+    return { success: false, error: "Message is empty" };
+  }
+
+  if (!sessionId || !userId) {
+    console.error(`❌ [sendChatMessage] [${messageId}] Missing required IDs:`, {
+      sessionId: !!sessionId,
+      userId: !!userId,
+    });
+    toast.error("Please sign in to send messages");
+    return { success: false, error: "Missing session or user ID" };
+  }
+
+  console.log(`✅ [sendChatMessage] [${messageId}] Validation passed`);
+
+  // Register tools (defaults to core tools if not specified)
+  const toolsToRegister = params.tools || [
+    "search_files",
+    "cat",
+    "str_replace_editor",
+  ];
+
+  console.log(
+    `🔧 [sendChatMessage] [${messageId}] Registering tools:`,
+    toolsToRegister
+  );
+  try {
+    const toolRegStartTime = Date.now();
+    await registerToolsByNames(sessionId, toolsToRegister);
+    const toolRegDuration = Date.now() - toolRegStartTime;
+    console.log(
+      `✅ [sendChatMessage] [${messageId}] Tools registered successfully in ${toolRegDuration}ms`
+    );
+  } catch (error) {
+    console.error(
+      `❌ [sendChatMessage] [${messageId}] Failed to register tools:`,
+      error
+    );
+    // Don't throw - tool registration failure shouldn't break message sending
+    toast.error("Some tools may not be available", {
+      description: "Continuing with message send",
+    });
+  }
+
+  // Mark session as awaiting when user sends a new message
+  console.log(
+    `🔄 [sendChatMessage] [${messageId}] Marking session as awaiting`
+  );
+  useSessionStatusStore.getState().markAwaiting(sessionId);
+
+  try {
+    // 1) Optimistic event insert for UI responsiveness
+    console.log(
+      `📝 [sendChatMessage] [${messageId}] Creating optimistic user message`
+    );
+    const userMessage: ChatMessageType = {
+      id: `user-${Date.now()}`,
+      sessionId,
+      role: ChatRole.User,
+      content: [{ type: "text", text: trimmedMessage }],
+      createdAt: Date.now(),
+      isStreaming: false,
+      images,
+    };
+
+    console.log(`📝 [sendChatMessage] [${messageId}] User message created:`, {
+      id: userMessage.id,
+      sessionId: userMessage.sessionId,
+      contentLength: userMessage.content[0].text.length,
+      imagesCount: userMessage.images?.length || 0,
+    });
+    console.log(
+      `🖼️ [sendChatMessage] [${messageId}] User message images:`,
+      userMessage.images
+    );
+
+    console.log(`📝 [sendChatMessage] [${messageId}] Adding to event store...`);
+    useEventStore.getState().addEvent({
+      id: userMessage.id,
+      kind: "message",
+      role: "user",
+      content: userMessage.content,
+      createdAt: new Date(userMessage.createdAt).toISOString(),
+      sessionId,
+      partial: false,
+      source: "sse" as const, // could be 'local' if you want to distinguish
+      //images: images,
+    });
+    console.log(
+      `✅ [sendChatMessage] [${messageId}] Optimistic user message added to event store`
+    );
+
+    // 2) Resolve working directory fallback
+    console.log(
+      `📁 [sendChatMessage] [${messageId}] Resolving working directory...`
+    );
+    const agentCwdOverride = acsOverrides?.agent_cwd_override;
+    let effectiveAgentCwd = agentCwdOverride;
+
+    console.log(
+      `📁 [sendChatMessage] [${messageId}] Agent CWD override:`,
+      agentCwdOverride
+    );
+
+    if (!effectiveAgentCwd && sessionData?.agent_cwd) {
+      effectiveAgentCwd = sessionData.agent_cwd;
+      // amazonq-ignore-next-line
+      console.log(
+        `📁 [sendChatMessage] [${messageId}] Using fallback agent_cwd from session data:`,
+        effectiveAgentCwd
+      );
+    }
+
+    if (!effectiveAgentCwd) {
+      console.warn(
+        `⚠️ [sendChatMessage] [${messageId}] No agent_cwd_override provided`,
+        {
+          sessionId: sessionId.slice(0, 8) + "...",
+          hasAcsOverrides: !!acsOverrides,
+          hasSessionData: !!sessionData,
+        }
+      );
+    } else {
+      // amazonq-ignore-next-line
+      console.log(
+        `✅ [sendChatMessage] [${messageId}] Effective agent CWD:`,
+        effectiveAgentCwd
+      );
+    }
+
+    // 3) Resolve template variables and BYOK preference defaults
+    console.log(
+      `🔧 [sendChatMessage] [${messageId}] Resolving template variables and BYOK preferences...`
+    );
+
+    const resolvedTemplateVars =
+      params.templateVariables ||
+      ((await createACSTemplateVariables()) as unknown as {
+        [key: string]: string;
+      });
+
+    console.log(
+      `🔧 [sendChatMessage] [${messageId}] Template variables resolved:`,
+      {
+        provided: !!params.templateVariables,
+        count: Object.keys(resolvedTemplateVars).length,
+      }
+    );
+
+    const resolvedUseStoredKeys =
+      params.useStoredKeys ?? useBYOKStore.getState().useStoredKeysPreference;
+
+    console.log(
+      `🔧 [sendChatMessage] [${messageId}] BYOK preference:`,
+      resolvedUseStoredKeys
+    );
+
+    // 4) Decide endpoint and build payload
+    const isWebOrigin = endpoint === "web" || !!repoContextWeb;
+    console.log(
+      `🌐 [sendChatMessage] [${messageId}] Origin:`,
+      isWebOrigin ? "web" : "generic"
+    );
+    console.log(
+      `🌐 [sendChatMessage] [${messageId}] Endpoint selected:`,
+      isWebOrigin ? "/acs/converse/web" : "/acs/converse"
+    );
+    console.log(
+      `🌐 [sendChatMessage] [${messageId}] repoContextWeb:`,
+      repoContextWeb
+    );
+
+    let body: any;
+    if (isWebOrigin) {
+      if (
+        !repoContextWeb?.repo_id ||
+        !repoContextWeb?.repo_full_name ||
+        !repoContextWeb?.branch
+      ) {
+        console.error(
+          `❌ [sendChatMessage] [${messageId}] Missing repoContextWeb fields for web-origin:`,
+          repoContextWeb
+        );
+        return {
+          success: false,
+          error: "Missing repo context for web conversation",
+        };
+      }
+      body = buildWebConversePayload(
+        {
+          ...params,
+          templateVariables: resolvedTemplateVars,
+          useStoredKeys: resolvedUseStoredKeys,
+        },
+        effectiveAgentCwd
+      );
+    } else {
+      console.log(
+        `🔨 [sendChatMessage] [${messageId}] Building ACS generic converse payload...`
+      );
+      try {
+        body = buildConversePayload(
+          {
+            ...params,
+            templateVariables: resolvedTemplateVars,
+            useStoredKeys: resolvedUseStoredKeys,
+          },
+          effectiveAgentCwd
+        );
+      } catch (error) {
+        console.error(
+          `❌ [sendChatMessage] [${messageId}] Failed to build payload:`,
+          error
+        );
+        throw error;
+      }
+    }
+
+    console.log(`🔨 [sendChatMessage] [${messageId}] Payload built:`, {
+      agent_config_name: body.agent_config_name,
+      session_id: body.session_id,
+      user_id: body.user_id,
+      prompt_length: body.prompt?.length || 0,
+      has_overrides: !!body.overrides,
+      auto_mode: body.auto_mode,
+      model_auto_mode: body.model_auto_mode,
+      images_count: body.images?.length || 0,
+    });
+    console.log(
+      `🖼️ [sendChatMessage] [${messageId}] Images in payload:`,
+      body.images
+    );
+
+    // 5) POST to ACS Converse using httpApi
+    const ACS_BASE =
+      import.meta.env.VITE_ACS_BASE_URL || "http://localhost:8001";
+    const url = `${ACS_BASE}${isWebOrigin ? "/acs/converse" : "/acs/converse"}`; // removed web
+
+    console.log(
+      `🌐 [sendChatMessage] [${messageId}] ACS Base URL: ${ACS_BASE}`
+    );
+    console.log(`🌐 [sendChatMessage] [${messageId}] Full URL: ${url}`);
+
+    // Optional: Attach Authorization header if you have a JWT; if so, remove user_id from body
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(isWebOrigin ? { "X-Orchestra-Web-Origin": "true" } : {}),
+    };
+    // Attach Supabase Authorization only for web-origin calls
+    if (isWebOrigin) {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+          console.log(
+            `🔐 [sendChatMessage] [${messageId}] Attached Supabase JWT for web-origin`
+          );
+        } else {
+          console.warn(
+            `⚠️ [sendChatMessage] [${messageId}] No Supabase session available for web-origin Authorization`
+          );
+        }
+      } catch (e) {
+        console.error(
+          `❌ [sendChatMessage] [${messageId}] Failed to fetch Supabase session:`,
+          {
+            error: e instanceof Error ? e.message : e,
+            stack: e instanceof Error ? e.stack : undefined,
+          }
+        );
+      }
+    }
+
+    console.log(
+      `📡 [sendChatMessage] [${messageId}] Preparing POST request to ACS`
+    );
+    console.log(`📡 [sendChatMessage] [${messageId}] Headers:`, headers);
+    console.log(
+      `📡 [sendChatMessage] [${messageId}] Body (redacted):`,
+      JSON.stringify(
+        { ...body, prompt: `[${body.prompt.length} chars]` },
+        null,
+        2
+      )
+    );
+    console.log(
+      `🖼️ [sendChatMessage] [${messageId}] IMAGES IN REQUEST BODY:`,
+      body.images
+    );
+
+    console.log(
+      `🚀 [sendChatMessage] [${messageId}] Sending POST request to ACS...`
+    );
+    const requestStartTime = Date.now();
+
+    // Use httpApi for the POST request
+    console.log(`📡 [sendChatMessage] [${messageId}] Posting to: ${url}`);
+    const res = await httpApi.POST<ConverseResponse>(url, {
+      headers,
+      body,
     });
 
-    if (!message.trim()) {
-        return { success: false, error: 'Message is empty' };
+    const requestDuration = Date.now() - requestStartTime;
+    console.log(
+      `📥 [sendChatMessage] [${messageId}] ACS request completed in ${requestDuration}ms`
+    );
+
+    console.log(`🔍 [sendChatMessage] [${messageId}] Checking ACS response...`);
+    console.log(
+      `🔍 [sendChatMessage] [${messageId}] Response status:`,
+      res?.status
+    );
+    console.log(`🔍 [sendChatMessage] [${messageId}] Response ok:`, res?.ok);
+
+    if (!res || !res.ok) {
+      const errText = res?.rawBody || res?.statusText || "Unknown error";
+      const errorDetails = {
+        status: res?.status,
+        statusText: res?.statusText,
+        rawBody: res?.rawBody,
+        url,
+        headers: Object.keys(headers),
+        timestamp: new Date().toISOString(),
+      };
+      console.error(
+        `❌ [sendChatMessage] [${messageId}] ACS request failed:`,
+        errorDetails
+      );
+      throw new Error(
+        `ACS converse error ${res?.status ?? "unknown"}: ${errText}`
+      );
     }
 
-    if (!sessionId || !userId) {
-        toast.error('Please sign in to send messages');
-        return { success: false, error: 'Missing session or user ID' };
-    }
+    const data = res.data;
+    console.log(
+      `✅ [sendChatMessage] [${messageId}] ACS accepted message successfully!`
+    );
+    console.log(`✅ [sendChatMessage] [${messageId}] ACS response data:`, {
+      session_id: data.session_id,
+      suspended: data.conversation_suspended,
+      cwd: data.current_agent_cwd,
+      response_messages_count: data.response_messages?.length || 0,
+      final_text_response: data.final_text_response ? "[present]" : "[null]",
+    });
 
-    // Register tools (defaults to core tools if not specified)
-    // const toolsToRegister = params.tools || ['cat', 'tree', 'search_files', 'str_replace_editor', 'read_files', 'search_notes'];
-    const toolsToRegister = params.tools || [
-        // 🟢 Core default tools
-        'cat',
-        'tree',
-        'search_files',
-        'str_replace_editor',
-        'read_files',
-        'search_notes',
-        'apply_patch',
-        'ls',
-        'my_new_tool',
-        'path_security',
-        'aws_tools',
-        'agentic_search_background',
-        'initiate_runner_session',
-        'execute_in_runner_session',
-        'set_runner_session_cwd',
-        'set_runner_session_env_var',
-        'unset_runner_session_env_var',
-        'get_runner_session_state',
-        'terminate_runner_session',
-        'start_background_os_job_in_session',
-        'get_background_os_job_status',
-        'send_signal_to_os_job',
+    // 6) Update status to reflect successful send to ACS
+    console.log(
+      `🔄 [sendChatMessage] [${messageId}] Updating session status to awaiting`
+    );
+    useSessionStatusStore.getState().markAwaiting(sessionId);
 
-        // 🟣 All 9 Serena LSP HTTP symbol-tools
-        'find_symbol',
-        // 'get_symbols_overview',
-        'find_referencing_symbols',
-        'insert_after_symbol',
-        'insert_before_symbol',
-        'replace_symbol_body'
-        // 'find_referencing_code_snippets',
-        // 'codebase_orientation',
-        // 'restart_language_server'
-    ];
+    // switch the currentSession in the mission store to this one
 
-    console.log('🔧 [sendChatMessage] Registering tools:', toolsToRegister);
-    try {
-        await registerToolsByNames(sessionId, toolsToRegister);
-        console.log('✅ [sendChatMessage] Tools registered successfully');
-    } catch (error) {
-        console.error('❌ [sendChatMessage] Failed to register tools:', error);
-        // Don't throw - tool registration failure shouldn't break message sending
-        toast.error('Some tools may not be available', {
-            description: 'Continuing with message send'
-        });
-    }
-
-    // Mark session as awaiting when user sends a new message
-    useSessionStatusStore.getState().markAwaiting(sessionId, 'user_send');
-
-    const trimmedMessage = message.trim();
-
-    try {
-        // Add user message to the store optimistically
-        const userMessage: ChatMessageType = {
-            id: `user-${Date.now()}`,
-            sessionId: sessionId,
-            role: ChatRole.User,
-            content: [{ type: 'text', text: trimmedMessage }],
-            createdAt: Date.now(),
-            isStreaming: false
-        };
-
-        // Add to event store
-        useEventStore.getState().addEvent({
-            id: userMessage.id,
-            kind: 'message',
-            role: 'user',
-            content: userMessage.content,
-            createdAt: new Date(userMessage.createdAt).toISOString(),
-            sessionId: sessionId,
-            partial: false,
-            source: 'sse' as const
-        });
-
-        console.log('✅ [sendChatMessage] Added optimistic user message to event store');
-
-        // Extract agent_cwd_override from acsOverrides (if provided)
-        const agentCwdOverride = acsOverrides?.agent_cwd_override;
-
-        // 🎯 CRITICAL: Add fallback logic for agent_cwd_override
-        let effectiveAgentCwd = agentCwdOverride;
-        if (!effectiveAgentCwd && sessionData?.agent_cwd) {
-            // Fallback to session data if provided
-            effectiveAgentCwd = sessionData.agent_cwd;
-            console.log('📁 [sendChatMessage] Using fallback agent_cwd from session data:', effectiveAgentCwd);
-        }
-
-        if (!effectiveAgentCwd) {
-            // TODO: Add fallback to get from session store when available
-            // For now, we'll warn if it's missing
-            console.warn('⚠️ [sendChatMessage] No agent_cwd_override provided - agent may run in wrong directory', {
-                sessionId: sessionId.slice(0, 8) + '...',
-                hasAcsOverrides: !!acsOverrides,
-                hasSessionData: !!sessionData
-            });
-        }
-
-        // Merge provided overrides with acsOverrides for backward compatibility
-        const mergedOverrides = {
-            ...acsOverrides,
-            ...overrides
-        };
-
-        // Create params object for payload builder with all necessary data
-        const payloadParams: SendChatMessageParams = {
-            ...params,
-            overrides: mergedOverrides,
-            // Use provided templateVariables or generate them if not provided
-            templateVariables: params.templateVariables || ((await createACSTemplateVariables()) as unknown as { [key: string]: string }),
-            // Use provided useStoredKeys or get from store if not provided
-            useStoredKeys: params.useStoredKeys ?? useBYOKStore.getState().useStoredKeysPreference
-        };
-
-        // Prepare the final ACS options using the helper function
-        const acsOptions = buildSendMessageOptions(payloadParams, effectiveAgentCwd);
-
-        console.log('📡 [sendChatMessage] Calling core.sendMessage with options:', JSON.stringify(acsOptions, null, 2));
-
-        // Send message via ACS with fresh overrides
-        await acsClient.core.sendMessage(sessionId, trimmedMessage, userId, agentConfigName, acsOptions);
-
-        console.log('✅ [sendChatMessage] Message sent successfully to ACS');
-
-        // Update status to reflect successful send to ACS
-        useSessionStatusStore.getState().markAwaiting(sessionId, 'sent_to_acs');
-
-        return {
-            success: true,
-            userMessageId: userMessage.id
-        };
-    } catch (error) {
-        console.error('❌ [sendChatMessage] Failed to send message:', error);
-        toast.error('Failed to send message');
-        
-        // Mark session as error on send failure
-        useSessionStatusStore.getState().markError(sessionId, 'send_error');
-        
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
+    console.log(
+      `✅ [sendChatMessage] [${messageId}] Message send process completed successfully!`
+    );
+    return {
+      success: true,
+      userMessageId: userMessage.id,
+    };
+  } catch (error) {
+    const errorDetails = {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+      sessionId: sessionId.slice(0, 8) + "...",
+      userId: userId.slice(0, 8) + "...",
+      timestamp: new Date().toISOString(),
+    };
+    console.error(
+      `💥 [sendChatMessage] [${messageId}] Failed to send message:`,
+      errorDetails
+    );
+    const sanitizedErrorMessage =
+      error instanceof Error
+        ? error.message.replace(/[\r\n\t]/g, " ").substring(0, 200)
+        : "Unknown error";
+    toast.error("Failed to send message", {
+      description: sanitizedErrorMessage,
+    });
+    console.log(`🔄 [sendChatMessage] [${messageId}] Marking session as error`);
+    useSessionStatusStore.getState().markError(sessionId);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }
 
 /**
  * React hook version for components that need reactive access
  */
 export function useSendChatMessage() {
-    return {
-        sendChatMessage
-    };
+  return {
+    sendChatMessage,
+  };
+}
+
+type ConverseRequest = {
+  user_id?: string;
+  agent_config_name: string;
+  prompt: string;
+  session_id?: string;
+  messages_history_override?: any[];
+  model_api_keys?: Record<string, string>;
+  use_stored_keys?: boolean;
+  overrides?: Partial<ConverseRequestOverride>;
+  template_variables?: Record<string, string>;
+  auto_mode?: boolean;
+  model_auto_mode?: boolean;
+  explicit_model_id?: string;
+  role_model_overrides?: Record<string, string>;
+  is_background_session?: boolean;
+  images?: string[];
+};
+
+type ConverseRequestOverride = {
+  model_id: string;
+  provider_name?: string;
+  system_prompt?: string;
+  enabled_tool_groups?: string[];
+  enabled_tools?: string[];
+  disabled_tools?: string[];
+  agent_cwd_override?: string;
+};
+
+function buildConversePayload(
+  params: SendChatMessageParams,
+  effectiveAgentCwd?: string
+): ConverseRequest {
+  const {
+    sessionId,
+    message,
+    userId,
+    agentConfigName,
+    modelApiKeys,
+    useStoredKeys,
+    overrides,
+    templateVariables,
+    autoMode,
+    modelAutoMode,
+    explicitModelId,
+    roleModelOverrides,
+    isBackgroundSession,
+    images,
+  } = params;
+
+  // Merge overrides with backward-compatible acsOverrides
+  const mergedOverrides = {
+    ...(params.acsOverrides || {}),
+    ...(overrides || {}),
+  };
+
+  // Honor agent_cwd_override fallback
+  if (effectiveAgentCwd && !mergedOverrides.agent_cwd_override) {
+    mergedOverrides.agent_cwd_override = effectiveAgentCwd;
+  }
+
+  const payload: ConverseRequest = {
+    agent_config_name: agentConfigName,
+    prompt: message.trim(),
+    session_id: sessionId,
+    // If no Authorization header will be supplied, include user_id here:
+    user_id: userId,
+    model_api_keys:
+      modelApiKeys && Object.keys(modelApiKeys).length
+        ? modelApiKeys
+        : undefined,
+    use_stored_keys: useStoredKeys,
+    overrides:
+      mergedOverrides && Object.keys(mergedOverrides).length
+        ? mergedOverrides
+        : undefined,
+    template_variables:
+      templateVariables && Object.keys(templateVariables).length
+        ? templateVariables
+        : undefined,
+    auto_mode: autoMode,
+    model_auto_mode: modelAutoMode,
+    explicit_model_id: explicitModelId,
+    role_model_overrides:
+      roleModelOverrides && Object.keys(roleModelOverrides).length
+        ? Object.fromEntries(
+            Object.entries(roleModelOverrides).filter(
+              ([_, value]) => typeof value === "string"
+            )
+          )
+        : undefined,
+    is_background_session: isBackgroundSession,
+    images: images || [],
+  };
+
+  return payload;
+}
+
+type WebConverseRequest = {
+  // ACSWebConverseRequest superset
+  user_id?: string;
+  agent_config_name: string;
+  prompt: string;
+  session_id?: string;
+  repo_id: number;
+  repo_full_name: string;
+  branch: string;
+  messages_history_override?: any[];
+  model_api_keys?: Record<string, string>;
+  use_stored_keys?: boolean;
+  overrides?: Partial<ConverseRequestOverride>;
+  template_variables?: Record<string, string>;
+  auto_mode?: boolean;
+  model_auto_mode?: boolean;
+  explicit_model_id?: string;
+  role_model_overrides?: Record<string, string>;
+  is_background_session?: boolean;
+  images?: string[];
+};
+
+function buildWebConversePayload(
+  params: SendChatMessageParams,
+  effectiveAgentCwd?: string
+): WebConverseRequest {
+  const {
+    sessionId,
+    message,
+    userId,
+    agentConfigName,
+    modelApiKeys,
+    useStoredKeys,
+    overrides,
+    templateVariables,
+    autoMode,
+    modelAutoMode,
+    explicitModelId,
+    roleModelOverrides,
+    isBackgroundSession,
+    repoContextWeb,
+    images,
+  } = params;
+
+  const mergedOverrides = {
+    ...(params.acsOverrides || {}),
+    ...(overrides || {}),
+  };
+  if (effectiveAgentCwd && !mergedOverrides.agent_cwd_override) {
+    mergedOverrides.agent_cwd_override = effectiveAgentCwd;
+  }
+
+  return {
+    agent_config_name: agentConfigName,
+    prompt: message.trim(),
+    session_id: sessionId,
+    user_id: userId,
+    repo_id: repoContextWeb!.repo_id,
+    repo_full_name: repoContextWeb!.repo_full_name,
+    branch: repoContextWeb!.branch,
+    model_api_keys:
+      modelApiKeys && Object.keys(modelApiKeys).length
+        ? modelApiKeys
+        : undefined,
+    use_stored_keys: useStoredKeys,
+    overrides:
+      mergedOverrides && Object.keys(mergedOverrides).length
+        ? mergedOverrides
+        : undefined,
+    template_variables:
+      templateVariables && Object.keys(templateVariables).length
+        ? templateVariables
+        : undefined,
+    auto_mode: autoMode,
+    model_auto_mode: modelAutoMode,
+    explicit_model_id: explicitModelId,
+    role_model_overrides:
+      roleModelOverrides && Object.keys(roleModelOverrides).length
+        ? Object.fromEntries(
+            Object.entries(roleModelOverrides).filter(
+              ([_, value]) => typeof value === "string"
+            )
+          )
+        : undefined,
+    is_background_session: isBackgroundSession,
+    images: images || [],
+  };
 }

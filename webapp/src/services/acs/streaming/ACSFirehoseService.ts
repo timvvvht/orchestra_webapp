@@ -1,12 +1,7 @@
 /* eslint-env browser */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mitt from 'mitt';
-// Stubbed fetch-event-source for webapp
-const fetchEventSource = async (url: string, options: any) => {
-  console.log('🔄 [STUB] Would fetch event source:', url);
-  // Return a promise that never resolves to simulate ongoing connection
-  return new Promise(() => {});
-};
+import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { eventBus } from '../eventBus';
 import type { SSEEvent } from '../shared/types';
 import { DedupeCache } from '@/utils/DedupeCache';
@@ -87,6 +82,11 @@ export class ACSFirehoseService {
 
     /** Convert ACSRawEvent to SSEEvent format for global eventBus */
     private convertToSSEEvent(rawEvent: ACSRawEvent): SSEEvent {
+        const convId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        console.log(`🔄 [ACSFirehose] [${convId}] Converting ACSRawEvent to SSEEvent`);
+        console.log(`🔄 [ACSFirehose] [${convId}] Input event type: ${rawEvent.event_type}`);
+        
         // Create a base event object without optional properties
         const baseEvent: SSEEvent = {
             type: rawEvent.event_type,
@@ -96,32 +96,47 @@ export class ACSFirehoseService {
         // Add optional properties only if they have defined values
         if (rawEvent.event_id) {
             baseEvent.event_id = rawEvent.event_id;
+            console.log(`🔄 [ACSFirehose] [${convId}] Added event_id: ${rawEvent.event_id}`);
         }
 
         if (rawEvent.message_id) {
             baseEvent.messageId = rawEvent.message_id;
+            console.log(`🔄 [ACSFirehose] [${convId}] Added messageId: ${rawEvent.message_id}`);
         }
 
         if (rawEvent.data) {
             baseEvent.data = rawEvent.data;
+            console.log(`🔄 [ACSFirehose] [${convId}] Added data with keys:`, Object.keys(rawEvent.data));
         }
 
         // Extract specific fields based on event type
         if (rawEvent.event_type === 'chunk' && (rawEvent.data?.delta || rawEvent.data?.content)) {
             baseEvent.delta = rawEvent.data.delta || rawEvent.data.content;
+            console.log(`🔄 [ACSFirehose] [${convId}] Added delta for chunk event`);
         }
 
         if (rawEvent.event_type === 'tool_call' && rawEvent.data?.tool_call) {
             baseEvent.toolCall = rawEvent.data.tool_call;
+            console.log(`🔄 [ACSFirehose] [${convId}] Added toolCall for tool_call event`);
         }
 
         if (rawEvent.event_type === 'tool_result' && rawEvent.data?.result) {
             baseEvent.result = rawEvent.data.result;
+            console.log(`🔄 [ACSFirehose] [${convId}] Added result for tool_result event`);
         }
 
         if (rawEvent.event_type === 'error' && rawEvent.data?.error) {
             baseEvent.error = rawEvent.data.error;
+            console.log(`🔄 [ACSFirehose] [${convId}] Added error for error event`);
         }
+
+        console.log(`✅ [ACSFirehose] [${convId}] Conversion completed:`, {
+            type: baseEvent.type,
+            sessionId: baseEvent.sessionId,
+            hasEventId: !!baseEvent.event_id,
+            hasMessageId: !!baseEvent.messageId,
+            hasData: !!baseEvent.data
+        });
 
         // Return the completed event
         return baseEvent;
@@ -161,6 +176,17 @@ export class ACSFirehoseService {
 
     /** Emit event to both internal bus and global eventBus */
     private emitEvent(rawEvent: ACSRawEvent): void {
+        const eventId = `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        console.log(`📡 [ACSFirehose] [${eventId}] Raw event received:`, {
+            event_type: rawEvent.event_type,
+            session_id: rawEvent.session_id,
+            event_id: rawEvent.event_id,
+            message_id: rawEvent.message_id,
+            timestamp: rawEvent.timestamp,
+            data_keys: rawEvent.data ? Object.keys(rawEvent.data) : []
+        });
+        
         // Log raw incoming event FIRST (before any filtering)
         this.logDebugEntry('raw_in', {
             event: rawEvent,
@@ -172,7 +198,10 @@ export class ACSFirehoseService {
         const eventJsonString = JSON.stringify(rawEvent);
         const eventHash = this.hashString(eventJsonString);
         
+        console.log(`🔍 [ACSFirehose] [${eventId}] Checking for duplicates (hash: ${eventHash})`);
+        
         if (this.dedupe.seen(eventHash)) {
+            console.log(`⏭️ [ACSFirehose] [${eventId}] Skipping duplicate event`);
             // Log the dedupe drop with full event data
             this.logDebugEntry('skip_dedupe', {
                 event: rawEvent,
@@ -184,6 +213,8 @@ export class ACSFirehoseService {
             });
             return;
         }
+        
+        console.log(`✅ [ACSFirehose] [${eventId}] Event is unique, processing...`);
 
         /* ────────────────────────────────
          *  1️⃣  SCM CHECKPOINT HOOK
@@ -197,13 +228,23 @@ export class ACSFirehoseService {
          *  2️⃣  EXISTING BUS EMISSION LOGIC
          * ──────────────────────────────── */
         // Emit to internal bus (for LocalToolOrchestrator and other subscribers)
+        console.log(`📤 [ACSFirehose] [${eventId}] Emitting to internal bus`);
         this.bus.emit('data', rawEvent);
 
         // Convert and emit to global eventBus
+        console.log(`🔄 [ACSFirehose] [${eventId}] Converting to SSE event format`);
         const sseEvent = this.convertToSSEEvent(rawEvent);
+        
+        console.log(`📤 [ACSFirehose] [${eventId}] Emitting to global eventBus:`, {
+            type: sseEvent.type,
+            sessionId: sseEvent.sessionId,
+            messageId: sseEvent.messageId,
+            event_id: sseEvent.event_id
+        });
         eventBus.emit('sse', sseEvent);
 
         // Log successful processing
+        console.log(`✅ [ACSFirehose] [${eventId}] Event processing completed successfully`);
         this.logDebugEntry('unified_ok', {
             event: rawEvent,
             unified: sseEvent,
@@ -214,20 +255,32 @@ export class ACSFirehoseService {
 
     /** open EventSource for session-specific events (no auth) */
     connect(sessionId: string) {
-        if (this.es) return; // already connected
+        if (this.es) {
+            console.log(`⚠️ [ACSFirehose] Already connected, skipping connection for session: ${sessionId}`);
+            return; // already connected
+        }
+        
+        console.log(`🚀 [ACSFirehose] Starting SSE connection for session: ${sessionId}`);
         this.connectionType = 'global';
         const url = this.buildUrl(`/sse/${encodeURIComponent(sessionId)}`);
-        this.log('🔗 [SSE] startStream URL:', url);
-
-        this.log('🔌 [SSE] connect(session) called with sessionId:', sessionId);
+        
+        console.log(`🌐 [ACSFirehose] SSE URL: ${url}`);
+        console.log(`🔌 [ACSFirehose] Creating EventSource connection...`);
+        
         this.es = new EventSource(url);
 
         this.es.onopen = () => {
             this.reconnectAttempts = 0; // reset back-off
-            this.log('🟢 [SSE] onopen (session) URL:', url);
+            console.log(`✅ [ACSFirehose] SSE connection opened successfully for session: ${sessionId}`);
+            console.log(`✅ [ACSFirehose] Connection URL: ${url}`);
             this.bus.emit('status', true);
         };
                 this.es.onmessage = ev => {
+            const msgId = `sse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            console.log(`📡 [ACSFirehose] [${msgId}] SSE message received`);
+            console.log(`📡 [ACSFirehose] [${msgId}] Raw data length: ${ev.data?.length || 0}`);
+            
             // Log the raw JSON data FIRST, before any processing
             this.logDebugEntry('raw_json', {
                 rawData: ev.data,
@@ -236,12 +289,14 @@ export class ACSFirehoseService {
             });
 
             try {
+                console.log(`🔄 [ACSFirehose] [${msgId}] Parsing JSON...`);
                 const rawMessage = JSON.parse(ev.data);
-                console.log(`[SSE_RAW] ${JSON.stringify(rawMessage)}`);
+                console.log(`🔄 [ACSFirehose] [${msgId}] JSON parsed successfully:`, rawMessage);
 
                 // Transform the SSE event structure to ACSRawEvent format
                 let parsed: ACSRawEvent;
                 if (rawMessage.payload) {
+                    console.log(`🔄 [ACSFirehose] [${msgId}] Using new schema with payload wrapper`);
                     // New schema with payload wrapper
                     parsed = {
                         session_id: rawMessage.payload.session_id,
@@ -252,12 +307,23 @@ export class ACSFirehoseService {
                         event_id: rawMessage.payload.event_id
                     };
                 } else {
+                    console.log(`🔄 [ACSFirehose] [${msgId}] Using legacy schema (direct format)`);
                     // Legacy schema (direct format)
                     parsed = rawMessage as ACSRawEvent;
                 }
 
+                console.log(`🚀 [ACSFirehose] [${msgId}] Emitting parsed event:`, {
+                    event_type: parsed.event_type,
+                    session_id: parsed.session_id,
+                    event_id: parsed.event_id
+                });
                 this.emitEvent(parsed);
             } catch (error) {
+                console.error(`❌ [ACSFirehose] [${msgId}] Failed to parse SSE message:`, {
+                    error: error instanceof Error ? error.message : error,
+                    rawData: ev.data?.substring(0, 200) + '...' // First 200 chars for debugging
+                });
+                
                 // Log parse failures to debug history
                 this.logDebugEntry('skip_parse_error', {
                     rawData: ev.data,
@@ -268,8 +334,11 @@ export class ACSFirehoseService {
         };
 
         this.es.onerror = (err: any) => {
+            console.error(`❌ [ACSFirehose] SSE connection error for session ${sessionId}:`, err);
+            console.error(`❌ [ACSFirehose] Connection state:`, this.es?.readyState);
             this.bus.emit('error', err instanceof Error ? err : new Error('SSE error'));
             this.bus.emit('status', false);
+            console.log(`🔄 [ACSFirehose] Scheduling reconnect...`);
             this.scheduleReconnect();
         };
     }

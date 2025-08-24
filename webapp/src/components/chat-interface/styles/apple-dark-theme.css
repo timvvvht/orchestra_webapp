@@ -1,0 +1,132 @@
+/* Apple-inspired Dark Theme for Orchestra Chat */
+
+@layer base {
+  :root {
+    /* Pure blacks for OLED optimization */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    
+    /* Subtle elevation layers */
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 100%;
+    
+    /* Muted tones */
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    
+    /* Accent colors - Apple Blue */
+    --primary: 211 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* System colors */
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --accent: 243 57% 59%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 4 90% 58%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Borders and rings */
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 211 100% 50%;
+    
+    /* Border radius */
+    --radius: 0.75rem;
+  }
+}
+
+/* Glass morphism effects */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Smooth scrolling */
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Message animations */
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-animate-in {
+  animation: messageSlideIn 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Glow effects */
+.glow-blue {
+  box-shadow: 0 0 20px rgba(0, 122, 255, 0.3);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px rgba(88, 86, 214, 0.3);
+}
+
+/* Text selection */
+::selection {
+  background: rgba(0, 122, 255, 0.3);
+  color: white;
+}
+
+/* Focus states */
+.focus-ring {
+  outline: none;
+  ring: 2px;
+  ring-color: rgba(0, 122, 255, 0.5);
+  ring-offset: 2px;
+  ring-offset-color: black;
+}
+
+/* Transitions */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Typography enhancements */
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Backdrop blur utilities */
+.backdrop-blur-xs {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.backdrop-blur-3xl {
+  backdrop-filter: blur(64px);
+  -webkit-backdrop-filter: blur(64px);
+}

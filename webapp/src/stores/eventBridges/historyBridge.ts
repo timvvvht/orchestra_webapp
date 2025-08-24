@@ -6,10 +6,11 @@
  */
 
 import { mapBatch } from "@/adapters/RowMapper";
-import { useEventStore } from "../eventStores";
+import { useEventStore } from "../eventStore";
 import { getRecentMessagesForSession } from "@/services/supabase/chatMessageService";
 import { supabase } from "@/auth/SupabaseClient";
 import { makeCheckpointEvent } from "@/stores/eventReducer";
+import { CanonicalEvent } from "@/types/events";
 
 /**
  * Hydrates the event store with historical messages from a session using pagination
@@ -214,7 +215,9 @@ async function hydrateCheckpoints(sessionId: string): Promise<void> {
 
     for (const checkpoint of sortedCheckpoints) {
       console.log(
-        `[HistoryBridge] Processing ${checkpoint.phase} checkpoint ${checkpoint.commit_hash.slice(0, 8)}, mostRecentCommitHash: ${mostRecentCommitHash?.slice(0, 8) || "none"}`
+        `[HistoryBridge] Processing ${checkpoint.phase} checkpoint ${checkpoint.commit_hash.slice(0, 8)}, mostRecentCommitHash: ${
+          mostRecentCommitHash?.slice(0, 8) || "none"
+        }`
       );
 
       if (checkpoint.commit_hash === mostRecentCommitHash) {
@@ -229,9 +232,10 @@ async function hydrateCheckpoints(sessionId: string): Promise<void> {
       );
       filteredCheckpoints.push(checkpoint);
       mostRecentCommitHash = checkpoint.commit_hash;
-      console.log(
-        `[HistoryBridge] 📝 Updated mostRecentCommitHash to ${mostRecentCommitHash.slice(0, 8)}`
-      );
+      if (mostRecentCommitHash)
+        console.log(
+          `[HistoryBridge] 📝 Updated mostRecentCommitHash to ${mostRecentCommitHash.slice(0, 8)}`
+        );
     }
 
     console.log(

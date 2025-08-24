@@ -8,7 +8,7 @@
 
 import { eventBus } from '@/services/acs/eventBus';
 import { supabase } from '@/auth/SupabaseClient';
-import { useEventStore } from '@/stores/eventStores';
+import { useEventStore } from '@/stores/eventStore';
 import { makeCheckpointEvent } from '@/stores/eventReducer';
 import { SCMManager } from '@/services/scm/SCMManager';
 import { getDefaultACSClient } from '@/services/acs';
@@ -57,8 +57,6 @@ class CheckpointService {
             // End checkpoint logic moved to postChatCheckpoint hook
         }
     };
-
-
 
     /**
      * Get the session's actual working directory (agent_cwd)
@@ -145,10 +143,10 @@ class CheckpointService {
             console.log(`📂 [SCM] Repository location: ${workspacePath}`);
 
             // Create database record with commit hash (allows multiple checkpoints per session/phase)
-            const { error } = await supabase.from('chat_checkpoints').insert({ 
-                session_id: sessionId, 
-                phase: 'start', 
-                commit_hash: commitHash 
+            const { error } = await supabase.from('chat_checkpoints').insert({
+                session_id: sessionId,
+                phase: 'start',
+                commit_hash: commitHash
             });
 
             if (error) {
@@ -166,10 +164,6 @@ class CheckpointService {
             console.error(`❌ [SCM] Failed to create start checkpoint for session ${sessionId}:`, error);
         }
     }
-
-
-
-
 
     /**
      * Clear seen cache (useful for testing)
