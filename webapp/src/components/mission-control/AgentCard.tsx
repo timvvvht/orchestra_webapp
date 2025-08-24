@@ -322,9 +322,9 @@ const AgentCard: React.FC<AgentCardProps> = ({
   );
 
   const handleCardClick = useCallback(() => {
-    setSelectedSession(agent.id);
+    useMissionControlStore.getState().navigateToSession(agent.id);
     markSessionRead(agent.id);
-  }, [setSelectedSession, markSessionRead, agent.id]);
+  }, [markSessionRead, agent.id]);
 
   // Enhanced glass morphism styles based on group
   const glowStyles = {

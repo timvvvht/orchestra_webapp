@@ -469,7 +469,7 @@ export async function sendChatMessage(
     // 5) POST to ACS Converse using httpApi
     const ACS_BASE =
       import.meta.env.VITE_ACS_BASE_URL || "http://localhost:8001";
-    const url = `${ACS_BASE}${isWebOrigin ? "/acs/converse/web" : "/acs/converse"}`;
+    const url = `${ACS_BASE}${isWebOrigin ? "/acs/converse" : "/acs/converse"}`; // removed web
 
     console.log(
       `🌐 [sendChatMessage] [${messageId}] ACS Base URL: ${ACS_BASE}`

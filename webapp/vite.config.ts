@@ -9,6 +9,13 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), tsconfigPaths()],
   server: {
     hmr: { overlay: false },
+    proxy: {
+      "/api": {
+        target: "http:localhost:8001",
+        secure: false,
+        changeOrigin: true,
+      },
+    },
   },
   define: {
     global: "globalThis",

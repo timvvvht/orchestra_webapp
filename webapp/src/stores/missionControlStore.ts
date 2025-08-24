@@ -7,6 +7,7 @@ import { baseDirFromCwd } from "@/utils/pathHelpers";
 import { type GitStatusCounts } from "@/utils/gitHelpers";
 import { supabase } from "@/lib/supabaseClient";
 import { arch } from "os";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 // import { supabase } from "@/auth/SupabaseClient";
 
 // LocalStorage key for read state persistence
@@ -123,6 +124,14 @@ interface MissionControlState {
   lastCheckpointSaved: string | null;
   isAutoSaving: boolean;
 
+  // Workspace identity
+  workspaceKey: string | null;
+  hashedWorkspaceId: string | null;
+  workspaceFilter: string | null; // Filter sessions by workspace ID
+
+  // Router navigation function injected by MissionControl
+  routerNavigate: ((path: string, opts?: { replace?: boolean }) => void) | null;
+
   // Actions
   setSessions: (sessions: MissionControlAgent[]) => void;
   updateSession: (
@@ -144,6 +153,7 @@ interface MissionControlState {
   setViewMode: (mode: ViewMode) => void;
   setSelectedSession: (sessionId: string | null) => void;
   setCwdFilter: (cwd: string | null) => void;
+  setWorkspaceFilter: (workspaceId: string | null) => void;
   toggleGroupCollapsed: (group: keyof CollapsedGroups) => void;
   setShowNewDraftModal: (show: boolean) => void;
   setInitialDraftCodePath: (path: string | null) => void;
@@ -169,6 +179,20 @@ interface MissionControlState {
   moveSessionToArchive: (sessionId: string) => boolean;
   moveSessionToActive: (sessionId: string) => boolean;
 
+  // Workspace + routing actions
+  computeHashedWorkspaceId: (
+    workspaceKey: string,
+    userId: string
+  ) => Promise<string>;
+  setWorkspaceKey: (
+    workspaceKey: string | null,
+    userId: string | null
+  ) => Promise<void>;
+  setRouterNavigate: (
+    nav: ((path: string, opts?: { replace?: boolean }) => void) | null
+  ) => void;
+  navigateToSession: (sessionId: string) => Promise<void>;
+
   // Computed getters
   getFilteredSessions: () => MissionControlAgent[];
   getSortedSessions: () => MissionControlAgent[];
@@ -177,6 +201,15 @@ interface MissionControlState {
     idle: MissionControlAgent[];
   };
   getSelectedAgentCwd: () => string | null;
+}
+
+// Browser-safe SHA-256 base64url helper
+async function sha256Base64Url(input: string): Promise<string> {
+  const enc = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", enc);
+  const bytes = new Uint8Array(digest);
+  let b64 = btoa(String.fromCharCode(...Array.from(bytes)));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 export const useMissionControlStore = create<MissionControlState>(
@@ -210,6 +243,10 @@ export const useMissionControlStore = create<MissionControlState>(
         sessionRefetchCallback: null as (() => Promise<void>) | null,
         lastCheckpointSaved: null as string | null,
         isAutoSaving: false,
+        workspaceKey: null,
+        hashedWorkspaceId: null,
+        workspaceFilter: null,
+        routerNavigate: null,
       };
 
       // Backwards compatibility: if old 'idle' state exists in localStorage, migrate it
@@ -485,6 +522,10 @@ export const useMissionControlStore = create<MissionControlState>(
         set({ cwdFilter: cwd });
       },
 
+      setWorkspaceFilter: (workspaceId) => {
+        set({ workspaceFilter: workspaceId });
+      },
+
       toggleGroupCollapsed: (group) => {
         set((state) => ({
           collapsedGroups: {
@@ -594,8 +635,33 @@ export const useMissionControlStore = create<MissionControlState>(
 
       // Computed getters
       getFilteredSessions: () => {
-        const { activeSessions: sessions, cwdFilter } = get();
-        return sessions.filter(
+        const { activeSessions: sessions, cwdFilter, workspaceFilter } = get();
+
+        // First filter by workspace if specified
+        let filteredSessions = sessions;
+        if (workspaceFilter) {
+          // Get workspace info from the store
+          const workspace = useWorkspaceStore.getState().getWorkspace(workspaceFilter);
+          if (workspace) {
+            filteredSessions = sessions.filter((session) => {
+              // Filter by base directory or agent_cwd that contains the repository name
+              // Also check if the session was created with this repository context
+              const sessionRepoName = session.base_dir?.split('/').pop() || 
+                                    session.agent_cwd?.split('/').pop() || '';
+              
+              return (
+                session.base_dir?.includes(workspace.repoFullName) ||
+                session.agent_cwd?.includes(workspace.repoFullName) ||
+                sessionRepoName === workspace.repoFullName.split('/').pop() ||
+                // Check if session has repository metadata that matches
+                (session as any).repoContextWeb?.repo_full_name === workspace.repoFullName
+              );
+            });
+          }
+        }
+
+        // Then filter by cwd if specified
+        return filteredSessions.filter(
           (session) =>
             !cwdFilter ||
             (session.base_dir ?? baseDirFromCwd(session.agent_cwd)) ===
@@ -708,6 +774,46 @@ export const useMissionControlStore = create<MissionControlState>(
         } = get();
         const pool = viewMode === "archived" ? archivedSessions : sessions;
         return pool.find((s) => s.id === selectedSession)?.agent_cwd || null;
+      },
+
+      // Workspace + routing actions
+      computeHashedWorkspaceId: async (
+        workspaceKey: string,
+        userId: string
+      ) => {
+        return await sha256Base64Url(`${workspaceKey}:${userId}`);
+      },
+
+      setWorkspaceKey: async (workspaceKey, userId) => {
+        if (!workspaceKey || !userId) {
+          set({ workspaceKey: workspaceKey ?? null, hashedWorkspaceId: null });
+          return;
+        }
+        const hashed = await get().computeHashedWorkspaceId(
+          workspaceKey,
+          userId
+        );
+        set({ workspaceKey, hashedWorkspaceId: hashed });
+      },
+
+      setRouterNavigate: (nav) => {
+        set({ routerNavigate: nav ?? null });
+      },
+
+      navigateToSession: async (sessionId: string) => {
+        if (!sessionId) return;
+        const { hashedWorkspaceId, routerNavigate } = get();
+        // Update selection in store for split-pane to open
+        set({ selectedSession: sessionId });
+
+        const hwid = hashedWorkspaceId ?? "unknown";
+        const path = `/project/${hwid}/${sessionId}`;
+        if (routerNavigate) {
+          routerNavigate(path);
+        } else {
+          // Fallback if not injected
+          window.history.pushState({}, "", path);
+        }
       },
     };
   }
