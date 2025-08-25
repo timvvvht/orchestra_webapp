@@ -186,9 +186,7 @@ export default function Landing() {
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/[0.05] backdrop-blur-xl border border-white/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                </svg>
+                <img src="/orchestra_logo.svg" alt="Orchestra logo" className="w-5 h-5 object-contain" />
               </div>
               <span className="text-xl font-light text-white/90">Orchestra</span>
             </div>
