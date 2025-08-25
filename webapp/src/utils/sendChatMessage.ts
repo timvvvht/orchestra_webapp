@@ -9,6 +9,10 @@ import { useEventStore } from "@/stores/eventStore";
 import { useBYOKStore } from "@/stores/byokStore";
 import { createACSTemplateVariables } from "@/utils/templateVariables";
 import { registerToolsByNames } from "@/utils/toolSpecRegistry";
+import {
+  createSessionFast,
+  CreateSessionOptions,
+} from "@/hooks/useCreateSessionFast";
 
 import { httpApi } from "@/api/httpApi";
 import { supabase } from "@/auth/SupabaseClient";
@@ -73,7 +77,7 @@ export function getModelsForRole(role: ACSRoles): readonly string[] {
 }
 
 export interface SendChatMessageParams {
-  sessionId: string;
+  sessionId?: string; // Made optional - will create session if not provided
   message: string;
   userId: string;
   agentConfigName: string;
@@ -128,11 +132,26 @@ export interface SendChatMessageParams {
   // Explicit endpoint selector (default: 'generic')
   endpoint?: "web" | "generic";
   images?: string[];
+
+  // Session creation options (used when sessionId is not provided)
+  sessionCreationOptions?: {
+    sessionName?: string;
+    agentConfigId?: string;
+    workspacePath?: string;
+    metadata?: Record<string, any>;
+    repoContext?: {
+      repo_id: number;
+      repo_full_name: string;
+      branch: string;
+    };
+    existingSessionId?: string; // Added for existing session check
+  };
 }
 
 export interface SendChatMessageResult {
   success: boolean;
   userMessageId?: string;
+  sessionId?: string; // Include the session ID (created or existing)
   error?: string;
 }
 
@@ -237,16 +256,93 @@ export async function sendChatMessage(
     return { success: false, error: "Message is empty" };
   }
 
-  if (!sessionId || !userId) {
-    console.error(`❌ [sendChatMessage] [${messageId}] Missing required IDs:`, {
-      sessionId: !!sessionId,
-      userId: !!userId,
-    });
+  if (!userId) {
+    console.error(`❌ [sendChatMessage] [${messageId}] Missing user ID`);
     toast.error("Please sign in to send messages");
-    return { success: false, error: "Missing session or user ID" };
+    return { success: false, error: "Missing user ID" };
   }
 
-  console.log(`✅ [sendChatMessage] [${messageId}] Validation passed`);
+  // Handle session creation - always create session to ensure it's in the database
+  let effectiveSessionId = sessionId;
+  console.log(
+    `🆕 [sendChatMessage] [${messageId}] Ensuring session exists in database...`
+  );
+
+  try {
+    const sessionCreationOptions = params.sessionCreationOptions || {};
+
+    // Use repoContextWeb if available for session creation
+    if (params.repoContextWeb) {
+      sessionCreationOptions.repoContext = params.repoContextWeb;
+    }
+
+    // Use agent_cwd_override as workspacePath if available
+    if (params.acsOverrides?.agent_cwd_override) {
+      sessionCreationOptions.workspacePath =
+        params.acsOverrides.agent_cwd_override;
+    }
+
+    // Set default session name if not provided
+    if (!sessionCreationOptions.sessionName) {
+      sessionCreationOptions.sessionName = `Chat: ${trimmedMessage.slice(0, 50)}${trimmedMessage.length > 50 ? "..." : ""}`;
+    }
+
+    // Set default agent config if not provided
+    if (!sessionCreationOptions.agentConfigId) {
+      sessionCreationOptions.agentConfigId = agentConfigName;
+    }
+
+    // If we have an existing sessionId, use it for the session creation
+    if (effectiveSessionId) {
+      sessionCreationOptions.sessionName = `Chat: ${trimmedMessage.slice(0, 50)}${trimmedMessage.length > 50 ? "..." : ""}`;
+      // Pass the existing session ID to check if it exists before creating
+      sessionCreationOptions.existingSessionId = effectiveSessionId;
+    }
+
+    console.log(
+      `🆕 [sendChatMessage] [${messageId}] Creating/ensuring session with options:`,
+      sessionCreationOptions
+    );
+
+    const sessionResult = await createSessionFast(sessionCreationOptions);
+
+    if (!sessionResult.success || !sessionResult.sessionId) {
+      console.error(
+        `❌ [sendChatMessage] [${messageId}] Failed to create/ensure session:`,
+        sessionResult.error
+      );
+      toast.error("Failed to create chat session", {
+        description: sessionResult.error || "Unknown error occurred",
+      });
+      return {
+        success: false,
+        error: `Failed to create session: ${sessionResult.error}`,
+      };
+    }
+
+    // Use the session ID from the result (either newly created or existing)
+    effectiveSessionId = sessionResult.sessionId;
+    console.log(
+      `✅ [sendChatMessage] [${messageId}] Session ensured in database: ${effectiveSessionId}`
+    );
+  } catch (error) {
+    console.error(
+      `❌ [sendChatMessage] [${messageId}] Exception during session creation:`,
+      error
+    );
+    toast.error("Failed to create chat session", {
+      description:
+        error instanceof Error ? error.message : "Unknown error occurred",
+    });
+    return {
+      success: false,
+      error: `Session creation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+
+  console.log(
+    `✅ [sendChatMessage] [${messageId}] Validation passed, using session ID: ${effectiveSessionId}`
+  );
 
   // Register tools (defaults to core tools if not specified)
   const toolsToRegister = params.tools || [
@@ -261,7 +357,7 @@ export async function sendChatMessage(
   );
   try {
     const toolRegStartTime = Date.now();
-    await registerToolsByNames(sessionId, toolsToRegister);
+    await registerToolsByNames(effectiveSessionId, toolsToRegister);
     const toolRegDuration = Date.now() - toolRegStartTime;
     console.log(
       `✅ [sendChatMessage] [${messageId}] Tools registered successfully in ${toolRegDuration}ms`
@@ -281,7 +377,7 @@ export async function sendChatMessage(
   console.log(
     `🔄 [sendChatMessage] [${messageId}] Marking session as awaiting`
   );
-  useSessionStatusStore.getState().markAwaiting(sessionId);
+  useSessionStatusStore.getState().markAwaiting(effectiveSessionId);
 
   try {
     // 1) Optimistic event insert for UI responsiveness
@@ -290,7 +386,7 @@ export async function sendChatMessage(
     );
     const userMessage: ChatMessageType = {
       id: `user-${Date.now()}`,
-      sessionId,
+      sessionId: effectiveSessionId,
       role: ChatRole.User,
       content: [{ type: "text", text: trimmedMessage }],
       createdAt: Date.now(),
@@ -301,7 +397,10 @@ export async function sendChatMessage(
     console.log(`📝 [sendChatMessage] [${messageId}] User message created:`, {
       id: userMessage.id,
       sessionId: userMessage.sessionId,
-      contentLength: userMessage.content[0].text.length,
+      contentLength:
+        userMessage.content[0]?.type === "text"
+          ? userMessage.content[0].text?.length || 0
+          : 0,
       imagesCount: userMessage.images?.length || 0,
     });
     console.log(
@@ -316,7 +415,7 @@ export async function sendChatMessage(
       role: "user",
       content: userMessage.content,
       createdAt: new Date(userMessage.createdAt).toISOString(),
-      sessionId,
+      sessionId: effectiveSessionId,
       partial: false,
       source: "sse" as const, // could be 'local' if you want to distinguish
       //images: images,
@@ -350,7 +449,7 @@ export async function sendChatMessage(
       console.warn(
         `⚠️ [sendChatMessage] [${messageId}] No agent_cwd_override provided`,
         {
-          sessionId: sessionId.slice(0, 8) + "...",
+          sessionId: effectiveSessionId.slice(0, 8) + "...",
           hasAcsOverrides: !!acsOverrides,
           hasSessionData: !!sessionData,
         }
@@ -424,6 +523,7 @@ export async function sendChatMessage(
       body = buildWebConversePayload(
         {
           ...params,
+          sessionId: effectiveSessionId, // Use the effective session ID
           templateVariables: resolvedTemplateVars,
           useStoredKeys: resolvedUseStoredKeys,
         },
@@ -437,6 +537,7 @@ export async function sendChatMessage(
         body = buildConversePayload(
           {
             ...params,
+            sessionId: effectiveSessionId, // Use the effective session ID
             templateVariables: resolvedTemplateVars,
             useStoredKeys: resolvedUseStoredKeys,
           },
@@ -469,8 +570,7 @@ export async function sendChatMessage(
     // 5) POST to ACS Converse using httpApi
     const ACS_BASE =
       import.meta.env.VITE_ACS_BASE_URL || "http://localhost:8001";
-    const url = `${ACS_BASE}${isWebOrigin ? "/acs/converse" : "/acs/converse"}`; // removed web
-
+    const url = `${ACS_BASE}${isWebOrigin ? "/acs/converse/web" : "/acs/converse"}`;
     console.log(
       `🌐 [sendChatMessage] [${messageId}] ACS Base URL: ${ACS_BASE}`
     );
@@ -662,7 +762,7 @@ export async function sendChatMessage(
     console.log(
       `🔄 [sendChatMessage] [${messageId}] Updating session status to awaiting`
     );
-    useSessionStatusStore.getState().markAwaiting(sessionId);
+    useSessionStatusStore.getState().markAwaiting(effectiveSessionId);
 
     // switch the currentSession in the mission store to this one
 
@@ -672,13 +772,14 @@ export async function sendChatMessage(
     return {
       success: true,
       userMessageId: userMessage.id,
+      sessionId: effectiveSessionId,
     };
   } catch (error) {
     const errorDetails = {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : undefined,
-      sessionId: sessionId.slice(0, 8) + "...",
+      sessionId: effectiveSessionId.slice(0, 8) + "...",
       userId: userId.slice(0, 8) + "...",
       timestamp: new Date().toISOString(),
     };
@@ -694,10 +795,11 @@ export async function sendChatMessage(
       description: sanitizedErrorMessage,
     });
     console.log(`🔄 [sendChatMessage] [${messageId}] Marking session as error`);
-    useSessionStatusStore.getState().markError(sessionId);
+    useSessionStatusStore.getState().markError(effectiveSessionId);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
+      sessionId: effectiveSessionId, // Include session ID even on error if it was created
     };
   }
 }

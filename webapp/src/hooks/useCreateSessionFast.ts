@@ -16,6 +16,8 @@ export interface CreateSessionOptions {
     repo_full_name: string;
     branch: string;
   };
+  // Optional: If provided, check if this session already exists before creating
+  existingSessionId?: string;
 }
 
 export interface CreateSessionResult {
@@ -26,6 +28,7 @@ export interface CreateSessionResult {
 
 /**
  * Create a new session quickly using ACS services
+ * If existingSessionId is provided, first check if it exists before creating
  */
 export async function createSessionFast(
   options: CreateSessionOptions = {}
@@ -33,11 +36,51 @@ export async function createSessionFast(
   const acs = getDefaultACSClient();
 
   try {
-    // Prefer explicit workspacePath when given; otherwise ACSSessionService can apply smart defaults.
-    const { sessionName, agentConfigId, workspacePath, metadata, repoContext } = options;
+    const {
+      sessionName,
+      agentConfigId,
+      workspacePath,
+      metadata,
+      repoContext,
+      existingSessionId,
+    } = options;
 
-    // If we have any explicit values, use createSession; otherwise use createDefaultSession for smarter cwd detection.
-    if (sessionName || agentConfigId || workspacePath || metadata || repoContext) {
+    // If we have an existing session ID, first check if it exists
+    if (existingSessionId) {
+      try {
+        console.log(
+          `[useCreateSessionFast] Checking if session ${existingSessionId} exists...`
+        );
+        const existingSession =
+          await acs.sessions.getSession(existingSessionId);
+
+        if (
+          existingSession.status >= 200 &&
+          existingSession.status < 300 &&
+          existingSession.data
+        ) {
+          console.log(
+            `[useCreateSessionFast] Session ${existingSessionId} already exists, returning it`
+          );
+          return { sessionId: existingSessionId, success: true };
+        }
+      } catch (error) {
+        console.log(
+          `[useCreateSessionFast] Session ${existingSessionId} not found, will create new one:`,
+          error
+        );
+        // Continue to create a new session
+      }
+    }
+
+    // Prefer explicit workspacePath when given; otherwise ACSSessionService can apply smart defaults.
+    if (
+      sessionName ||
+      agentConfigId ||
+      workspacePath ||
+      metadata ||
+      repoContext
+    ) {
       // Merge metadata with repo context under canonical keys
       const finalMetadata = {
         ...(metadata || {}),
@@ -56,8 +99,10 @@ export async function createSessionFast(
         agent_config_id: agentConfigId || "general",
         agent_cwd: workspacePath || undefined,
         base_dir: workspacePath || undefined,
-        origin: 'web', // Explicit origin for webapp
-        ...(Object.keys(finalMetadata).length ? { metadata: finalMetadata } : {}),
+        origin: "web", // Explicit origin for webapp
+        ...(Object.keys(finalMetadata).length
+          ? { metadata: finalMetadata }
+          : {}),
       });
 
       // @ts-ignore
