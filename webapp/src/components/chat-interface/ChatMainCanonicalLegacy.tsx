@@ -55,6 +55,8 @@ import { hydrateSession } from "@/stores/eventBridges/historyBridge";
 import { useChatUI } from "@/context/ChatUIContext";
 import { useSelections, getAcsOverrides } from "@/context/SelectionContext";
 import { supabase } from "@/auth/SupabaseClient";
+import { useMissionControlStore } from "@/stores/missionControlStore";
+import { getDefaultACSClient } from "@/services/acs";
 
 // Approval imports
 import { ApprovalPanel } from "@/components/approval/ApprovalPanel";
@@ -1004,26 +1006,31 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   }, [loadEvents]);
 
   // Handle modal submit - create new chat with message and images
-  const handleModalSubmit = useCallback(async (message: string, images: string[]) => {
-    if (!sessionId) return;
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id || "unknown";
-      
-      await sendChatMessage({
-        sessionId,
-        message,
-        endpoint: "web",
-        userId: uid,
-        agentConfigName: "general",
-        acsClient: acsClient!,
-        images: images.length > 0 ? images : [], // Ensure it's never null
-      });
-    } catch (error) {
-      console.error("Failed to send message:", error);
-    }
-  }, [sessionId, acsClient]);
+  const handleModalSubmit = useCallback(
+    async (message: string, images: string[]) => {
+      if (!sessionId) return;
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const uid = session?.user?.id || "unknown";
+
+        await sendChatMessage({
+          sessionId,
+          message,
+          endpoint: "web",
+          userId: uid,
+          agentConfigName: "general",
+          acsClient: acsClient!,
+          images: images.length > 0 ? images : [], // Ensure it's never null
+        });
+      } catch (error) {
+        console.error("Failed to send message:", error);
+      }
+    },
+    [sessionId, acsClient]
+  );
 
   // Cleanup RAF on unmount
   useEffect(() => {
@@ -1302,7 +1309,43 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         );
       }
 
-      // Use submitted images if provided, otherwise use component state images
+      // Extract repository context from session data
+      const getRepoContextFromSession = async () => {
+        if (!sessionId) return undefined;
+
+        // Try to get session from mission control store first
+        const missionStore = useMissionControlStore.getState();
+        const session =
+          missionStore.activeSessions.find((s: any) => s.id === sessionId) ||
+          missionStore.archivedSessions.find((s: any) => s.id === sessionId);
+
+        // If session found in store but no metadata, try to get from ACS
+        if (session) {
+          try {
+            const acsClient = getDefaultACSClient();
+            const acsSession = await acsClient.sessions.getSession(sessionId);
+            if (acsSession?.data?.metadata) {
+              const metadata = acsSession.data.metadata as any;
+              if (
+                metadata.repo_id &&
+                metadata.repo_full_name &&
+                metadata.branch
+              ) {
+                return {
+                  repo_id: metadata.repo_id,
+                  repo_full_name: metadata.repo_full_name,
+                  branch: metadata.branch,
+                };
+              }
+            }
+          } catch (error) {
+            console.warn("Failed to get ACS session metadata:", error);
+          }
+        }
+
+        // Fallback: return undefined if no repository context found
+        return undefined;
+      };
 
       // Use shared helper for canonical message sending with extended parameters
       await sendChatMessage({
@@ -1324,6 +1367,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         autoMode: false, // Default to false unless explicitly set by user
         modelAutoMode: false, // Default to false unless explicitly set by user
         // Tools will default to core tools automatically: ['apply_patch', 'cat', 'tree', 'search_files', 'str_replace_editor', 'read_files', 'search_notes']
+        repoContextWeb: await getRepoContextFromSession(),
         images: [...images],
       });
 

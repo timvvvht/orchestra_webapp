@@ -14,7 +14,6 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
 }
 import { getDefaultACSClient } from "@/services/acs";
 import {
-  sendChatMessage,
   SendChatMessageOptions,
 } from "@/utils/sendChatMessage";
 import { sendChatWithHooks } from "@/utils/sendChatWithHooks";
