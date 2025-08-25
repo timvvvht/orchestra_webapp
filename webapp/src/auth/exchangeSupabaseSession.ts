@@ -1,26 +1,27 @@
 import { supabase } from './SupabaseClient';
 
 // Simple config for the exchange endpoint
-const getBaseUrl = () => {
-    const baseUrl = import.meta.env.VITE_ACS_BASE_URL || 'https://orchestra-acs.fly.dev';
+const getBaseUrl = (baseOverride?: string) => {
+    const baseUrl = baseOverride || import.meta.env.VITE_ACS_BASE_URL || 'https://orchestra-acs.fly.dev';
     console.log('🔧 [exchangeSupabaseSession] Using ACS Base URL:', baseUrl);
     console.log('🔧 [exchangeSupabaseSession] Environment variables:', {
         VITE_ACS_BASE_URL: import.meta.env.VITE_ACS_BASE_URL,
         MODE: import.meta.env.MODE,
         DEV: import.meta.env.DEV,
-        PROD: import.meta.env.PROD
+        PROD: import.meta.env.PROD,
+        baseOverride
     });
     return baseUrl;
 };
 
-export async function exchangeSupabaseSession() {
+export async function exchangeSupabaseSession(baseOverride?: string) {
     const {
         data: { session },
         error
     } = await supabase.auth.getSession();
     if (error || !session) throw new Error('No Supabase session');
 
-    const res = await fetch(`${getBaseUrl()}/api/v1/auth/oauth/exchange`, {
+    const res = await fetch(`${getBaseUrl(baseOverride)}/api/v1/auth/oauth/exchange`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

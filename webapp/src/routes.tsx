@@ -18,6 +18,7 @@ import Sessions from "./routes/Sessions";
 import InfraDashboard from "./routes/InfraDashboard";
 import GlobalInfraDashboard from "./routes/GlobalInfraDashboard";
 import WorkspaceHome from "./routes/WorkspaceHome";
+import DevToolbox from "./routes/DevToolbox";
 import { Settings } from "./routes/settings";
 
 // Lazy load components for better performance
@@ -93,6 +94,10 @@ export const routes: RouteObject[] = [
       {
         path: "session",
         element: <SessionInspector />,
+      },
+      {
+        path: "dev/toolbox/:sessionId",
+        element: <DevToolbox />,
       },
       {
         path: "settings",

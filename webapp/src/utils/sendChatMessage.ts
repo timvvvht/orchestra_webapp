@@ -386,11 +386,12 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Se
         console.log(`🚀 [sendChatMessage] [${messageId}] Sending POST request to ACS...`);
         const requestStartTime = Date.now();
 
-        // Use httpApi for the POST request
+        // Use httpApi for the POST request with credentials to ensure cookies are sent
         console.log(`📡 [sendChatMessage] [${messageId}] Posting to: ${url}`);
         const res = await httpApi.POST<ConverseResponse>(url, {
             headers,
-            body
+            body,
+            credentials: 'include' // Ensure cookies are sent for authentication
         });
 
         const requestDuration = Date.now() - requestStartTime;
