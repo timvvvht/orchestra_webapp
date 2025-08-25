@@ -54,6 +54,10 @@ export default defineConfig({
             find: "@tauri-apps/api/webviewWindow",
             replacement: "/src/tauri-shims/tauri.webviewWindow.web.ts",
           },
+          {
+            find: 'path',
+            replacement: 'path-browserify',
+          },
         ],
   },
   optimizeDeps: {

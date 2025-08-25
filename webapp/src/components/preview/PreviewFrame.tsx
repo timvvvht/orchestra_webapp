@@ -85,7 +85,11 @@ const PreviewFrame: React.FC<PreviewFrameProps> = ({ acsBaseUrl, sessionId }) =>
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${acsBaseUrl}/api/v1/preview/${sessionId}/start`, {
+      const startUrl = import.meta.env.DEV
+        ? `/api/v1/preview/${sessionId}/start`
+        : `${acsBaseUrl}/api/v1/preview/${sessionId}/start`;
+
+      const res = await fetch(startUrl, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -104,7 +108,11 @@ const PreviewFrame: React.FC<PreviewFrameProps> = ({ acsBaseUrl, sessionId }) =>
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${acsBaseUrl}/api/v1/preview/${sessionId}/stop`, {
+      const stopUrl = import.meta.env.DEV
+        ? `/api/v1/preview/${sessionId}/stop`
+        : `${acsBaseUrl}/api/v1/preview/${sessionId}/stop`;
+
+      const res = await fetch(stopUrl, {
         method: "POST",
         credentials: "include",
       });

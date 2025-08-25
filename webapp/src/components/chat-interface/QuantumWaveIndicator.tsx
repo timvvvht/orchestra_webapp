@@ -157,6 +157,7 @@ const QuantumWaveIndicator: React.FC<QuantumWaveIndicatorProps> = ({
               strokeWidth={3 - i * 0.5}
               fill="none"
               opacity={1 - i * 0.15}
+              initial={{ d: "M 0 32 Q 16 16 32 32 T 64 32" }}
               animate={{
                 d: [
                   "M 0 32 Q 16 16 32 32 T 64 32",
@@ -175,7 +176,7 @@ const QuantumWaveIndicator: React.FC<QuantumWaveIndicatorProps> = ({
 
           {/* Interference pattern */}
           <motion.g opacity="0.6">
-            {[...Array(8)].map((_, i) => (
+          {[...Array(8)].map((_, i) => (
               <motion.line
                 key={`interference-${i}`}
                 x1={i * 8}
@@ -184,6 +185,7 @@ const QuantumWaveIndicator: React.FC<QuantumWaveIndicatorProps> = ({
                 y2="64"
                 stroke={currentColorAlpha(0.15)}
                 strokeWidth="0.5"
+                initial={{ opacity: 0, strokeWidth: 0.5 }}
                 animate={{
                   opacity: [0, 0.3, 0],
                   strokeWidth: [0.5, 1, 0.5],
@@ -281,6 +283,7 @@ const QuantumWaveIndicator: React.FC<QuantumWaveIndicatorProps> = ({
               stroke={currentColorAlpha(0.3)}
               strokeWidth="1"
               strokeDasharray="2 4"
+              initial={{ r: 10 + i * 8, opacity: 0.4 }}
               animate={{
                 r: [10 + i * 8, 15 + i * 8, 10 + i * 8],
                 opacity: [0.4, 0.8, 0.4],

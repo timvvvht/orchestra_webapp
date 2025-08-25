@@ -406,8 +406,8 @@ export async function sendChatMessage(params: SendChatMessageParams): Promise<Se
         console.log(`🔧 [sendChatMessage] [${messageId}] BYOK preference:`, resolvedUseStoredKeys);
 
         // 4) Decide endpoint and build payload
-        // const isWebOrigin = endpoint === "web" || !!repoContextWeb;
-        const isWebOrigin = false;
+        const isWebOrigin = endpoint === 'web' || !!repoContextWeb;
+        // const isWebOrigin = false;
         console.log(`🌐 [sendChatMessage] [${messageId}] Origin:`, isWebOrigin ? 'web' : 'generic');
         console.log(`🌐 [sendChatMessage] [${messageId}] Endpoint selected:`, isWebOrigin ? '/acs/converse/web' : '/acs/converse');
         console.log(`🌐 [sendChatMessage] [${messageId}] repoContextWeb:`, repoContextWeb);

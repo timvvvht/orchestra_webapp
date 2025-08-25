@@ -1,4 +1,7 @@
 import React, { StrictMode, Suspense } from "react";
+// process shim must be the very first import so any module that references
+// `process` in the bundle sees a defined global.
+import "./shims/process-shim";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./routes";

@@ -17,23 +17,23 @@ export default function WorkspaceSessionFocused() {
   }>();
   const acsBase = (import.meta.env.VITE_ACS_BASE_URL || 'http://localhost:8001').replace(/\/$/, '');
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { setSessions } = useMissionControlStore();
 
   // Populate mission control store with session data so ChatMainCanonicalLegacy can find it
   const populateSessionInStore = useCallback(async () => {
-    if (!sessionId || !user?.id) return;
+    if (!sessionId || !isAuthenticated) return;
 
     try {
       console.log('[WorkspaceSessionFocused] Fetching session data for store population:', sessionId);
       
       // Fetch the specific session from Supabase
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('chat_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .eq('user_id', user.id)
-        .single();
+      // Only add user_id filter when authenticated (avoids single-player-user timing issues)
+      const query = supabase.from('chat_sessions').select('*').eq('id', sessionId);
+      if (isAuthenticated && user?.id) {
+        query.eq('user_id', user.id);
+      }
+      const { data: sessionData, error: sessionError } = await query.single();
 
       if (sessionError || !sessionData) {
         console.warn('[WorkspaceSessionFocused] Session not found or error:', sessionError);
@@ -66,7 +66,7 @@ export default function WorkspaceSessionFocused() {
     } catch (error) {
       console.error('[WorkspaceSessionFocused] Failed to populate session in store:', error);
     }
-  }, [sessionId, user?.id, setSessions]);
+  }, [sessionId, isAuthenticated, user?.id, setSessions]);
 
   // If navigation provided repo context in location.state, hydrate store synchronously
   useEffect(() => {
@@ -91,6 +91,11 @@ export default function WorkspaceSessionFocused() {
   useEffect(() => {
     populateSessionInStore();
   }, [populateSessionInStore]);
+
+  // Guard: don't render ChatMain until we have a route sessionId
+  if (!sessionId) {
+    return <div className="h-screen flex items-center justify-center text-white/60">Loading...</div>;
+  }
 
   return (
     <ChatUIProvider>

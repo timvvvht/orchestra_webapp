@@ -71,7 +71,11 @@ export const routes: RouteObject[] = [
       },
       {
         path: "project/:hashed_workspace_id/:sessionId",
-        element: <WorkspaceSessionFocused />,
+        element: (
+          <AuthGate>
+            <WorkspaceSessionFocused />
+          </AuthGate>
+        ),
       },
       {
         path: "sessions",
