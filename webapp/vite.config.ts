@@ -10,10 +10,18 @@ export default defineConfig({
   server: {
     hmr: { overlay: false },
     proxy: {
-      "/api": {
-        target: "http:localhost:8001",
-        secure: false,
+
+      // Proxy ACS APIs during local dev to ensure same-origin cookies
+      '/api/v1': {
+        target: process.env.VITE_ACS_BASE_URL || 'http://localhost:8001',
         changeOrigin: true,
+        secure: false,
+      },
+      '/acs': {
+        target: process.env.VITE_ACS_BASE_URL || 'http://localhost:8001',
+        changeOrigin: true,
+        secure: false,
+
       },
     },
   },

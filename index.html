@@ -93,9 +93,9 @@
     
     <div class="input-group">
       <label for="acsBaseUrl">ACS Server URL</label>
-      <input id="acsBaseUrl" type="url" placeholder="http://localhost:8001" value="http://localhost:8001" />
+      <input id="acsBaseUrl" type="url" placeholder="https://orchestra-acs.fly.dev" value="https://orchestra-acs.fly.dev" />
       <small style="color: #6c757d; font-size: 12px;">
-        Local: http://localhost:8001 | Ngrok: https://your-ngrok-url.ngrok.io
+        Local: https://orchestra-acs.fly.dev | Ngrok: https://your-ngrok-url.ngrok.io
       </small>
     </div>
     
@@ -207,7 +207,7 @@
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cm1manh0eW50eG5zdHFieW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3Nzg2NTgsImV4cCI6MjA2MzM1NDY1OH0.jVjPr-AesbxARpPC0YLtHYQy9OGqdEA5FowJPYKwBcc";
 
   // ACS base URL (configurable)
-  let ACS_BASE = "http://localhost:8001/api/v1";
+  let ACS_BASE = "https://orchestra-acs.fly.dev/api/v1";
 
   const out = document.getElementById('out');
   const status = document.getElementById('status');
@@ -246,7 +246,7 @@
   }
   
   function resetConfiguration() {
-    const defaultUrl = "http://localhost:8001";
+    const defaultUrl = "https://orchestra-acs.fly.dev";
     document.getElementById('acsBaseUrl').value = defaultUrl;
     ACS_BASE = `${defaultUrl}/api/v1`;
     

@@ -229,9 +229,7 @@ export class OrchestACSClient {
         return this.chatEvents;
     }
 
-    getSlashCommands(){
-        
-    }
+    getSlashCommands() {}
 
     /**
      * Get comprehensive health status from all services

@@ -60,7 +60,7 @@ function PlaygroundLanding() {
   const { isAuthenticated, loginGoogle } = useAuth();
   
   // ACS client for GitHub operations
-  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "http://localhost:8001").replace(/\/$/, "");
+  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs.fly.dev").replace(/\/$/, "");
   const [acsBase] = useState(DEFAULT_ACS);
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
 
@@ -216,12 +216,7 @@ game.start();`;
 
   // Streaming code simulation
   const startStreamingExample = useCallback((index: number) => {
-    // Check authentication first
-    if (!isAuthenticated) {
-      setAuthModalContext(`example-${examples[index]?.title || 'app'}`);
-      setShowAuthModal(true);
-      return;
-    }
+    // No authentication required for examples - all are accessible without login
     
     setSelectedExample(index);
     setStreaming(true);
@@ -249,7 +244,7 @@ game.start();`;
       setStreamedCode(prev => prev + code.slice(i, i + chunkSize));
       i += chunkSize;
     }, durationMs / steps);
-  }, [defaultSnakeCode, isAuthenticated]);
+  }, [defaultSnakeCode]);
 
   // GitHub connect with login gate
   const onConnectGitHubEntry = useCallback(async () => {

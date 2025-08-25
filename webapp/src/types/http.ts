@@ -51,6 +51,7 @@ export interface ApiRequestOptions {
   headers?: Record<string, string>;
   body?: any;
   params?: Record<string, string | number | boolean>;
+  credentials?: RequestCredentials; // 'include', 'same-origin', 'omit'
 }
 
 

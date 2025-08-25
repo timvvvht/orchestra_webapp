@@ -27,7 +27,7 @@ type Panel = {
 
 export default function GitHubConnectPage() {
   // Config + Auth
-  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "http://localhost:8001").replace(/\/$/, "");
+  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs.fly.dev").replace(/\/$/, "");
   const [acsBase, setAcsBase] = useState<string>(DEFAULT_ACS);
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
 
@@ -346,7 +346,16 @@ export default function GitHubConnectPage() {
     }
     try {
       setInfo("Creating session…");
-      const cs = await createSessionFast({ sessionName: `Task: ${chatPrompt.slice(0,60)}`, agentConfigId: "general" });
+      // Pass repoContext so metadata + generated columns are populated immediately
+      const cs = await createSessionFast({
+        sessionName: `Task: ${chatPrompt.slice(0,60)}`,
+        agentConfigId: "general",
+        repoContext: {
+          repo_id: selectedRepoId!,
+          repo_full_name: selectedRepoFullName!,
+          branch: branch.trim(),
+        },
+      });
       if (!cs?.success || !cs.sessionId) {
         return setErr(cs?.error || "Failed to create session");
       }

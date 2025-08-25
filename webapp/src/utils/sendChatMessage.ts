@@ -493,9 +493,87 @@ export async function sendChatMessage(
             `🔐 [sendChatMessage] [${messageId}] Attached Supabase JWT for web-origin`
           );
         } else {
-          console.warn(
-            `⚠️ [sendChatMessage] [${messageId}] No Supabase session available for web-origin Authorization`
-          );
+
+            console.log(`🔨 [sendChatMessage] [${messageId}] Building ACS generic converse payload...`);
+            body = buildConversePayload(
+                {
+                    ...params,
+                    templateVariables: resolvedTemplateVars,
+                    useStoredKeys: resolvedUseStoredKeys
+                },
+                effectiveAgentCwd
+            );
+        }
+
+        console.log(`🔨 [sendChatMessage] [${messageId}] Payload built:`, {
+            agent_config_name: body.agent_config_name,
+            session_id: body.session_id,
+            user_id: body.user_id,
+            prompt_length: body.prompt?.length || 0,
+            has_overrides: !!body.overrides,
+            auto_mode: body.auto_mode,
+            model_auto_mode: body.model_auto_mode
+        });
+
+        // 5) POST to ACS Converse using httpApi
+        const ACS_BASE = import.meta.env.VITE_ACS_BASE_URL || 'http://localhost:8000';
+        const url = `${ACS_BASE}${isWebOrigin ? '/acs/converse/web' : '/acs/converse'}`;
+
+        console.log(`🌐 [sendChatMessage] [${messageId}] ACS Base URL: ${ACS_BASE}`);
+        console.log(`🌐 [sendChatMessage] [${messageId}] Full URL: ${url}`);
+
+        // Optional: Attach Authorization header if you have a JWT; if so, remove user_id from body
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...(isWebOrigin ? { 'X-Orchestra-Web-Origin': 'true' } : {})
+        };
+        // Attach Supabase Authorization only for web-origin calls
+        if (isWebOrigin) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.access_token) {
+                    headers['Authorization'] = `Bearer ${session.access_token}`;
+                    console.log(`🔐 [sendChatMessage] [${messageId}] Attached Supabase JWT for web-origin`);
+                } else {
+                    console.warn(`⚠️ [sendChatMessage] [${messageId}] No Supabase session available for web-origin Authorization`);
+                }
+            } catch (e) {
+                console.warn(`⚠️ [sendChatMessage] [${messageId}] Unable to fetch Supabase session for Authorization`, e);
+            }
+        }
+
+        console.log(`📡 [sendChatMessage] [${messageId}] Preparing POST request to ACS`);
+        console.log(`📡 [sendChatMessage] [${messageId}] Headers:`, headers);
+        console.log(`📡 [sendChatMessage] [${messageId}] Body (redacted):`, JSON.stringify({ ...body, prompt: `[${body.prompt.length} chars]` }, null, 2));
+
+        console.log(`🚀 [sendChatMessage] [${messageId}] Sending POST request to ACS...`);
+        const requestStartTime = Date.now();
+
+        // Use httpApi for the POST request with credentials to ensure cookies are sent
+        console.log(`📡 [sendChatMessage] [${messageId}] Posting to: ${url}`);
+        const res = await httpApi.POST<ConverseResponse>(url, {
+            headers,
+            body,
+            credentials: 'include' // Ensure cookies are sent for authentication
+        });
+
+        const requestDuration = Date.now() - requestStartTime;
+        console.log(`📥 [sendChatMessage] [${messageId}] ACS request completed in ${requestDuration}ms`);
+
+        console.log(`🔍 [sendChatMessage] [${messageId}] Checking ACS response...`);
+        console.log(`🔍 [sendChatMessage] [${messageId}] Response status:`, res?.status);
+        console.log(`🔍 [sendChatMessage] [${messageId}] Response ok:`, res?.ok);
+
+        if (!res || !res.ok) {
+            const errText = res?.rawBody || res?.statusText || '';
+            console.error(`❌ [sendChatMessage] [${messageId}] ACS request failed:`, {
+                status: res?.status,
+                statusText: res?.statusText,
+                rawBody: res?.rawBody,
+                error: errText
+            });
+            throw new Error(`ACS converse error ${res?.status ?? '?'}: ${errText}`);
+
         }
       } catch (e) {
         console.error(

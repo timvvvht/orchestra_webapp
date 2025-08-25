@@ -1,3 +1,4 @@
+
 import { create } from "zustand";
 import { sortSessionsByActivity, getSessionTimestamp } from "@/utils/time";
 import { type Plan, type PlanProgress } from "@/types/plans";
@@ -8,515 +9,480 @@ import { type GitStatusCounts } from "@/utils/gitHelpers";
 import { supabase } from "@/lib/supabaseClient";
 import { arch } from "os";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+
 // import { supabase } from "@/auth/SupabaseClient";
 
 // LocalStorage key for read state persistence
-const LS_KEY = "mc_read_state_v1";
+const LS_KEY = 'mc_read_state_v1';
 // LocalStorage key for processing order persistence
-const LS_PROCESSING_ORDER = "mc_processing_order_v1";
+const LS_PROCESSING_ORDER = 'mc_processing_order_v1';
 
 // Load read state from localStorage
 const loadReadMap = (): Record<string, boolean> => {
-  try {
-    const saved = localStorage.getItem(LS_KEY);
-    return saved ? JSON.parse(saved) : {};
-  } catch {
-    return {};
-  }
+    try {
+        const saved = localStorage.getItem(LS_KEY);
+        return saved ? JSON.parse(saved) : {};
+    } catch {
+        return {};
+    }
 };
 
 // Save read state to localStorage
 const saveReadMap = (readMap: Record<string, boolean>) => {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(readMap));
-  } catch (error) {
-    // Failed to save read state to localStorage
-  }
+    try {
+        localStorage.setItem(LS_KEY, JSON.stringify(readMap));
+    } catch (error) {
+        // Failed to save read state to localStorage
+    }
 };
 
 // Load processing order from localStorage
 const loadProcessingOrder = (): string[] => {
-  try {
-    const raw = localStorage.getItem(LS_PROCESSING_ORDER);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+    try {
+        const raw = localStorage.getItem(LS_PROCESSING_ORDER);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+    } catch {
+        return [];
+    }
 };
 
 // Save processing order to localStorage
 const saveProcessingOrder = (ids: string[]) => {
-  try {
-    localStorage.setItem(LS_PROCESSING_ORDER, JSON.stringify(ids));
-  } catch (error) {
-    // Failed to save processing order to localStorage
-  }
+    try {
+        localStorage.setItem(LS_PROCESSING_ORDER, JSON.stringify(ids));
+    } catch (error) {
+        // Failed to save processing order to localStorage
+    }
 };
 
 export interface MissionControlAgent {
-  id: string;
-  mission_title: string;
-  status: string;
-  last_message_at: string | null;
-  created_at: string;
-  agent_config_name: string | null;
-  model_id: string | null;
-  latest_message_id: string | null;
-  latest_message_role: string | null;
-  latest_message_content: any | null;
-  latest_message_timestamp: string | null;
-  agent_cwd: string | null;
-  base_dir: string | null; // Base directory for worktree-aware filtering and display
-  archived_at: string | null;
-  isPending?: boolean; // Flag for sessions that are still being created/confirmed
-  backgroundProcessing?: boolean; // Flag for sessions with background operations in progress
-  isFinalized?: boolean; // Session worktree pruned; read-only
+    id: string;
+    mission_title: string;
+    status: string;
+    last_message_at: string | null;
+    created_at: string;
+    agent_config_name: string | null;
+    model_id: string | null;
+    latest_message_id: string | null;
+    latest_message_role: string | null;
+    latest_message_content: any | null;
+    latest_message_timestamp: string | null;
+    agent_cwd: string | null;
+    base_dir: string | null; // Base directory for worktree-aware filtering and display
+    archived_at: string | null;
+    isPending?: boolean; // Flag for sessions that are still being created/confirmed
+    backgroundProcessing?: boolean; // Flag for sessions with background operations in progress
+    isFinalized?: boolean; // Session worktree pruned; read-only
+    // Workspace context from generated columns
+    repo_full_name?: string | null;
+    branch?: string | null;
+    repo_id?: number | null;
+    workspace_key?: string | null;
 }
 
-export type ViewMode = "active" | "archived";
+export type ViewMode = 'active' | 'archived';
 
 export interface CollapsedGroups {
-  processing: boolean;
-  idleUnread: boolean;
-  idleRead: boolean;
-  drafts: boolean;
-  archived: boolean;
+    processing: boolean;
+    idleUnread: boolean;
+    idleRead: boolean;
+    drafts: boolean;
+    archived: boolean;
 }
 
 interface MissionControlState {
-  // Data
-  activeSessions: MissionControlAgent[];
-  archivedSessions: MissionControlAgent[];
-  archivedLoaded: boolean;
-  archiveLoading: boolean;
-  plans: Record<string, Plan>; // key = session_id
-  planProgress: Record<string, PlanProgress>; // key = session_id
-  gitStatus: Record<string, GitStatusCounts>; // key = cwd -> git status counts
-  gitStatusErrors: Record<string, string>; // key = cwd -> error message
 
-  // Read state tracking
-  readMap: Record<string, boolean>; // session_id -> read (true) / unread (false)
+    // Data
+    activeSessions: MissionControlAgent[];
+    archivedSessions: MissionControlAgent[];
+    archivedLoaded: boolean;
+    archiveLoading: boolean;
+    plans: Record<string, Plan>; // key = session_id
+    planProgress: Record<string, PlanProgress>; // key = session_id
+    gitStatus: Record<string, GitStatusCounts>; // key = cwd -> git status counts
+    gitStatusErrors: Record<string, string>; // key = cwd -> error message
 
-  // Stable ordering for processing bucket
-  processingOrder: string[]; // session IDs in stable order of entry into processing
+    // Read state tracking
+    readMap: Record<string, boolean>; // session_id -> read (true) / unread (false)
 
-  // UI State
-  viewMode: ViewMode;
-  selectedSession: string | null;
-  cwdFilter: string | null;
-  collapsedGroups: CollapsedGroups;
+    // Stable ordering for processing bucket
+    processingOrder: string[]; // session IDs in stable order of entry into processing
 
-  // Modal State
-  showNewDraftModal: boolean;
-  initialDraftCodePath: string | null; // Prefill code path for NewDraftModal
+    // UI State
+    viewMode: ViewMode;
+    selectedSession: string | null;
+    cwdFilter: string | null;
+    collapsedGroups: CollapsedGroups;
 
-  // Plan refetch callback
-  planRefetchCallback: (() => void) | null;
+    // Modal State
+    showNewDraftModal: boolean;
+    initialDraftCodePath: string | null; // Prefill code path for NewDraftModal
 
-  // Session refetch callback
-  sessionRefetchCallback: (() => Promise<void>) | null;
+    // Plan refetch callback
+    planRefetchCallback: (() => void) | null;
 
-  // Per-session plan refetch
-  refetchSinglePlan: (sessionId: string) => Promise<void>;
+    // Session refetch callback
+    sessionRefetchCallback: (() => Promise<void>) | null;
 
-  // Ambient indicator state
-  lastCheckpointSaved: string | null;
-  isAutoSaving: boolean;
+    // Per-session plan refetch
+    refetchSinglePlan: (sessionId: string) => Promise<void>;
 
-  // Workspace identity
-  workspaceKey: string | null;
-  hashedWorkspaceId: string | null;
-  workspaceFilter: string | null; // Filter sessions by workspace ID
+    // Ambient indicator state
+    lastCheckpointSaved: string | null;
+    isAutoSaving: boolean;
 
-  // Router navigation function injected by MissionControl
-  routerNavigate: ((path: string, opts?: { replace?: boolean }) => void) | null;
+    // Actions
+    setSessions: (sessions: MissionControlAgent[]) => void;
+    updateSession: (sessionId: string, updates: Partial<MissionControlAgent>) => void;
+    setBackgroundProcessing: (sessionId: string, flag: boolean) => void;
+    setPlans: (plans: Plan[]) => void;
+    setPlanRefetchCallback: (callback: (() => void) | null) => void;
+    refetchPlans: () => void;
+    setSessionRefetchCallback: (callback: (() => Promise<void>) | null) => void;
+    refetchSessions: () => Promise<void>;
+    patchPlanFromToolResult: (sessionId: string, parsed: ParsedPlanResult) => void;
+    setGitStatus: (cwd: string, counts: GitStatusCounts) => void;
+    setGitStatusError: (cwd: string, error: string | undefined) => void;
+    setViewMode: (mode: ViewMode) => void;
+    setSelectedSession: (sessionId: string | null) => void;
+    setCwdFilter: (cwd: string | null) => void;
+    setWorkspaceFilter: (workspaceId: string | null) => void;
+    toggleGroupCollapsed: (group: keyof CollapsedGroups) => void;
+    setShowNewDraftModal: (show: boolean) => void;
+    setInitialDraftCodePath: (path: string | null) => void;
+    setArchivedSessions: (sessions: MissionControlAgent[]) => void;
+    clearArchivedSessions: () => void;
+    setArchivedLoaded: (loaded: boolean) => void;
+    setArchivedLoading: (loading: boolean) => void;
 
-  // Actions
-  setSessions: (sessions: MissionControlAgent[]) => void;
-  updateSession: (
-    sessionId: string,
-    updates: Partial<MissionControlAgent>
-  ) => void;
-  setBackgroundProcessing: (sessionId: string, flag: boolean) => void;
-  setPlans: (plans: Plan[]) => void;
-  setPlanRefetchCallback: (callback: (() => void) | null) => void;
-  refetchPlans: () => void;
-  setSessionRefetchCallback: (callback: (() => Promise<void>) | null) => void;
-  refetchSessions: () => Promise<void>;
-  patchPlanFromToolResult: (
-    sessionId: string,
-    parsed: ParsedPlanResult
-  ) => void;
-  setGitStatus: (cwd: string, counts: GitStatusCounts) => void;
-  setGitStatusError: (cwd: string, error: string | undefined) => void;
-  setViewMode: (mode: ViewMode) => void;
-  setSelectedSession: (sessionId: string | null) => void;
-  setCwdFilter: (cwd: string | null) => void;
-  setWorkspaceFilter: (workspaceId: string | null) => void;
-  toggleGroupCollapsed: (group: keyof CollapsedGroups) => void;
-  setShowNewDraftModal: (show: boolean) => void;
-  setInitialDraftCodePath: (path: string | null) => void;
-  setArchivedSessions: (sessions: MissionControlAgent[]) => void;
-  clearArchivedSessions: () => void;
-  setArchivedLoaded: (loaded: boolean) => void;
-  setArchivedLoading: (loading: boolean) => void;
+    // Read state actions
+    markSessionRead: (sessionId: string) => void;
+    markSessionUnread: (sessionId: string) => void;
+    isSessionUnread: (sessionId: string) => boolean;
 
-  // Read state actions
-  markSessionRead: (sessionId: string) => void;
-  markSessionUnread: (sessionId: string) => void;
-  isSessionUnread: (sessionId: string) => boolean;
+    // Processing order actions
+    ensureInProcessingOrder: (sessionId: string) => void;
+    removeFromProcessingOrder: (sessionId: string) => void;
+    reconcileProcessingOrder: () => void;
 
-  // Processing order actions
-  ensureInProcessingOrder: (sessionId: string) => void;
-  removeFromProcessingOrder: (sessionId: string) => void;
-  reconcileProcessingOrder: () => void;
+    // Ambient indicator actions
+    setLastCheckpointSaved: (timestamp: string | null) => void;
+    setIsAutoSaving: (saving: boolean) => void;
 
-  // Ambient indicator actions
-  setLastCheckpointSaved: (timestamp: string | null) => void;
-  setIsAutoSaving: (saving: boolean) => void;
+    moveSessionToArchive: (sessionId: string) => boolean;
+    moveSessionToActive: (sessionId: string) => boolean;
 
-  moveSessionToArchive: (sessionId: string) => boolean;
-  moveSessionToActive: (sessionId: string) => boolean;
+    // Workspace + routing actions
+    computeHashedWorkspaceId: (
+        workspaceKey: string,
+        userId: string
+    ) => Promise<string>;
+    setWorkspaceKey: (
+        workspaceKey: string | null,
+        userId: string | null
+    ) => Promise<void>;
+    setRouterNavigate: (
+        nav: ((path: string, opts?: { replace?: boolean }) => void) | null
+    ) => void;
+    navigateToSession: (sessionId: string) => Promise<void>;
 
-  // Workspace + routing actions
-  computeHashedWorkspaceId: (
-    workspaceKey: string,
-    userId: string
-  ) => Promise<string>;
-  setWorkspaceKey: (
-    workspaceKey: string | null,
-    userId: string | null
-  ) => Promise<void>;
-  setRouterNavigate: (
-    nav: ((path: string, opts?: { replace?: boolean }) => void) | null
-  ) => void;
-  navigateToSession: (sessionId: string) => Promise<void>;
-
-  // Computed getters
-  getFilteredSessions: () => MissionControlAgent[];
-  getSortedSessions: () => MissionControlAgent[];
-  getGroupedSessions: () => {
-    processing: MissionControlAgent[];
-    idle: MissionControlAgent[];
-  };
-  getSelectedAgentCwd: () => string | null;
+    // Computed getters
+    getFilteredSessions: () => MissionControlAgent[];
+    getSortedSessions: () => MissionControlAgent[];
+    getGroupedSessions: () => {
+        processing: MissionControlAgent[];
+        idle: MissionControlAgent[];
+    };
+    getSelectedAgentCwd: () => string | null;
 }
+
+export const useMissionControlStore = create<MissionControlState>((set, get) => {
+    // Load initial state with backwards compatibility for collapsedGroups
+    const loadInitialState = () => {
+        const baseState = {
+            activeSessions: [] as MissionControlAgent[],
+            archivedSessions: [] as MissionControlAgent[],
+            archivedLoaded: false,
+            archiveLoading: false,
+            plans: {} as Record<string, Plan>,
+            planProgress: {} as Record<string, PlanProgress>,
+            gitStatus: {} as Record<string, GitStatusCounts>,
+            gitStatusErrors: {} as Record<string, string>,
+            readMap: loadReadMap(), // Load from localStorage on init
+            processingOrder: loadProcessingOrder(), // Load stable processing order
+            viewMode: 'active' as ViewMode,
+            selectedSession: null as string | null,
+            cwdFilter: null as string | null,
+            collapsedGroups: {
+                processing: false,
+                idleUnread: false,
+                idleRead: false,
+                drafts: false,
+                archived: false
+            },
+            showNewDraftModal: false,
+            initialDraftCodePath: null,
+            planRefetchCallback: null as (() => void) | null,
+            sessionRefetchCallback: null as (() => Promise<void>) | null,
+            lastCheckpointSaved: null as string | null,
+            isAutoSaving: false
+        ,
+            workspaceKey: null,
+            hashedWorkspaceId: null,
+            workspaceFilter: null,
+            routerNavigate: null,
+        };
+
+        // Backwards compatibility: if old 'idle' state exists in localStorage, migrate it
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('mc_collapsed_groups_v1');
+                if (saved) {
+                    const oldState = JSON.parse(saved);
+                    if (typeof oldState.idle === 'boolean') {
+                        // Migrate old 'idle' state to both new keys
+                        baseState.collapsedGroups.idleUnread = oldState.idle;
+                        baseState.collapsedGroups.idleRead = oldState.idle;
+                        // Clear old state to prevent future migrations
+                        localStorage.removeItem('mc_collapsed_groups_v1');
+                    }
+                }
+            } catch (error) {
+                // Failed to migrate collapsed groups state
+
+            }
+        }
+
+        return baseState;
+    };
 
 // Browser-safe SHA-256 base64url helper
 async function sha256Base64Url(input: string): Promise<string> {
-  const enc = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", enc);
-  const bytes = new Uint8Array(digest);
-  let b64 = btoa(String.fromCharCode(...Array.from(bytes)));
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const enc = new TextEncoder().encode(input);
+    const digest = await crypto.subtle.digest('SHA-256', enc);
+    const bytes = new Uint8Array(digest);
+    // Convert bytes to binary string for btoa
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export const useMissionControlStore = create<MissionControlState>(
-  (set, get) => {
-    // Load initial state with backwards compatibility for collapsedGroups
-    const loadInitialState = () => {
-      const baseState = {
-        activeSessions: [] as MissionControlAgent[],
-        archivedSessions: [] as MissionControlAgent[],
-        archivedLoaded: false,
-        archiveLoading: false,
-        plans: {} as Record<string, Plan>,
-        planProgress: {} as Record<string, PlanProgress>,
-        gitStatus: {} as Record<string, GitStatusCounts>,
-        gitStatusErrors: {} as Record<string, string>,
-        readMap: loadReadMap(), // Load from localStorage on init
-        processingOrder: loadProcessingOrder(), // Load stable processing order
-        viewMode: "active" as ViewMode,
-        selectedSession: null as string | null,
-        cwdFilter: null as string | null,
-        collapsedGroups: {
-          processing: false,
-          idleUnread: false,
-          idleRead: false,
-          drafts: false,
-          archived: false,
-        },
-        showNewDraftModal: false,
-        initialDraftCodePath: null,
-        planRefetchCallback: null as (() => void) | null,
-        sessionRefetchCallback: null as (() => Promise<void>) | null,
-        lastCheckpointSaved: null as string | null,
-        isAutoSaving: false,
-        workspaceKey: null,
-        hashedWorkspaceId: null,
-        workspaceFilter: null,
-        routerNavigate: null,
-      };
-
-      // Backwards compatibility: if old 'idle' state exists in localStorage, migrate it
-      if (typeof window !== "undefined") {
-        try {
-          const saved = localStorage.getItem("mc_collapsed_groups_v1");
-          if (saved) {
-            const oldState = JSON.parse(saved);
-            if (typeof oldState.idle === "boolean") {
-              // Migrate old 'idle' state to both new keys
-              baseState.collapsedGroups.idleUnread = oldState.idle;
-              baseState.collapsedGroups.idleRead = oldState.idle;
-              // Clear old state to prevent future migrations
-              localStorage.removeItem("mc_collapsed_groups_v1");
-            }
-          }
-        } catch (error) {
-          // Failed to migrate collapsed groups state
-        }
-      }
-
-      return baseState;
-    };
-
     return {
-      // Initial state
-      ...loadInitialState(),
+        // Initial state
+        ...loadInitialState(),
 
-      // Actions
-      setSessions: (sessions) => {
-        set({ activeSessions: sessions });
+        // Actions
+        setSessions: sessions => {
+            set({ activeSessions: sessions });
 
-        // Reconcile processingOrder to remove IDs not present anymore
-        set((state) => {
-          const validIds = new Set(sessions.map((s) => s.id));
-          const pruned = state.processingOrder.filter((id) => validIds.has(id));
+            // Reconcile processingOrder to remove IDs not present anymore
+            set(state => {
+                const validIds = new Set(sessions.map(s => s.id));
+                const pruned = state.processingOrder.filter(id => validIds.has(id));
 
-          if (pruned.length !== state.processingOrder.length) {
-            saveProcessingOrder(pruned);
-          }
+                if (pruned.length !== state.processingOrder.length) {
+                    saveProcessingOrder(pruned);
+                }
 
-          return { processingOrder: pruned };
-        });
-      },
+                return { processingOrder: pruned };
+            });
+        },
 
-      updateSession: (sessionId, updates) => {
-        set((state) => ({
-          activeSessions: state.activeSessions.map((session) =>
-            session.id === sessionId ? { ...session, ...updates } : session
-          ),
-        }));
-      },
+        updateSession: (sessionId, updates) => {
+            set(state => ({
+                activeSessions: state.activeSessions.map(session => (session.id === sessionId ? { ...session, ...updates } : session))
+            }));
+        },
 
-      setBackgroundProcessing: (sessionId, flag) => {
-        set((state) => ({
-          activeSessions: state.activeSessions.map((session) =>
-            session.id === sessionId
-              ? { ...session, backgroundProcessing: flag }
-              : session
-          ),
-        }));
-      },
+        setBackgroundProcessing: (sessionId, flag) => {
+            set(state => ({
+                activeSessions: state.activeSessions.map(session => (session.id === sessionId ? { ...session, backgroundProcessing: flag } : session))
+            }));
+        },
 
-      setArchivedLoaded: (loaded: boolean) => {
-        set({ archivedLoaded: loaded });
-      },
+        setArchivedLoaded: (loaded: boolean) => {
+            set({ archivedLoaded: loaded });
+        },
 
-      setArchivedLoading: (loading: boolean) => {
-        set({ archiveLoading: loading });
-      },
+        setArchivedLoading: (loading: boolean) => {
+            set({ archiveLoading: loading });
+        },
 
-      moveSessionToActive(sessionId) {
-        const { archivedSessions, activeSessions } = get();
-        const sessionIndex = archivedSessions.findIndex(
-          (s) => s.id === sessionId
-        );
+        moveSessionToActive(sessionId) {
+            const { archivedSessions, activeSessions } = get();
+            const sessionIndex = archivedSessions.findIndex(s => s.id === sessionId);
 
-        if (sessionIndex === -1) return false;
+            if (sessionIndex === -1) return false;
 
-        const session = archivedSessions[sessionIndex];
-        const updatedSession = { ...session, archived_at: null };
+            const session = archivedSessions[sessionIndex];
+            const updatedSession = { ...session, archived_at: null };
 
-        set({
-          archivedSessions: archivedSessions.filter((s) => s.id !== sessionId),
-          activeSessions: [...activeSessions, updatedSession],
-        });
+            set({
+                archivedSessions: archivedSessions.filter(s => s.id !== sessionId),
+                activeSessions: [...activeSessions, updatedSession]
+            });
 
-        return true;
-      },
+            return true;
+        },
 
-      moveSessionToArchive(sessionId) {
-        const { archivedSessions, activeSessions } = get();
-        const sessionIndex = activeSessions.findIndex(
-          (s) => s.id === sessionId
-        );
+        moveSessionToArchive(sessionId) {
+            const { archivedSessions, activeSessions } = get();
+            const sessionIndex = activeSessions.findIndex(s => s.id === sessionId);
 
-        if (sessionIndex === -1) return false;
+            if (sessionIndex === -1) return false;
 
-        const session = activeSessions[sessionIndex];
-        const updatedSession = {
-          ...session,
-          archived_at: new Date().toISOString(),
-        };
+            const session = activeSessions[sessionIndex];
+            const updatedSession = {
+                ...session,
+                archived_at: new Date().toISOString()
+            };
 
-        set({
-          activeSessions: activeSessions.filter((s) => s.id !== sessionId),
-          archivedSessions: [...archivedSessions, updatedSession],
-        });
+            set({
+                activeSessions: activeSessions.filter(s => s.id !== sessionId),
+                archivedSessions: [...archivedSessions, updatedSession]
+            });
 
-        return true;
-      },
+            return true;
+        },
 
-      setPlans: (plans) =>
-        set(() => {
-          // Convert plans array to session_id keyed objects
-          const plansMap = plans.reduce(
-            (acc, plan) => {
-              acc[plan.session_id] = plan;
-              return acc;
-            },
-            {} as Record<string, Plan>
-          );
+        setPlans: plans =>
+            set(() => {
+                // Convert plans array to session_id keyed objects
+                const plansMap = plans.reduce((acc, plan) => {
+                    acc[plan.session_id] = plan;
+                    return acc;
+                }, {} as Record<string, Plan>);
 
-          // Calculate progress for each plan
-          const progressMap = plans.reduce(
-            (acc, plan) => {
-              const progress = analyzePlanProgressDetailed(plan.markdown);
-              acc[plan.session_id] = progress;
-              return acc;
-            },
-            {} as Record<string, PlanProgress>
-          );
+                // Calculate progress for each plan
+                const progressMap = plans.reduce((acc, plan) => {
+                    const progress = analyzePlanProgressDetailed(plan.markdown);
+                    acc[plan.session_id] = progress;
+                    return acc;
+                }, {} as Record<string, PlanProgress>);
 
-          return {
-            plans: plansMap,
-            planProgress: progressMap,
-          };
-        }),
+                return {
+                    plans: plansMap,
+                    planProgress: progressMap
+                };
+            }),
 
-      setPlanRefetchCallback: (callback) => {
-        set((state) =>
-          state.planRefetchCallback === callback
-            ? state
-            : { planRefetchCallback: callback }
-        );
-      },
+        setPlanRefetchCallback: callback => {
+            set(state => (state.planRefetchCallback === callback ? state : { planRefetchCallback: callback }));
+        },
 
-      refetchPlans: () => {
-        const { planRefetchCallback } = get();
-        if (planRefetchCallback) {
-          planRefetchCallback();
-        }
-      },
+        refetchPlans: () => {
+            const { planRefetchCallback } = get();
+            if (planRefetchCallback) {
+                planRefetchCallback();
+            }
+        },
 
-      setSessionRefetchCallback: (callback) => {
-        set((state) =>
-          state.sessionRefetchCallback === callback
-            ? state
-            : { sessionRefetchCallback: callback }
-        );
-      },
+        setSessionRefetchCallback: callback => {
+            set(state => (state.sessionRefetchCallback === callback ? state : { sessionRefetchCallback: callback }));
+        },
 
-      refetchSessions: async () => {
-        const { sessionRefetchCallback } = get();
-        if (sessionRefetchCallback) {
-          await sessionRefetchCallback();
-        }
-      },
+        refetchSessions: async () => {
+            const { sessionRefetchCallback } = get();
+            if (sessionRefetchCallback) {
+                await sessionRefetchCallback();
+            }
+        },
 
-      refetchSinglePlan: async (sessionId) => {
-        if (!sessionId) return;
-        try {
-          const { data: plan, error } = await supabase
-            .from("plans")
-            .select(
-              "id, session_id, title, status, markdown, current_version, created_at, updated_at"
-            )
-            .eq("session_id", sessionId)
-            .maybeSingle();
-          if (error) {
-            return;
-          }
-          if (!plan) {
-            return;
-          }
-          const progress = analyzePlanProgressDetailed(plan.markdown);
-          set((state) => ({
-            plans: { ...state.plans, [sessionId]: plan },
-            planProgress: { ...state.planProgress, [sessionId]: progress },
-          }));
-        } catch (e) {
-          // Error fetching single plan
-        }
-      },
+        refetchSinglePlan: async sessionId => {
+            if (!sessionId) return;
+            try {
+                const { data: plan, error } = await supabase
+                    .from('plans')
+                    .select('id, session_id, title, status, markdown, current_version, created_at, updated_at')
+                    .eq('session_id', sessionId)
+                    .maybeSingle();
+                if (error) {
+                    return;
+                }
+                if (!plan) {
+                    return;
+                }
+                const progress = analyzePlanProgressDetailed(plan.markdown);
+                set(state => ({
+                    plans: { ...state.plans, [sessionId]: plan },
+                    planProgress: { ...state.planProgress, [sessionId]: progress }
+                }));
+            } catch (e) {
+                // Error fetching single plan
+            }
+        },
 
-      patchPlanFromToolResult: (sessionId: string, parsed: ParsedPlanResult) =>
-        set((state) => {
-          const currentPlan = state.plans[sessionId];
-          if (!currentPlan) {
-            return state;
-          }
+        patchPlanFromToolResult: (sessionId: string, parsed: ParsedPlanResult) =>
+            set(state => {
+                const currentPlan = state.plans[sessionId];
+                if (!currentPlan) {
+                    return state;
+                }
 
-          // Create a patched plan by updating the markdown
-          let updatedMarkdown = currentPlan.markdown;
+                // Create a patched plan by updating the markdown
+                let updatedMarkdown = currentPlan.markdown;
 
-          // If we have a completed task, mark it as done in the markdown
-          if (parsed.todo_id && parsed.completed_task) {
-            // Simple approach: replace the todo line with a checked version
-            const todoPattern = new RegExp(
-              `- \\[ \\] (.*)<!-- id:${parsed.todo_id} -->`,
-              "g"
-            );
-            updatedMarkdown = updatedMarkdown.replace(
-              todoPattern,
-              `- [x] $1<!-- id:${parsed.todo_id} checked_by:assistant -->`
-            );
-          }
+                // If we have a completed task, mark it as done in the markdown
+                if (parsed.todo_id && parsed.completed_task) {
+                    // Simple approach: replace the todo line with a checked version
+                    const todoPattern = new RegExp(`- \\[ \\] (.*)<!-- id:${parsed.todo_id} -->`, 'g');
+                    updatedMarkdown = updatedMarkdown.replace(todoPattern, `- [x] $1<!-- id:${parsed.todo_id} checked_by:assistant -->`);
+                }
 
-          // If we have next_todos, we could potentially add them, but for now we'll rely on the backend
-          // to provide the complete updated plan via refetch
+                // If we have next_todos, we could potentially add them, but for now we'll rely on the backend
+                // to provide the complete updated plan via refetch
 
-          const updatedPlan: Plan = {
-            ...currentPlan,
-            markdown: updatedMarkdown,
-            current_version: parsed.version || currentPlan.current_version,
-          };
+                const updatedPlan: Plan = {
+                    ...currentPlan,
+                    markdown: updatedMarkdown,
+                    current_version: parsed.version || currentPlan.current_version
+                };
 
-          // Recalculate progress for this plan
-          const updatedProgress = analyzePlanProgressDetailed(updatedMarkdown);
+                // Recalculate progress for this plan
+                const updatedProgress = analyzePlanProgressDetailed(updatedMarkdown);
 
-          return {
-            plans: {
-              ...state.plans,
-              [sessionId]: updatedPlan,
-            },
-            planProgress: {
-              ...state.planProgress,
-              [sessionId]: updatedProgress,
-            },
-          };
-        }),
+                return {
+                    plans: {
+                        ...state.plans,
+                        [sessionId]: updatedPlan
+                    },
+                    planProgress: {
+                        ...state.planProgress,
+                        [sessionId]: updatedProgress
+                    }
+                };
+            }),
 
-      setGitStatus: (cwd, counts) => {
-        set((state) => ({
-          gitStatus: {
-            ...state.gitStatus,
-            [cwd]: counts,
-          },
-        }));
-      },
+        setGitStatus: (cwd, counts) => {
+            set(state => ({
+                gitStatus: {
+                    ...state.gitStatus,
+                    [cwd]: counts
+                }
+            }));
+        },
 
-      setGitStatusError: (cwd, error) => {
-        set((state) => {
-          const newErrors = { ...state.gitStatusErrors };
-          if (error) {
-            newErrors[cwd] = error;
-          } else {
-            delete newErrors[cwd];
-          }
-          return { gitStatusErrors: newErrors };
-        });
-      },
+        setGitStatusError: (cwd, error) => {
+            set(state => {
+                const newErrors = { ...state.gitStatusErrors };
+                if (error) {
+                    newErrors[cwd] = error;
+                } else {
+                    delete newErrors[cwd];
+                }
+                return { gitStatusErrors: newErrors };
+            });
+        },
 
-      setViewMode: (mode) => {
-        set({ viewMode: mode });
-      },
+        setViewMode: mode => {
+            set({ viewMode: mode });
+        },
 
-      setSelectedSession: (sessionId) => {
-        set({ selectedSession: sessionId });
-      },
+        setSelectedSession: sessionId => {
+            set({ selectedSession: sessionId });
+        },
 
       setCwdFilter: (cwd) => {
         set({ cwdFilter: cwd });
@@ -524,6 +490,7 @@ export const useMissionControlStore = create<MissionControlState>(
 
       setWorkspaceFilter: (workspaceId) => {
         set({ workspaceFilter: workspaceId });
+
       },
 
       toggleGroupCollapsed: (group) => {
@@ -533,105 +500,94 @@ export const useMissionControlStore = create<MissionControlState>(
             [group]: !state.collapsedGroups[group],
           },
         }));
+
       },
 
-      setShowNewDraftModal: (show) => {
-        set({ showNewDraftModal: show });
-      },
+        toggleGroupCollapsed: group => {
+            set(state => ({
+                collapsedGroups: {
+                    ...state.collapsedGroups,
+                    [group]: !state.collapsedGroups[group]
+                }
+            }));
+        },
 
-      setInitialDraftCodePath: (path) => {
-        set({ initialDraftCodePath: path });
-      },
+        setShowNewDraftModal: show => {
+            set({ showNewDraftModal: show });
+        },
 
-      // Read state actions
-      markSessionRead: (sessionId) =>
-        set((state) => {
-          const updatedReadMap = { ...state.readMap, [sessionId]: true };
-          saveReadMap(updatedReadMap);
-          return { readMap: updatedReadMap };
-        }),
+        setInitialDraftCodePath: path => {
+            set({ initialDraftCodePath: path });
+        },
 
-      markSessionUnread: (sessionId) =>
-        set((state) => {
-          const updatedReadMap = { ...state.readMap, [sessionId]: false };
-          saveReadMap(updatedReadMap);
-          return { readMap: updatedReadMap };
-        }),
+        // Read state actions
+        markSessionRead: sessionId =>
+            set(state => {
+                const updatedReadMap = { ...state.readMap, [sessionId]: true };
+                saveReadMap(updatedReadMap);
+                return { readMap: updatedReadMap };
+            }),
 
-      isSessionUnread: (sessionId) => {
-        const readMap = get().readMap;
-        // If session is not in readMap, it's unread (default state)
-        return readMap[sessionId] !== true;
-      },
+        markSessionUnread: sessionId =>
+            set(state => {
+                const updatedReadMap = { ...state.readMap, [sessionId]: false };
+                saveReadMap(updatedReadMap);
+                return { readMap: updatedReadMap };
+            }),
 
-      // Processing order actions
-      ensureInProcessingOrder: (sessionId: string) =>
-        set((state) => {
-          if (state.processingOrder.includes(sessionId))
-            return {} as Partial<MissionControlState>;
-          const updated = [...state.processingOrder, sessionId];
-          saveProcessingOrder(updated);
-          return { processingOrder: updated };
-        }),
+        isSessionUnread: sessionId => {
+            const readMap = get().readMap;
+            // If session is not in readMap, it's unread (default state)
+            return readMap[sessionId] !== true;
+        },
 
-      removeFromProcessingOrder: (sessionId: string) =>
-        set((state) => {
-          if (!state.processingOrder.includes(sessionId))
-            return {} as Partial<MissionControlState>;
-          const updated = state.processingOrder.filter(
-            (id) => id !== sessionId
-          );
-          saveProcessingOrder(updated);
-          return { processingOrder: updated };
-        }),
+        // Processing order actions
+        ensureInProcessingOrder: (sessionId: string) =>
+            set(state => {
+                if (state.processingOrder.includes(sessionId)) return {} as Partial<MissionControlState>;
+                const updated = [...state.processingOrder, sessionId];
+                saveProcessingOrder(updated);
+                return { processingOrder: updated };
+            }),
 
-      reconcileProcessingOrder: () =>
-        set((state) => {
-          const validIds = new Set(state.activeSessions.map((s) => s.id));
-          const updated = state.processingOrder.filter((id) =>
-            validIds.has(id)
-          );
-          if (updated.length !== state.processingOrder.length) {
-            saveProcessingOrder(updated);
-            return { processingOrder: updated };
-          }
-          return {} as Partial<MissionControlState>;
-        }),
+        removeFromProcessingOrder: (sessionId: string) =>
+            set(state => {
+                if (!state.processingOrder.includes(sessionId)) return {} as Partial<MissionControlState>;
+                const updated = state.processingOrder.filter(id => id !== sessionId);
+                saveProcessingOrder(updated);
+                return { processingOrder: updated };
+            }),
 
-      // Ambient indicator actions
-      setLastCheckpointSaved: (timestamp: string | null) => {
-        set({ lastCheckpointSaved: timestamp });
-      },
+        reconcileProcessingOrder: () =>
+            set(state => {
+                const validIds = new Set(state.activeSessions.map(s => s.id));
+                const updated = state.processingOrder.filter(id => validIds.has(id));
+                if (updated.length !== state.processingOrder.length) {
+                    saveProcessingOrder(updated);
+                    return { processingOrder: updated };
+                }
+                return {} as Partial<MissionControlState>;
+            }),
 
-      setIsAutoSaving: (saving: boolean) => {
-        set({ isAutoSaving: saving });
-      },
+        // Ambient indicator actions
+        setLastCheckpointSaved: (timestamp: string | null) => {
+            set({ lastCheckpointSaved: timestamp });
+        },
 
-      setArchivedSessions: (sessions: MissionControlAgent[]) => {
-        set({
-          archivedSessions: sessions,
-        });
-      },
+        setIsAutoSaving: (saving: boolean) => {
+            set({ isAutoSaving: saving });
+        },
 
-      clearArchivedSessions: () => {
-        set({ archivedSessions: [], archivedLoaded: false });
-      },
+        setArchivedSessions: (sessions: MissionControlAgent[]) => {
+            set({
+                archivedSessions: sessions
+            });
+        },
 
-      getArchivedSessions: () => {
-        const { archivedSessions, cwdFilter } = get();
+        clearArchivedSessions: () => {
+            set({ archivedSessions: [], archivedLoaded: false });
+        },
 
-        return archivedSessions
-          .filter(
-            (s) =>
-              !cwdFilter ||
-              (s.base_dir ?? baseDirFromCwd(s.agent_cwd)) === cwdFilter
-          )
-          .sort(
-            (a, b) =>
-              getSessionTimestamp(b).getTime() -
-              getSessionTimestamp(a).getTime()
-          );
-      },
 
       // Computed getters
       getFilteredSessions: () => {
@@ -669,112 +625,111 @@ export const useMissionControlStore = create<MissionControlState>(
         );
       },
 
-      getSortedSessions: () => {
-        const filteredSessions = get().getFilteredSessions();
-        return sortSessionsByActivity(filteredSessions);
+        getArchivedSessions: () => {
+            const { archivedSessions, cwdFilter } = get();
+            return archivedSessions
+                .filter(s => !cwdFilter || (s.base_dir ?? baseDirFromCwd(s.agent_cwd)) === cwdFilter)
+                .sort((a, b) => getSessionTimestamp(b).getTime() - getSessionTimestamp(a).getTime());
+        },
+
+        // Computed getters
+        getFilteredSessions: () => {
+            const { activeSessions: sessions, cwdFilter } = get();
+            return sessions.filter(session => !cwdFilter || (session.base_dir ?? baseDirFromCwd(session.agent_cwd)) === cwdFilter);
+        },
+
+        getSortedSessions: () => {
+            const filteredSessions = get().getFilteredSessions();
+            return sortSessionsByActivity(filteredSessions);
+        },
+
+        getGroupedSessions: () => {
+            const filteredSessions = get().getFilteredSessions();
+
+            // Define processing statuses
+            const processingStatuses = ['working', 'awaiting', 'creating', 'processing'];
+
+            const groups = {
+                processing: [] as MissionControlAgent[],
+                idle: [] as MissionControlAgent[]
+            };
+
+            filteredSessions.forEach(session => {
+                // Check if session is actively processing
+                if (processingStatuses.includes(session.status) || session.latest_message_role === 'tool_call') {
+                    groups.processing.push(session);
+                }
+                // Everything else is idle (completed, error, idle, waiting for user input, etc.)
+                else {
+                    groups.idle.push(session);
+                }
+            });
+
+            // Stable order for processing group using processingOrder
+            const { processingOrder } = get();
+            const processingSet = new Set(groups.processing.map(s => s.id));
+            const orderedFromState = processingOrder.filter(id => processingSet.has(id));
+            const knownSet = new Set(orderedFromState);
+            const newOnes = groups.processing.filter(s => !knownSet.has(s.id));
+            // Deterministic append for any new processing sessions not yet tracked
+            newOnes.sort((a, b) => getSessionTimestamp(a).getTime() - getSessionTimestamp(b).getTime()); // oldest first
+            const finalProcessing: MissionControlAgent[] = [
+                ...orderedFromState.map(id => groups.processing.find(s => s.id === id)!).filter(Boolean),
+                ...newOnes
+            ];
+            groups.processing = finalProcessing;
+
+            // Sort idle sessions with priority for unread final assistant messages
+            const { isSessionUnread } = get();
+            groups.idle.sort((a, b) => {
+                const aIsUnread = isSessionUnread(a.id);
+                const bIsUnread = isSessionUnread(b.id);
+                const aIsFinalAssistant = a.latest_message_role === 'assistant' || a.latest_message_role === 'session_end';
+                const bIsFinalAssistant = b.latest_message_role === 'assistant' || b.latest_message_role === 'session_end';
+
+                // Priority 1: Unread final assistant messages go to the very top
+                const aIsUnreadFinal = aIsUnread && aIsFinalAssistant;
+                const bIsUnreadFinal = bIsUnread && bIsFinalAssistant;
+
+                if (aIsUnreadFinal && !bIsUnreadFinal) return -1;
+                if (!aIsUnreadFinal && bIsUnreadFinal) return 1;
+
+                // Priority 2: Among unread final messages, sort by newest first
+                if (aIsUnreadFinal && bIsUnreadFinal) {
+                    return getSessionTimestamp(b).getTime() - getSessionTimestamp(a).getTime();
+                }
+
+                // Priority 3: Other unread sessions
+                if (aIsUnread && !bIsUnread) return -1;
+                if (!aIsUnread && bIsUnread) return 1;
+
+                // Priority 4: Within same read/unread status, sort by activity timestamp - newest first
+                return getSessionTimestamp(b).getTime() - getSessionTimestamp(a).getTime();
+            });
+
+            return groups;
+        },
+
+        getSelectedAgentCwd: () => {
+            const { selectedSession, activeSessions: sessions, archivedSessions, viewMode } = get();
+            const pool = viewMode === 'archived' ? archivedSessions : sessions;
+            return pool.find(s => s.id === selectedSession)?.agent_cwd || null;
+        }
+        ,
+      // Workspace + routing actions
+      computeHashedWorkspaceId: async (workspaceKey: string, userId: string) => {
+        return await sha256Base64Url(`${workspaceKey}:${userId}`);
       },
 
-      getGroupedSessions: () => {
-        const filteredSessions = get().getFilteredSessions();
-
-        // Define processing statuses
-        const processingStatuses = [
-          "working",
-          "awaiting",
-          "creating",
-          "processing",
-        ];
-
-        const groups = {
-          processing: [] as MissionControlAgent[],
-          idle: [] as MissionControlAgent[],
-        };
-
-        filteredSessions.forEach((session) => {
-          // Check if session is actively processing
-          if (
-            processingStatuses.includes(session.status) ||
-            session.latest_message_role === "tool_call"
-          ) {
-            groups.processing.push(session);
-          }
-          // Everything else is idle (completed, error, idle, waiting for user input, etc.)
-          else {
-            groups.idle.push(session);
-          }
-        });
-
-        // Stable order for processing group using processingOrder
-        const { processingOrder } = get();
-        const processingSet = new Set(groups.processing.map((s) => s.id));
-        const orderedFromState = processingOrder.filter((id) =>
-          processingSet.has(id)
-        );
-        const knownSet = new Set(orderedFromState);
-        const newOnes = groups.processing.filter((s) => !knownSet.has(s.id));
-        // Deterministic append for any new processing sessions not yet tracked
-        newOnes.sort(
-          (a, b) =>
-            getSessionTimestamp(a).getTime() - getSessionTimestamp(b).getTime()
-        ); // oldest first
-        const finalProcessing: MissionControlAgent[] = [
-          ...orderedFromState
-            .map((id) => groups.processing.find((s) => s.id === id)!)
-            .filter(Boolean),
-          ...newOnes,
-        ];
-        groups.processing = finalProcessing;
-
-        // Sort idle sessions with priority for unread final assistant messages
-        const { isSessionUnread } = get();
-        groups.idle.sort((a, b) => {
-          const aIsUnread = isSessionUnread(a.id);
-          const bIsUnread = isSessionUnread(b.id);
-          const aIsFinalAssistant =
-            a.latest_message_role === "assistant" ||
-            a.latest_message_role === "session_end";
-          const bIsFinalAssistant =
-            b.latest_message_role === "assistant" ||
-            b.latest_message_role === "session_end";
-
-          // Priority 1: Unread final assistant messages go to the very top
-          const aIsUnreadFinal = aIsUnread && aIsFinalAssistant;
-          const bIsUnreadFinal = bIsUnread && bIsFinalAssistant;
-
-          if (aIsUnreadFinal && !bIsUnreadFinal) return -1;
-          if (!aIsUnreadFinal && bIsUnreadFinal) return 1;
-
-          // Priority 2: Among unread final messages, sort by newest first
-          if (aIsUnreadFinal && bIsUnreadFinal) {
-            return (
-              getSessionTimestamp(b).getTime() -
-              getSessionTimestamp(a).getTime()
-            );
-          }
-
-          // Priority 3: Other unread sessions
-          if (aIsUnread && !bIsUnread) return -1;
-          if (!aIsUnread && bIsUnread) return 1;
-
-          // Priority 4: Within same read/unread status, sort by activity timestamp - newest first
-          return (
-            getSessionTimestamp(b).getTime() - getSessionTimestamp(a).getTime()
-          );
-        });
-
-        return groups;
+      setWorkspaceKey: async (workspaceKey, userId) => {
+        if (!workspaceKey || !userId) {
+          set({ workspaceKey: workspaceKey ?? null, hashedWorkspaceId: null });
+          return;
+        }
+        const hashed = await get().computeHashedWorkspaceId(workspaceKey, userId);
+        set({ workspaceKey, hashedWorkspaceId: hashed });
       },
 
-      getSelectedAgentCwd: () => {
-        const {
-          selectedSession,
-          activeSessions: sessions,
-          archivedSessions,
-          viewMode,
-        } = get();
-        const pool = viewMode === "archived" ? archivedSessions : sessions;
-        return pool.find((s) => s.id === selectedSession)?.agent_cwd || null;
-      },
 
       // Workspace + routing actions
       computeHashedWorkspaceId: async (
@@ -796,6 +751,7 @@ export const useMissionControlStore = create<MissionControlState>(
         set({ workspaceKey, hashedWorkspaceId: hashed });
       },
 
+
       setRouterNavigate: (nav) => {
         set({ routerNavigate: nav ?? null });
       },
@@ -806,15 +762,17 @@ export const useMissionControlStore = create<MissionControlState>(
         // Update selection in store for split-pane to open
         set({ selectedSession: sessionId });
 
+
         const hwid = hashedWorkspaceId ?? "unknown";
+
         const path = `/project/${hwid}/${sessionId}`;
         if (routerNavigate) {
           routerNavigate(path);
         } else {
           // Fallback if not injected
+
           window.history.pushState({}, "", path);
         }
       },
     };
-  }
-);
+});

@@ -13,12 +13,13 @@ async function _request<T = unknown>(
   options: ApiRequestOptions = {}
 ): Promise<HTTPBaseReturnType<T>> {
   const requestId = `http_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const { headers = {}, body, params } = options;
+  const { headers = {}, body, params, credentials } = options;
   
   console.log(`🌐 [httpApi] [${requestId}] Starting ${method} request to ${url}`);
   console.log(`🌐 [httpApi] [${requestId}] Headers:`, headers);
   console.log(`🌐 [httpApi] [${requestId}] Body:`, body ? JSON.stringify(body, null, 2) : 'No body');
   console.log(`🌐 [httpApi] [${requestId}] Params:`, params);
+  console.log(`🌐 [httpApi] [${requestId}] Credentials:`, credentials || 'default (omit)');
   try {
     // Build query string for GET requests
     let fullUrl = url;
@@ -34,6 +35,7 @@ async function _request<T = unknown>(
     const fetchOptions: RequestInit = {
       method,
       headers,
+      credentials: credentials, // Forward credentials option to fetch
     };
 
     if (body && method !== "GET") {

@@ -5,7 +5,6 @@
 // CORE REQUEST/RESPONSE TYPES
 // ============================================================================
 
-
 export interface AgentConfigOverrides {
     model_id?: string | null;
     provider_name?: string | null;
@@ -93,21 +92,16 @@ export interface SessionSummary {
     agent_config_name?: string | null;
     model_id?: string | null;
     base_dir?: string | null;
+    // NEW: Workspace context from generated columns
+    repo_full_name?: string | null;
+    branch?: string | null;
+    repo_id?: number | null;
+    workspace_key?: string | null;
 }
 
-export interface SessionDetails {
-    id: string;
-    name: string;
-    agent_config_id?: string | null;
-    created_at: string;
-    last_message_at?: string | null;
-    agent_cwd: string;
+export interface SessionDetails extends SessionSummary {
     messages: object[];
-    metadata: object;
-    // NEW: Persisted agent config metadata
-    agent_config_name?: string | null;
-    model_id?: string | null;
-    base_dir?: string | null;
+    metadata: object; // existing
 }
 
 export interface SessionListResponse {
