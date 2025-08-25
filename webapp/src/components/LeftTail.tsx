@@ -40,29 +40,10 @@ export const LeftRail: React.FC = () => {
     detectPlatform();
   }, []);
 
-  // Handle vault icon click
-  const handleVaultClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent default behavior
-    e.stopPropagation(); // Stop event propagation
+  if (pathname === "/" || pathname === "/landing") {
+    return null;
+  }
 
-    // Check authentication before allowing vault access
-    if (!user) {
-      console.log(
-        "[LeftRail] Vault access requires authentication, showing auth modal"
-      );
-      setShowModal(true);
-      return;
-    }
-
-    // If we're already on the vault page, just toggle the file panel
-    if (pathname === "/vault") {
-      toggleFilePanel();
-    } else {
-      // Otherwise navigate to the vault page
-      // The file panel will be shown by the VaultPage component's useEffect
-      navigate("/vault");
-    }
-  };
 
   // Handle logout
   const handleLogout = async () => {
