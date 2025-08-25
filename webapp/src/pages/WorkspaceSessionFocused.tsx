@@ -117,10 +117,10 @@ export default function WorkspaceSessionFocused() {
           <div className="flex flex-1 min-h-0">
             <div className="w-1/2 min-w-[420px] border-r border-white/10">
               <ChatMainCanonicalLegacy
-                sessionId={sessionId || ''}
+                sessionId={sessionId}
                 hideHeader={true}
                 sidebarCollapsed={true}
-                renderMode="focused"
+                // renderMode="focused"
               />
             </div>
             <div className="flex-1">

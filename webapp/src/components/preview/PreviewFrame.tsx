@@ -1,180 +1,124 @@
-import React, { useEffect, useState, useCallback } from "react";
-
-type Status = { running: boolean; port?: number };
+import React, { useState, useCallback, useMemo } from "react";
 
 interface PreviewFrameProps {
-  acsBaseUrl: string; // e.g., http://localhost:8001
+  acsBaseUrl?: string; // Legacy, not used with Router
   sessionId: string;
 }
 
-const PreviewFrame: React.FC<PreviewFrameProps> = ({ acsBaseUrl, sessionId }) => {
-  const [status, setStatus] = useState<Status>({ running: false });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Use Vite dev proxy when running locally to avoid CORS issues with remote ACS
-  const statusUrl = import.meta.env.DEV
-    ? `/api/v1/preview/${sessionId}/status`
-    : `${acsBaseUrl}/api/v1/preview/${sessionId}/status`;
-
-  const baseProxyUrlDefault = import.meta.env.DEV
-    ? `/api/v1/preview/${sessionId}/`
-    : `${acsBaseUrl}/api/v1/preview/${sessionId}/`;
-  const baseProxyUrlSimple = import.meta.env.DEV
-    ? `/api/v1/preview_simple/${sessionId}/`
-    : `${acsBaseUrl}/api/v1/preview_simple/${sessionId}/`;
-
-  const [useSimple, setUseSimple] = useState<boolean>(() => {
+const PreviewFrame: React.FC<PreviewFrameProps> = ({ sessionId }) => {
+  const [frameLoaded, setFrameLoaded] = useState(false);
+  const [useLegacy, setUseLegacy] = useState<boolean>(() => {
     try {
-      const v = localStorage.getItem(`preview_use_simple_${sessionId}`);
+      const v = localStorage.getItem(`preview_use_legacy_${sessionId}`);
       return v === "1";
     } catch (e) {
       return false;
     }
   });
 
-  useEffect(() => {
+  // Router host-based preview configuration
+  const PREVIEW_DOMAIN = "preview.n0thing.ai" 
+  const PREVIEW_SCHEME = ((import.meta.env.VITE_PREVIEW_SCHEME as string | undefined) || "https").replace(/:$/, "");
+  
+  const routerPreviewUrl = useMemo(() => {
+    return `${PREVIEW_SCHEME}://${sessionId}.${PREVIEW_DOMAIN}/`;
+  }, [PREVIEW_SCHEME, sessionId, PREVIEW_DOMAIN]);
+
+  console.log(`PREVIEWFRAME: ${routerPreviewUrl}`)
+
+  // Legacy fallback URLs (for development/testing)
+  const legacyProxyUrl = useMemo(() => {
+    return import.meta.env.DEV
+      ? `/api/v1/preview/${sessionId}/`
+      : `https://orchestra-acs-web.fly.dev/api/v1/preview/${sessionId}/`;
+  }, [sessionId]);
+
+  // Use Router URL by default, legacy only if explicitly toggled
+  const previewUrl = useLegacy ? legacyProxyUrl : routerPreviewUrl;
+
+  const toggleLegacy = useCallback((checked: boolean) => {
+    setUseLegacy(checked);
     try {
-      localStorage.setItem(`preview_use_simple_${sessionId}`, useSimple ? "1" : "0");
+      localStorage.setItem(`preview_use_legacy_${sessionId}`, checked ? "1" : "0");
     } catch (e) {
       // ignore
     }
-  }, [useSimple, sessionId]);
+    setFrameLoaded(false); // Reset frame loaded state when switching
+  }, [sessionId]);
 
-  const baseProxyUrl = useSimple ? baseProxyUrlSimple : baseProxyUrlDefault;
+  const openInNewTab = useCallback(() => {
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
+  }, [previewUrl]);
 
-  const refreshStatus = useCallback(async () => {
+  const copyLink = useCallback(async () => {
     try {
-      setError(null);
-
-      // Dev: if ACS is configured to a cross-origin remote host, avoid making the
-      // direct fetch which will trigger noisy CORS errors in the browser. Instead
-      // surface a helpful error and suggest using the Vite proxy or a local ACS.
-      if (import.meta.env.DEV) {
-        try {
-          const acsUrl = new URL(acsBaseUrl);
-          const sameOrigin = acsUrl.origin === window.location.origin;
-          if (!sameOrigin) {
-            setError(
-              `Preview disabled in dev: ${acsUrl.origin} is cross-origin. Use a local ACS or configure the Vite dev proxy (VITE_ACS_BASE_URL) to avoid CORS.`
-            );
-            return;
-          }
-        } catch (err) {
-          // If parsing the URL fails, we'll attempt the fetch and let it fail gracefully
-        }
-      }
-
-      const res = await fetch(statusUrl, { credentials: "include" });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "<no body>");
-        throw new Error(`Status fetch failed: ${res.status} ${res.statusText} - ${text}`);
-      }
-      const data = await res.json();
-      setStatus(data);
-    } catch (e: any) {
-      setError(e?.message || "Failed to get status");
+      await navigator.clipboard.writeText(previewUrl);
+    } catch (e) {
+      // ignore
     }
-  }, [statusUrl, acsBaseUrl]);
+  }, [previewUrl]);
 
-  useEffect(() => {
-    refreshStatus();
-  }, [refreshStatus]);
-
-  const start = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const startUrl = import.meta.env.DEV
-        ? `/api/v1/preview/${sessionId}/start`
-        : `${acsBaseUrl}/api/v1/preview/${sessionId}/start`;
-
-      const res = await fetch(startUrl, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      await refreshStatus();
-    } catch (e: any) {
-      setError(e?.message || "Failed to start preview");
-    } finally {
-      setLoading(false);
+  const refreshFrame = useCallback(() => {
+    setFrameLoaded(false);
+    // Force iframe reload by changing src slightly then back
+    const iframe = document.querySelector('iframe[title="Dev Preview"]') as HTMLIFrameElement;
+    if (iframe) {
+      const currentSrc = iframe.src;
+      iframe.src = 'about:blank';
+      setTimeout(() => {
+        iframe.src = currentSrc;
+      }, 100);
     }
-  }, [acsBaseUrl, sessionId, refreshStatus]);
-
-  const stop = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const stopUrl = import.meta.env.DEV
-        ? `/api/v1/preview/${sessionId}/stop`
-        : `${acsBaseUrl}/api/v1/preview/${sessionId}/stop`;
-
-      const res = await fetch(stopUrl, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(await res.text());
-      await refreshStatus();
-    } catch (e: any) {
-      setError(e?.message || "Failed to stop preview");
-    } finally {
-      setLoading(false);
-    }
-  }, [acsBaseUrl, sessionId, refreshStatus]);
+  }, []);
 
   return (
     <div className="flex flex-col h-full w-full">
       <div className="flex items-center gap-2 p-2 border-b border-white/10">
         <button
-          onClick={refreshStatus}
+          onClick={refreshFrame}
           className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white/80 text-xs"
         >
           Refresh
         </button>
         <button
-          onClick={start}
-          disabled={loading}
-          className="px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-green-300 text-xs disabled:opacity-50"
+          onClick={openInNewTab}
+          className="px-2 py-1 bg-blue-500/10 border border-blue-500/30 rounded text-blue-300 text-xs"
+          title="Open preview in a new tab"
         >
-          Start
+          Open
         </button>
         <button
-          onClick={stop}
-          disabled={loading}
-          className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-red-300 text-xs disabled:opacity-50"
+          onClick={copyLink}
+          className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white/80 text-xs"
+          title="Copy preview link"
         >
-          Stop
+          Copy Link
         </button>
         <label className="ml-2 flex items-center gap-2 text-xs text-white/80">
           <input
             type="checkbox"
-            checked={useSimple}
-            onChange={(e) => setUseSimple(e.target.checked)}
+            checked={useLegacy}
+            onChange={(e) => toggleLegacy(e.target.checked)}
             className="w-4 h-4"
           />
-          <span>Use simple preview (5173 / 3000)</span>
+          <span>Use legacy proxy</span>
         </label>
-        <div className="text-white/60 text-xs ml-2">
-          {status.running ? `Running on port ${status.port}` : "Stopped"}
+        <div className="text-white/40 text-[11px] ml-auto">
+          {useLegacy ? "Legacy" : `Router: ${routerPreviewUrl}`}
         </div>
-        {error && <div className="text-red-400 text-xs ml-4">{error}</div>}
       </div>
       <div className="flex-1 overflow-hidden">
-        {status.running ? (
-          <iframe
-            src={baseProxyUrl}
-            title="Dev Preview"
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms"
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center text-white/60 text-sm">
-            Preview not running. Click Start.
-          </div>
-        )}
+        <iframe
+          src={previewUrl}
+          title="Dev Preview"
+          className="w-full h-full border-0"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+          onLoad={() => setFrameLoaded(true)}
+        />
+      </div>
+      <div className="p-2 text-white/50 text-xs border-t border-white/10">
+        {frameLoaded ? "Frame loaded" : "Loading preview..."}
+        <span className="ml-4 text-white/30">URL: {previewUrl}</span>
       </div>
     </div>
   );
