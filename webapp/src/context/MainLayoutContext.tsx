@@ -144,7 +144,7 @@ export const MainLayoutProvider: React.FC<MainLayoutProviderProps> = ({
         id="main-layout-provider"
       >
         <LeftRail />
-        <div className="flex-1 overflow-scroll">{children}</div>
+        <div className="flex-1 overflow-hidden">{children}</div>
       </div>
     </MainLayoutContext.Provider>
   );
