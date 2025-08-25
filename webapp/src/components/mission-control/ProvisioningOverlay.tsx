@@ -19,7 +19,7 @@ export const ProvisioningOverlay: React.FC<Props> = ({
   onDone,
   onCancel
 }) => {
-  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs.fly.dev").replace(/\/$/, "");
+  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs-web.fly.dev").replace(/\/$/, "");
   const api = useMemo(() => acsGithubApi({ baseUrl: (acs_base || DEFAULT_ACS) }), [acs_base]);
 
   const [phase, setPhase] = useState<"init"|"provisioning"|"waiting"|"ready"|"failed">("init");

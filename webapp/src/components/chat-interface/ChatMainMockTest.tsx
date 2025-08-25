@@ -55,7 +55,7 @@ export const ChatMainMockTest: React.FC<MockTestProps> = ({
 
       // Send mock request
       const response = await httpApi.POST(
-        "https://orchestra-acs.fly.dev/acs/converse/mock",
+        "https://orchestra-acs-web.fly.dev/acs/converse/mock",
         {
           headers: { "Content-Type": "application/json" },
           body: {

@@ -9,7 +9,7 @@ interface IDEFrameProps {
 }
 
 const IDEFrame: React.FC<IDEFrameProps> = ({ sessionId, className, style, reloadSignal, onAuthFailed }) => {
-  const ACS_BASE = (import.meta.env.VITE_ACS_BASE_URL || "https://orchestra-acs.fly.dev").replace(/\/$/, "");
+  const ACS_BASE = (import.meta.env.VITE_ACS_BASE_URL || "https://orchestra-acs-web.fly.dev").replace(/\/$/, "");
   const effectiveIDEUrl = `${ACS_BASE}/api/v1/ide/${sessionId}/`;
 
   const [iframeKey, setIframeKey] = useState<number>(() => Date.now());

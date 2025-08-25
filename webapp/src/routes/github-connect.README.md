@@ -23,7 +23,7 @@ This page guides users to connect the "Orchestra Agents" GitHub App and verify a
 
 ## Configuration
 
-- Set ACS Server URL at top of page (e.g., https://orchestra-acs.fly.dev or https://<ngrok>.ngrok-free.app)
+- Set ACS Server URL at top of page (e.g., https://orchestra-acs-web.fly.dev or https://<ngrok>.ngrok-free.app)
 - The page will append /api/v1 automatically for API calls
 
 ## Troubleshooting

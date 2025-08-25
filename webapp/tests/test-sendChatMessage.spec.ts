@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Mock Chat Message Tests', () => {
     test('should send mock request to ACS endpoint', async ({ request }) => {
-        const response = await request.post('https://orchestra-acs.fly.dev/acs/converse/mock', {
+        const response = await request.post('https://orchestra-acs-web.fly.dev/acs/converse/mock', {
             headers: { 'Content-Type': 'application/json' },
             data: {
                 session_id: 'mock_session_123',

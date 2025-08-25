@@ -12,6 +12,7 @@ import { recentProjectsManager } from "@/utils/projectStorage";
 import { getDefaultACSClient } from "@/services/acs";
 import { sendChatMessage } from "@/utils/sendChatMessage";
 import { createSessionFast } from "@/hooks/useCreateSessionFast";
+import { useSessionRepoContextStore } from "@/stores/sessionRepoContextStore";
 
 type RepoItem = { id: number; full_name: string };
 
@@ -22,7 +23,7 @@ export default function StartChat() {
 
   // ACS client
   const DEFAULT_ACS = (
-    import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs.fly.dev"
+    import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs-web.fly.dev"
   ).replace(/\/$/, "");
   const [acsBase] = useState(DEFAULT_ACS);
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
@@ -235,6 +236,13 @@ export default function StartChat() {
           branch: branch.trim(),
         },
         images,
+      });
+
+      // Set repo context in sessionRepoContextStore before navigation
+      useSessionRepoContextStore.getState().setRepoContext(cs.sessionId, {
+        repo_id: selectedRepoId,
+        repo_full_name: selectedRepoFullName,
+        branch: branch.trim(),
       });
 
       // optimistic UI

@@ -1,5 +1,5 @@
 /*
-curl -X POST https://orchestra-acs.fly.dev/acs/converse/mock \
+curl -X POST https://orchestra-acs-web.fly.dev/acs/converse/mock \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "mock_session_123",

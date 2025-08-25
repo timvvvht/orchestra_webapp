@@ -5,7 +5,7 @@ import CloudflaredFrame from "@/components/preview/CloudflaredFrame";
 import IDEFrame from "@/components/ide/IDEFrame";
 import { supabase } from "@/auth/SupabaseClient";
 
-const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs.fly.dev").replace(/\/$/, "");
+const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs-web.fly.dev").replace(/\/$/, "");
 
 type Status = { running: boolean; port?: number };
 

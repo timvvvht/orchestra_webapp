@@ -4,20 +4,9 @@
   "type": "module",
   "scripts": {
     "build": "react-router build",
-    "cf-typegen": "wrangler types",
-    "predeploy": "npm run build && wrangler deploy --dry-run --outdir .wrangler-out-server --config build/server/wrangler.json",
-    "deploy": "npm run build && wrangler deploy",
-    "deploy:dry-run": "wrangler deploy --dry-run --outdir .wrangler-out --config wrangler.jsonc",
-    "deploy:dry-run:server": "npm run build && wrangler deploy --dry-run --outdir .wrangler-out-server --config build/server/wrangler.json",
-    "deploy:server": "npm run build && wrangler deploy --config build/server/wrangler.json",
-    "deploy:preview": "wrangler versions upload",
-    "deploy:promote": "wrangler versions deploy",
     "dev": "react-router dev",
-    "dev:worker:local": "wrangler dev --local",
-    "dev:worker:remote": "wrangler dev --remote",
-    "postinstall": "npm run cf-typegen",
     "preview": "npm run build && vite preview",
-    "typecheck": "npm run cf-typegen && react-router typegen && tsc -b",
+    "typecheck": "react-router typegen && tsc -b",
     "test": "vitest run -r",
     "test:security": "vitest run tests/security.test.ts -r",
     "test:download": "vitest run tests/download.test.ts -r",
@@ -52,7 +41,6 @@
     "lodash-es": "^4.17.21",
     "lucide-react": "^0.539.0",
     "mermaid": "^11.9.0",
-    "miniflare": "^4.20250813.1",
     "path": "^0.12.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -67,8 +55,6 @@
     "zustand": "^5.0.7"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.0.12",
-    "@cloudflare/vitest-pool-workers": "^0.8.61",
     "@react-router/dev": "^7.7.1",
     "@tailwindcss/vite": "^4.1.4",
     "@types/node": "^20.19.10",
@@ -78,7 +64,6 @@
     "typescript": "^5.8.3",
     "vite": "^6.3.3",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.2.4",
-    "wrangler": "^4.13.2"
+    "vitest": "^3.2.4"
   }
 }

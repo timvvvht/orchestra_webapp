@@ -1,5 +1,5 @@
 // ACS API Types and Interfaces
-// Generated from OpenAPI spec: https://orchestra-acs.fly.dev/openapi.json
+// Generated from OpenAPI spec: https://orchestra-acs-web.fly.dev/openapi.json
 
 // ============================================================================
 // CORE REQUEST/RESPONSE TYPES

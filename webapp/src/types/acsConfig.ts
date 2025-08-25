@@ -1,3 +1,3 @@
 export type ACSConfig = {
-    baseUrl: string; // e.g. https://orchestra-acs.fly.dev (no trailing /api/v1)
+    baseUrl: string; // e.g. https://orchestra-acs-web.fly.dev (no trailing /api/v1)
 };

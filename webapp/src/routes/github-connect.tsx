@@ -27,7 +27,7 @@ type Panel = {
 
 export default function GitHubConnectPage() {
   // Config + Auth
-  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs.fly.dev").replace(/\/$/, "");
+  const DEFAULT_ACS = (import.meta.env?.VITE_ACS_BASE_URL || "https://orchestra-acs-web.fly.dev").replace(/\/$/, "");
   const [acsBase, setAcsBase] = useState<string>(DEFAULT_ACS);
   const api = useMemo(() => acsGithubApi({ baseUrl: acsBase }), [acsBase]);
 

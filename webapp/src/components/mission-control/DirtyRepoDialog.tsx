@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+// Note: our file is capitalized 'Label.tsx'
+import { Label } from "@/components/ui/Label";
 import { DiffEditor } from "@monaco-editor/react";
 import { useGitStatus } from "@/hooks/useGitStatus";
 import { useGitDiffFile } from "@/hooks/useGitDiffFile";

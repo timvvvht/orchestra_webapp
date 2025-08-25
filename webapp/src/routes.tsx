@@ -21,6 +21,9 @@ import GlobalInfraDashboard from "./routes/GlobalInfraDashboard";
 import WorkspaceHome from "./routes/WorkspaceHome";
 import DevToolbox from "./routes/DevToolbox";
 import { Settings } from "./routes/settings";
+import WorkspaceSessionFocused from "./pages/WorkspaceSessionFocused";
+import Dashboard from "./routes/Dashboard";
+import AuthGate from "./components/auth/AuthGate";
 
 // Lazy load components for better performance
 const Landing = lazy(() => import("./routes/Landing"));
@@ -32,6 +35,22 @@ export const routes: RouteObject[] = [
     children: [
       {
         index: true,
+        element: (
+          <AuthGate>
+            <Dashboard />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "dashboard",
+        element: (
+          <AuthGate>
+            <Dashboard />
+          </AuthGate>
+        ),
+      },
+      {
+        path: "landing",
         element: <Landing />,
       },
       {
@@ -52,7 +71,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "project/:hashed_workspace_id/:sessionId",
-        element: <MissionControl repo={null} />,
+        element: <WorkspaceSessionFocused />,
       },
       {
         path: "sessions",
@@ -68,6 +87,10 @@ export const routes: RouteObject[] = [
       },
       {
         path: "workspaces",
+        element: <Navigate to="/dashboard" replace />,
+      },
+      {
+        path: "workspaces-old",
         element: <WorkspaceHome />,
       },
       {

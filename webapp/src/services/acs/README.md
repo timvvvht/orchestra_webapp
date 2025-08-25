@@ -60,7 +60,7 @@ await acsClient.core.converse({
 
 ```env
 # .env
-VITE_ACS_BASE_URL=https://orchestra-acs.fly.dev
+VITE_ACS_BASE_URL=https://orchestra-acs-web.fly.dev
 VITE_SSE_BASE_URL=https://orchestra-sse-service.fly.dev
 VITE_ACS_API_KEY=your_api_key_here
 ```

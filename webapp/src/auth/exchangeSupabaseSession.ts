@@ -2,7 +2,7 @@ import { supabase } from './SupabaseClient';
 
 // Simple config for the exchange endpoint
 const getBaseUrl = (baseOverride?: string) => {
-    const baseUrl = baseOverride || import.meta.env.VITE_ACS_BASE_URL || 'https://orchestra-acs.fly.dev';
+    const baseUrl = baseOverride || import.meta.env.VITE_ACS_BASE_URL || 'https://orchestra-acs-web.fly.dev';
     console.log('🔧 [exchangeSupabaseSession] Using ACS Base URL:', baseUrl);
     console.log('🔧 [exchangeSupabaseSession] Environment variables:', {
         VITE_ACS_BASE_URL: import.meta.env.VITE_ACS_BASE_URL,

@@ -3,7 +3,7 @@ import { acsGithubApi } from '@/services/acsGitHubApi';
 import { useRepoSelectionStore } from '@/stores/repoSelectionStore';
 
 const api = acsGithubApi({
-    baseUrl: (import.meta.env?.VITE_ACS_BASE_URL || 'https://orchestra-acs.fly.dev').replace(/\/$/, '')
+    baseUrl: (import.meta.env?.VITE_ACS_BASE_URL || 'https://orchestra-acs-web.fly.dev').replace(/\/$/, '')
 });
 
 export async function loadReposService() {

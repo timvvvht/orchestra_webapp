@@ -8,7 +8,7 @@ import { sendChatMessage } from '../src/utils/sendChatMessage';
 // Also ensure ACS_URL is available to the code under test.
 test('sendChatMessage posts to /acs/converse and returns success', async () => {
     // Ensure this env is visible to the test process (e.g., via .env or PW config)
-    process.env.ACS_URL = 'https://orchestra-acs.fly.dev';
+    process.env.ACS_URL = 'https://orchestra-acs-web.fly.dev';
 
     const res = await sendChatMessage({
         sessionId: 'mock_session_123',

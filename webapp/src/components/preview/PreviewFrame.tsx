@@ -12,9 +12,17 @@ const PreviewFrame: React.FC<PreviewFrameProps> = ({ acsBaseUrl, sessionId }) =>
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const statusUrl = `${acsBaseUrl}/api/v1/preview/${sessionId}/status`;
-  const baseProxyUrlDefault = `${acsBaseUrl}/api/v1/preview/${sessionId}/`;
-  const baseProxyUrlSimple = `${acsBaseUrl}/api/v1/preview_simple/${sessionId}/`;
+  // Use Vite dev proxy when running locally to avoid CORS issues with remote ACS
+  const statusUrl = import.meta.env.DEV
+    ? `/api/v1/preview/${sessionId}/status`
+    : `${acsBaseUrl}/api/v1/preview/${sessionId}/status`;
+
+  const baseProxyUrlDefault = import.meta.env.DEV
+    ? `/api/v1/preview/${sessionId}/`
+    : `${acsBaseUrl}/api/v1/preview/${sessionId}/`;
+  const baseProxyUrlSimple = import.meta.env.DEV
+    ? `/api/v1/preview_simple/${sessionId}/`
+    : `${acsBaseUrl}/api/v1/preview_simple/${sessionId}/`;
 
   const [useSimple, setUseSimple] = useState<boolean>(() => {
     try {
@@ -38,13 +46,36 @@ const PreviewFrame: React.FC<PreviewFrameProps> = ({ acsBaseUrl, sessionId }) =>
   const refreshStatus = useCallback(async () => {
     try {
       setError(null);
+
+      // Dev: if ACS is configured to a cross-origin remote host, avoid making the
+      // direct fetch which will trigger noisy CORS errors in the browser. Instead
+      // surface a helpful error and suggest using the Vite proxy or a local ACS.
+      if (import.meta.env.DEV) {
+        try {
+          const acsUrl = new URL(acsBaseUrl);
+          const sameOrigin = acsUrl.origin === window.location.origin;
+          if (!sameOrigin) {
+            setError(
+              `Preview disabled in dev: ${acsUrl.origin} is cross-origin. Use a local ACS or configure the Vite dev proxy (VITE_ACS_BASE_URL) to avoid CORS.`
+            );
+            return;
+          }
+        } catch (err) {
+          // If parsing the URL fails, we'll attempt the fetch and let it fail gracefully
+        }
+      }
+
       const res = await fetch(statusUrl, { credentials: "include" });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "<no body>");
+        throw new Error(`Status fetch failed: ${res.status} ${res.statusText} - ${text}`);
+      }
       const data = await res.json();
       setStatus(data);
     } catch (e: any) {
       setError(e?.message || "Failed to get status");
     }
-  }, [statusUrl]);
+  }, [statusUrl, acsBaseUrl]);
 
   useEffect(() => {
     refreshStatus();

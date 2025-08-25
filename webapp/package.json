@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc --noEmit",
     "build": "tsc && vite build",
+    "build:ci": "vite build",
     "preview": "vite preview"
   },
   "devDependencies": {
@@ -39,6 +41,7 @@
     "cn-utility": "^1.0.1",
     "date-fns": "^4",
     "eventemitter3": "^5.0.1",
+    "mitt": "^3.0.0",
     "framer-motion": "^12",
     "immer": "^10.1.1",
     "jwt-decode": "^4",
@@ -48,7 +51,6 @@
     "normalize-range": "^0.1.2",
     "postcss": "^8.4.0",
     "react": "^19",
-    "react-collapsible": "^2.10.0",
     "react-dom": "^19",
     "react-markdown": "^10",
     "react-router": "^7",

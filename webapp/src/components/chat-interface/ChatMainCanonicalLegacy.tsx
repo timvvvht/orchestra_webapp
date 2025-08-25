@@ -56,6 +56,7 @@ import { useChatUI } from "@/context/ChatUIContext";
 import { useSelections, getAcsOverrides } from "@/context/SelectionContext";
 import { supabase } from "@/auth/SupabaseClient";
 import { useMissionControlStore } from "@/stores/missionControlStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { getDefaultACSClient } from "@/services/acs";
 
 // Approval imports
@@ -126,6 +127,8 @@ interface ChatMainCanonicalLegacyProps {
   sessionIsActive?: boolean; // Parent-controlled: true => show busy visuals
   onToggleSessionActive?: (next: boolean) => void; // Parent-provided toggle handler
   agentCwd?: string; // Optional: explicit working directory for LexicalChatInput
+  renderMode?: "full" | "focused"; // NEW: focused mode for minimal UI
+  hideMessagesList?: boolean; // NEW: optional prop to hide messages list
 }
 
 // Note: convertEventsToMessages function moved to @/utils/chat/eventConversion.ts
@@ -145,6 +148,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   sessionIsActive,
   onToggleSessionActive,
   agentCwd,
+  renderMode = "full",
+  hideMessagesList = false,
 }) => {
   // Performance monitoring
   usePerformanceMonitor();
@@ -847,44 +852,48 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
         hydrateSession(sessionId)
           .then(() => {
-            // ROBUSTNESS: Only proceed if this is still the active session
-            if (activeHydrationRef.current === sessionId) {
-              // Call loadEvents directly instead of relying on dependency
-              const state = useEventStore.getState();
-              let eventIds = state.bySession.get(sessionId) || [];
-              if (eventIds.length === 0 && state.bySession.has("unknown")) {
-                eventIds = state.bySession.get("unknown") || [];
-              }
-              const events = eventIds
-                .map((id) => state.byId.get(id))
-                .filter((event): event is NonNullable<typeof event> =>
-                  Boolean(event)
-                );
-
-              // Log events received during hydration
-              console.log(
-                `💧 [Hydration] Session ${sessionId} - Hydrated ${events.length} events:`,
-                events
+            // ROBUSTNESS: Store-check fallback to handle out-of-order hydration completion
+            const state = useEventStore.getState();
+            let eventIds = state.bySession.get(sessionId) || [];
+            if (eventIds.length === 0 && state.bySession.has("unknown")) {
+              eventIds = state.bySession.get("unknown") || [];
+            }
+            const events = eventIds
+              .map((id) => state.byId.get(id))
+              .filter((event): event is NonNullable<typeof event> =>
+                Boolean(event)
               );
-              events.forEach((event, index) => {
-                console.log(
-                  `💧 [HydratedEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
-                  event
-                );
-              });
 
-              const convertedMessages = convertEventsToMessages(events);
-              setMessages(convertedMessages);
-              if (import.meta.env.DEV) {
-                console.log(
-                  `✅ [ChatMainCanonicalLegacy] Successfully hydrated ${sessionId} with ${events.length} events`
-                );
+            // If we actually have events in store for this session, and UI still shows the same session,
+            // apply them (this covers the out-of-order completion case).
+            if (events.length > 0) {
+              if (previousSessionIdRef.current === sessionId) {
+                console.log(`💧 [Hydration] Applying ${events.length} events for ${sessionId} to UI`);
+                events.forEach((event, index) => {
+                  console.log(
+                    `💧 [HydratedEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+                    event
+                  );
+                });
+                const convertedMessages = convertEventsToMessages(events);
+                setMessages(convertedMessages);
+                if (import.meta.env.DEV) {
+                  console.log(
+                    `✅ [ChatMainCanonicalLegacy] Successfully hydrated ${sessionId} with ${events.length} events`
+                  );
+                }
+              } else {
+                console.log(`🚫 [Hydration] Hydrated ${sessionId} but UI session changed to ${previousSessionIdRef.current}, skipping UI update.`);
               }
             } else {
-              if (import.meta.env.DEV) {
-                console.log(
-                  `🚫 [ChatMainCanonicalLegacy] Discarding hydration result for ${sessionId} (user switched to ${activeHydrationRef.current})`
-                );
+              // No events found. Only set empty UI if this is still the active hydration.
+              if (activeHydrationRef.current === sessionId) {
+                setMessages([]);
+                if (import.meta.env.DEV) {
+                  console.log(`💧 [Hydration] No events found for ${sessionId}, setting empty messages`);
+                }
+              } else {
+                console.log(`🚫 [ChatMainCanonicalLegacy] Discarding hydration result for ${sessionId} (user switched to ${activeHydrationRef.current})`);
               }
             }
           })
@@ -894,38 +903,45 @@ const ChatMainCanonicalLegacyComponent: React.FC<
               err
             );
 
-            // ROBUSTNESS: Only proceed if this is still the active session
-            if (activeHydrationRef.current === sessionId) {
-              // Try to load events anyway in case there's cached data
-              const state = useEventStore.getState();
-              let eventIds = state.bySession.get(sessionId) || [];
-              if (eventIds.length === 0 && state.bySession.has("unknown")) {
-                eventIds = state.bySession.get("unknown") || [];
-              }
-              const events = eventIds
-                .map((id) => state.byId.get(id))
-                .filter((event): event is NonNullable<typeof event> =>
-                  Boolean(event)
-                );
-
-              // Log fallback events
-              console.log(
-                `🔄 [Fallback] Session ${sessionId} - Loaded ${events.length} cached events:`,
-                events
+            // ROBUSTNESS: Store-check fallback even on hydration failure (cached data might exist)
+            const state = useEventStore.getState();
+            let eventIds = state.bySession.get(sessionId) || [];
+            if (eventIds.length === 0 && state.bySession.has("unknown")) {
+              eventIds = state.bySession.get("unknown") || [];
+            }
+            const events = eventIds
+              .map((id) => state.byId.get(id))
+              .filter((event): event is NonNullable<typeof event> =>
+                Boolean(event)
               );
-              events.forEach((event, index) => {
-                console.log(
-                  `🔄 [FallbackEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
-                  event
-                );
-              });
 
-              const convertedMessages = convertEventsToMessages(events);
-              setMessages(convertedMessages);
-              if (import.meta.env.DEV) {
-                console.log(
-                  `🔄 [ChatMainCanonicalLegacy] Fallback: Loaded ${events.length} cached events for ${sessionId}`
-                );
+            // Apply cached events if available and UI still shows the same session
+            if (events.length > 0) {
+              if (previousSessionIdRef.current === sessionId) {
+                console.log(`🔄 [Fallback] Applying ${events.length} cached events for ${sessionId} to UI`);
+                events.forEach((event, index) => {
+                  console.log(
+                    `🔄 [FallbackEvent ${index + 1}] ID: ${event.id}, Kind: ${event.kind}, Role: ${event.role}, Created: ${event.createdAt}`,
+                    event
+                  );
+                });
+                const convertedMessages = convertEventsToMessages(events);
+                setMessages(convertedMessages);
+                if (import.meta.env.DEV) {
+                  console.log(
+                    `🔄 [ChatMainCanonicalLegacy] Fallback: Loaded ${events.length} cached events for ${sessionId}`
+                  );
+                }
+              } else {
+                console.log(`🚫 [Fallback] Cached events for ${sessionId} but UI session changed to ${previousSessionIdRef.current}, skipping UI update.`);
+              }
+            } else {
+              // No cached events found. Only set empty UI if this is still the active hydration.
+              if (activeHydrationRef.current === sessionId) {
+                setMessages([]);
+                if (import.meta.env.DEV) {
+                  console.log(`🔄 [Fallback] No cached events found for ${sessionId}, setting empty messages`);
+                }
               }
             }
           })
@@ -1309,43 +1325,80 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         );
       }
 
-      // Extract repository context from session data
-      const getRepoContextFromSession = async () => {
-        if (!sessionId) return undefined;
+      // Extract repository context from session data (ASSERT non-empty)
+      const getRepoContextFromSession = async (): Promise<{ repo_id: number; repo_full_name: string; branch: string }> => {
+        if (!sessionId) {
+          throw new Error("Missing sessionId - cannot resolve repo context");
+        }
 
-        // Try to get session from mission control store first
+        // 0) First check sessionRepoContextStore (frontloaded from StartChat)
+        const { useSessionRepoContextStore } = await import('@/stores/sessionRepoContextStore');
+        const direct = useSessionRepoContextStore.getState().getRepoContext(sessionId);
+        if (direct) {
+          console.log(`🎯 [getRepoContextFromSession] Using frontloaded repo context: ${direct.repo_full_name}/${direct.branch}`);
+          return direct;
+        }
+
+        // 1) Try Mission Control store (active or archived sessions)
         const missionStore = useMissionControlStore.getState();
         const session =
           missionStore.activeSessions.find((s: any) => s.id === sessionId) ||
           missionStore.archivedSessions.find((s: any) => s.id === sessionId);
-
-        // If session found in store but no metadata, try to get from ACS
-        if (session) {
-          try {
-            const acsClient = getDefaultACSClient();
-            const acsSession = await acsClient.sessions.getSession(sessionId);
-            if (acsSession?.data?.metadata) {
-              const metadata = acsSession.data.metadata as any;
-              if (
-                metadata.repo_id &&
-                metadata.repo_full_name &&
-                metadata.branch
-              ) {
-                return {
-                  repo_id: metadata.repo_id,
-                  repo_full_name: metadata.repo_full_name,
-                  branch: metadata.branch,
-                };
-              }
-            }
-          } catch (error) {
-            console.warn("Failed to get ACS session metadata:", error);
-          }
+        if (session?.repo_id && session?.repo_full_name && session?.branch) {
+          console.log(`🎯 [getRepoContextFromSession] Using Mission Control store: ${session.repo_full_name}/${session.branch}`);
+          return {
+            repo_id: session.repo_id,
+            repo_full_name: session.repo_full_name,
+            branch: session.branch,
+          };
         }
 
-        // Fallback: return undefined if no repository context found
-        return undefined;
+        // 2) Try active workspace from workspace store
+        try {
+          const ws = useWorkspaceStore.getState().getActiveWorkspace?.();
+          if (ws?.repoId && ws?.repoFullName && ws?.branch) {
+            console.log(`🎯 [getRepoContextFromSession] Using workspace store: ${ws.repoFullName}/${ws.branch}`);
+            return {
+              repo_id: ws.repoId,
+              repo_full_name: ws.repoFullName,
+              branch: ws.branch,
+            };
+          }
+        } catch {
+          // ignore workspace store errors
+        }
+
+        // 3) Fallback: Fetch ACS session metadata
+        try {
+          const acsClient = getDefaultACSClient();
+          const acsSession = await acsClient.sessions.getSession(sessionId);
+          const metadata = acsSession?.data?.metadata as any;
+          if (metadata?.repo_id && metadata?.repo_full_name && metadata?.branch) {
+            console.log(`🎯 [getRepoContextFromSession] Using ACS metadata: ${metadata.repo_full_name}/${metadata.branch}`);
+            return {
+              repo_id: metadata.repo_id,
+              repo_full_name: metadata.repo_full_name,
+              branch: metadata.branch,
+            };
+          }
+        } catch (error) {
+          console.warn("Failed to get ACS session metadata:", error);
+        }
+
+        // ASSERT not empty for now
+        throw new Error("Repo context not available yet (repo_id/repo_full_name/branch). Please wait for workspace to load.");
       };
+
+      // ASSERT repo context for web-origin conversations
+      let repoCtx;
+      try {
+        repoCtx = await getRepoContextFromSession();
+      } catch (e: any) {
+        toast.error("Workspace not ready", { 
+          description: e?.message || "Repo context is missing. Try again shortly." 
+        });
+        return;
+      }
 
       // Use shared helper for canonical message sending with extended parameters
       await sendChatMessage({
@@ -1367,7 +1420,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         autoMode: false, // Default to false unless explicitly set by user
         modelAutoMode: false, // Default to false unless explicitly set by user
         // Tools will default to core tools automatically: ['apply_patch', 'cat', 'tree', 'search_files', 'str_replace_editor', 'read_files', 'search_notes']
-        repoContextWeb: await getRepoContextFromSession(),
+        repoContextWeb: repoCtx,
+        endpoint: "web", // Explicit web endpoint
         images: [...images],
       });
 
@@ -1497,31 +1551,34 @@ const ChatMainCanonicalLegacyComponent: React.FC<
                 : "pb-4" // Minimal padding when input is hidden
             )}
           >
-            <ChatMessageList
-              data-testid="chat-message-list"
-              messages={displayMessages}
-              mergedMessageGroups={mergedMessageGroups}
-              refinedMode={refinedMode}
-              handleFork={handleFork}
-              formatMessageDate={formatMessageDate}
-              shouldGroupMessages={shouldGroupMessages}
-              isOptimizedFinalAssistantMessage={
-                isOptimizedFinalAssistantMessage
-              }
-              getOptimizedFileOperationsForResponse={
-                getOptimizedFileOperationsForResponse
-              }
-              shouldUseUnifiedRendering={shouldUseUnifiedRendering}
-              renderUnifiedTimelineEvent={(event, index, events) =>
-                renderUnifiedTimelineEvent(
-                  event,
-                  index,
-                  events,
-                  false,
-                  refinedMode
-                )
-              }
-            />
+            {/* Conditionally render messages list based on focused mode */}
+            {!(renderMode === "focused" || hideMessagesList) && (
+              <ChatMessageList
+                data-testid="chat-message-list"
+                messages={displayMessages}
+                mergedMessageGroups={mergedMessageGroups}
+                refinedMode={refinedMode}
+                handleFork={handleFork}
+                formatMessageDate={formatMessageDate}
+                shouldGroupMessages={shouldGroupMessages}
+                isOptimizedFinalAssistantMessage={
+                  isOptimizedFinalAssistantMessage
+                }
+                getOptimizedFileOperationsForResponse={
+                  getOptimizedFileOperationsForResponse
+                }
+                shouldUseUnifiedRendering={shouldUseUnifiedRendering}
+                renderUnifiedTimelineEvent={(event, index, events) =>
+                  renderUnifiedTimelineEvent(
+                    event,
+                    index,
+                    events,
+                    false,
+                    refinedMode
+                  )
+                }
+              />
+            )}
 
             {/* Typing indicator - shows during loading or waiting for AI */}
             <ChatTypingIndicator
