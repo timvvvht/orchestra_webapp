@@ -4,7 +4,15 @@ import AgentListPanel from "./AgentListPanel";
 import ChatPane from "./ChatPane";
 
 const LayoutSplit: React.FC = () => {
-  const { selectedSession, archiveLoading } = useMissionControlStore();
+  const { selectedSession, archiveLoading, viewMode, activeSessions, archivedSessions } = useMissionControlStore();
+  
+  // Check if there are any sessions to show based on view mode
+  const hasSessions = viewMode === "active" 
+    ? activeSessions.length > 0 
+    : archivedSessions.length > 0;
+  
+  // Only show chat panel if there are sessions AND a session is selected
+  const showChatPanel = selectedSession && hasSessions;
   // Committed width percentage (applied on mount and when drag ends)
   const [leftPanelPercentage, setLeftPanelPercentage] = useState(40);
   const [isDragging, setIsDragging] = useState(false);
@@ -110,7 +118,7 @@ const LayoutSplit: React.FC = () => {
                     `}
         ref={leftRef}
         style={{
-          width: selectedSession ? `${leftPanelPercentage}%` : "100%",
+          width: showChatPanel ? `${leftPanelPercentage}%` : "100%",
           // Remove width transitions during drag to avoid layout thrash
           transition: isDragging ? "none" : "width 300ms",
         }}
@@ -119,7 +127,7 @@ const LayoutSplit: React.FC = () => {
       </div>
 
       {/* Draggable Divider */}
-      {selectedSession && (
+      {showChatPanel && (
         <div
           className={`
             w-1 bg-white/10 hover:bg-white/20 cursor-col-resize
@@ -148,8 +156,8 @@ const LayoutSplit: React.FC = () => {
         </div>
       )}
 
-      {/* Right Panel - Chat View - Only render when session is selected */}
-      {selectedSession && (
+      {/* Right Panel - Chat View - Only render when session is selected and there are sessions */}
+      {showChatPanel && (
         <div
           className="
           flex-1 h-full min-h-0 

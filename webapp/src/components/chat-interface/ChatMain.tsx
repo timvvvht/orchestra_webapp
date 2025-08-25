@@ -187,7 +187,6 @@ import type {
 // Components
 import AgentProfile from "./AgentProfile";
 import ChatHeader from "./header/ChatHeader";
-import NewChatModal from "./NewChatModal";
 import QuantumWaveIndicator from "./QuantumWaveIndicator";
 import { shouldUseUnifiedRendering } from "./UnrefinedModeTimelineRenderer";
 import {

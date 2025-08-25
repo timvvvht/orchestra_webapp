@@ -4,7 +4,12 @@ import { getCurrentUserId } from "@/services/supabase/authService"; // if you ha
 import { buildSessionMetadata } from "@/utils/buildSessionMetadata"; // ensure this constructs display fields
 import { ACSClient } from "@/services/acs";
 
-export async function startSession(...) {
+export async function startSession(
+  name: string,
+  agentConfigId: string,
+  acsClient: ACSClient,
+  worktreeResult?: { workspace_path: string }
+) {
   // 1) Create ACS session
   const createRes = await ACSClient.sessions.createSession({
     name,

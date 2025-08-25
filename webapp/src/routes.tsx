@@ -6,6 +6,7 @@ import AuthCallback from "./routes/auth/callback";
 import GitHubConnectPage from "./routes/github-connect";
 import MockTestPage from "./components/test-components/testSendChatMessage";
 import MissionControl from "@/components/mission-control/MissionControl";
+import WorkspaceDropdownDemo from "./components/workspace/WorkspaceDropdownDemo";
 import GitHubWizardLayout from "./routes/github/GitHubWizardLayout";
 import StepConfig from "./routes/github/StepConfig";
 import StepLogin from "./routes/github/StepLogin";
@@ -39,6 +40,18 @@ export const routes: RouteObject[] = [
       },
       {
         path: "mission-control",
+        element: <MissionControl repo={null} />,
+      },
+      {
+        path: "mission-control/:workspace_id",
+        element: <MissionControl repo={null} />,
+      },
+      {
+        path: "mission-control/:workspace_id/:sessionId",
+        element: <MissionControl repo={null} />,
+      },
+      {
+        path: "project/:hashed_workspace_id/:sessionId",
         element: <MissionControl repo={null} />,
       },
       {
@@ -91,6 +104,10 @@ export const routes: RouteObject[] = [
         ],
       },
       { path: "mock-test", element: <MockTestPage /> },
+      {
+        path: "workspace-dropdown-demo",
+        element: <WorkspaceDropdownDemo />,
+      },
       {
         path: "session",
         element: <SessionInspector />,

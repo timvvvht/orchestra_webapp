@@ -18,14 +18,14 @@ import { sendChatMessage } from "@/utils/sendChatMessage";
 // Types
 import type { ChatMessage as ChatMessageType } from "@/types/chatTypes";
 
+type Base64URLString = string;
+
 // Components
 import AgentProfile from "./AgentProfile";
 import ChatHeader from "./header/ChatHeader";
 import NewChatModal from "./NewChatModal";
 import { shouldUseUnifiedRendering } from "./UnrefinedModeTimelineRenderer";
 import { renderUnifiedTimelineEvent } from "./UnifiedTimelineRenderer";
-import { MobileChatInput } from "./MobileChatInput";
-import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
 import ChatEmptyState from "./ChatEmptyState";
 import ChatTypingIndicator from "./ChatTypingIndicator";
@@ -74,6 +74,7 @@ import NewMessagesIndicator from "./NewMessagesIndicator";
 import { cn } from "@/lib/utils";
 import { cancelConversation } from "@/utils/cancelConversation";
 import { LexicalChatInput } from "./MobileLexicalChatInput";
+import { Image } from "lucide-react";
 
 // Lazy render constants
 const INITIAL_RENDER_BATCH = 15;
@@ -116,7 +117,7 @@ interface ChatMainCanonicalLegacyProps {
   sidebarCollapsed: boolean;
   sessionId: string; // Optional prop - falls back to URL params if not provided
   renderContext?: "default" | "mission-control"; // New prop to specify rendering context
-  onSubmit?: (message: string) => Promise<void>; // Optional custom submit handler
+  onSubmit?: (message: string, images?: string[]) => Promise<void>; // Optional custom submit handler
   hideHeader?: boolean; // Optional prop to hide the ChatHeader component
   hideInput?: boolean; // Optional prop to hide the input area
   // NEW: single abstraction for mission control
@@ -168,18 +169,53 @@ const ChatMainCanonicalLegacyComponent: React.FC<
   const navigate = useNavigate();
   const location = useLocation();
 
-  // SSE Streaming - REMOVED: Now handled by ChatEventOrchestrator
-  // const {
-  //   isConnected: sseConnected,
-  //   connectStreaming,
-  //   disconnectStreaming,
-  //   onSSEEvent
-  // } = useACSChatStreaming(acsClient);
-
   // State - inputMessage moved to ChatInput component for performance
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [refinedMode, setRefinedMode] = useState(false);
+
+  const [images, setImages] = useState<string[]>([]);
+
+  const removeImage = useCallback((img: string) => {
+    setImages((prev) => prev.filter((p) => p !== img));
+  }, []);
+
+  const handleImageUpload = (file: File) => {
+    const maxPromptSize = parseInt(
+      String(import.meta.env.VITE_MAX_PROMPT_SIZE * 1024 * 1044) || "15728640"
+    ); // 15MB default
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+
+      // Calculate total size of all images including the new one
+      const currentTotalSize = images.reduce(
+        (total, img) => total + img.length,
+        0
+      );
+      const newTotalSize = currentTotalSize + base64String.length;
+
+      if (newTotalSize > maxPromptSize) {
+        toast.error(
+          `Total prompt size would exceed ${Math.round(maxPromptSize / 1024 / 1024)}MB limit`
+        );
+        console.error(
+          `Total prompt size would exceed ${Math.round(maxPromptSize / 1024 / 1024)}MB limit`
+        );
+        return;
+      }
+
+      // Only add the image if it's not already in the array
+      setImages((prev) => {
+        if (!prev.includes(base64String)) {
+          return [...prev, base64String];
+        }
+        return prev;
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   // State for stream debug overlay
   const [streamDebugOverlayOpen, setStreamDebugOverlayOpen] = useState(false);
@@ -193,6 +229,36 @@ const ChatMainCanonicalLegacyComponent: React.FC<
 
   // State for event tap debug overlay
   const [eventTapDebugOpen, setEventTapDebugOpen] = useState(false);
+
+  // Drag and drop state
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const files = Array.from(e.dataTransfer.files);
+      files.forEach((file) => {
+        if (file.type.startsWith("image/")) {
+          handleImageUpload(file);
+        }
+      });
+    },
+    [images]
+  );
 
   // Local + context loading (fallback)
   const [localIsLoading, setLocalIsLoading] = useState(false);
@@ -548,12 +614,6 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     );
 
     try {
-      // This would typically call an API to get older messages
-      // For now, we'll just log that the function was called
-      // In a real implementation, you'd call something like:
-      // const olderEvents = await getEventsBeforeTimestamp(sessionId, oldestEvent.timestamp, 20);
-      // Then prepend them to the store
-
       console.log(
         `📜 [ChatMainCanonicalLegacy] Would load older messages for session ${sessionId}`
       );
@@ -594,12 +654,18 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []); // run once
 
+  const isSessionSwitch =
+    previousSessionIdRef.current &&
+    previousSessionIdRef.current !== sessionId &&
+    !!sessionId &&
+    !sessionId.startsWith("temp-");
+
   // Auto-hydrate on session change
   useEffect(() => {
     if (sessionId && !sessionId.startsWith("temp-")) {
       setLocalIsLoading(true);
 
-      setIsSessionHydrating(true);
+      setIsSessionHydrating(Boolean(isSessionSwitch));
 
       const store = useEventStore.getState();
 
@@ -937,6 +1003,28 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     return unsubscribe;
   }, [loadEvents]);
 
+  // Handle modal submit - create new chat with message and images
+  const handleModalSubmit = useCallback(async (message: string, images: string[]) => {
+    if (!sessionId) return;
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id || "unknown";
+      
+      await sendChatMessage({
+        sessionId,
+        message,
+        endpoint: "web",
+        userId: uid,
+        agentConfigName: "general",
+        acsClient: acsClient!,
+        images: images.length > 0 ? images : [], // Ensure it's never null
+      });
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
+  }, [sessionId, acsClient]);
+
   // Cleanup RAF on unmount
   useEffect(() => {
     return () => {
@@ -1171,7 +1259,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
     if (customOnSubmit) {
       try {
         setLocalIsLoading(true);
-        await customOnSubmit(message);
+        await customOnSubmit(message, images);
+        setImages([]);
       } catch (error) {
         console.error("ChatMain custom handleSubmit error:", error);
       } finally {
@@ -1213,6 +1302,8 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         );
       }
 
+      // Use submitted images if provided, otherwise use component state images
+
       // Use shared helper for canonical message sending with extended parameters
       await sendChatMessage({
         sessionId,
@@ -1233,12 +1324,16 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         autoMode: false, // Default to false unless explicitly set by user
         modelAutoMode: false, // Default to false unless explicitly set by user
         // Tools will default to core tools automatically: ['apply_patch', 'cat', 'tree', 'search_files', 'str_replace_editor', 'read_files', 'search_notes']
+        images: [...images],
       });
+
+      // Clear images after successful send
     } catch (error) {
       // Error handling is done in the helper
       console.error("ChatMain handleSubmit error:", error);
     } finally {
       setLocalIsLoading(false);
+      setImages([]);
     }
   };
 
@@ -1285,7 +1380,32 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       ref={mainContainerRef}
       className={getContextClasses()}
       id="chat-main-canonical-legacy"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
+      {/* Full-screen drag overlay */}
+      {isDragOver && (
+        <div className="fixed inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="bg-white/10 rounded-2xl p-8 border-2 border-dashed border-blue-400">
+              <Image className="h-20 w-20 text-blue-400 mx-auto mb-4" />
+              <p className="text-blue-400 font-medium text-xl mb-2">
+                Drop images here
+              </p>
+              <p className="text-blue-300/80 text-sm">
+                Supports JPG, PNG, GIF up to{" "}
+                {Math.round(
+                  parseInt(import.meta.env.VITE_MAX_PROMPT_SIZE || "15728640") /
+                    1024 /
+                    1024
+                )}
+                MB per prompt
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       {!hideHeader && (
         <div className="flex-shrink-0">
           <ChatHeader sessionId={sessionId} />
@@ -1363,6 +1483,11 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             <ChatTypingIndicator
               isVisible={effectiveActive}
               agentName="AI Assistant"
+              showThinkingState={
+                (messages.length > 0 &&
+                  messages[messages.length - 1].thinking) ||
+                false
+              }
             />
 
             {/* Chat Scroll Anchor - invisible element at bottom for auto-scroll detection */}
@@ -1388,7 +1513,36 @@ const ChatMainCanonicalLegacyComponent: React.FC<
         messageCount={scrollButtonConfig.messageCount}
         variant={scrollButtonConfig.variant}
         onClick={scrollToBottom}
+        className={cn(
+          "transition-all duration-300",
+          images.length > 0 ? "!bottom-40" : "!bottom-24"
+        )}
       />
+
+      {/* Floating Images Display - Above Chat Input */}
+      {images.length > 0 && (
+        <div className="flex-shrink-0 sticky bottom-20 z-30 px-6 md:px-12 mb-2">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex flex-wrap gap-3">
+              {images.map((image, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={image}
+                    alt={`Upload ${index + 1}`}
+                    className="w-16 h-16 object-cover rounded-lg bg-white/5 border border-white/20"
+                  />
+                  <button
+                    onClick={() => removeImage(image)}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <span className="text-white text-xs leading-none">×</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Message Input - Responsive */}
       {!hideInput && (
@@ -1423,19 +1577,10 @@ const ChatMainCanonicalLegacyComponent: React.FC<
             disabled={effectiveDisabled}
             placeholder="Message"
             codePathOverride={agentCwd}
+            onImageUpload={handleImageUpload}
+            images={images}
+            onRemoveImage={removeImage}
           />
-
-          {/*<MobileChatInput
-            onSendMessage={handleSubmit}
-            disabled={effectiveDisabled}
-            placeholder="Message"
-            className=""
-            onCancelButtonClick={() => {
-              if (sessionId) {
-                cancelConversation(sessionId);
-              }
-            }}
-          />*/}
         </div>
       )}
 
@@ -1454,6 +1599,7 @@ const ChatMainCanonicalLegacyComponent: React.FC<
       <NewChatModal
         isOpen={isNewChatModalOpen}
         onClose={() => setIsNewChatModalOpen(false)}
+        onCreateChat={handleModalSubmit}
       />
 
       {/* Debug Panel */}

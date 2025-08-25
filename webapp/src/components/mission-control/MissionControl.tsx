@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState } from "react";
 import { motion } from "framer-motion";
-import { Session, useLocation, useNavigate } from "react-router-dom";
+import { Session, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   useMissionControlStore,
   type MissionControlAgent,
@@ -21,6 +21,7 @@ import { mapACSSessionsToMCAgent } from "@/utils/mapACSSessionsToMCAgent";
 import { useAuth } from "@/auth/AuthContext";
 import { useMissionControlFirehose } from "@/hooks/useMissionControlFirehose";
 import { supabase } from "@/lib/supabaseClient";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 // Animation variants for staggered reveals
 const containerVariants = {
@@ -77,6 +78,9 @@ const MissionControl: React.FC<MissionControlProps> = ({
     setArchivedLoaded,
     setArchivedLoading,
     viewMode,
+    setRouterNavigate,
+    setWorkspaceKey,
+    setSelectedSession,
   } = useMissionControlStore();
 
   // Workspace provisioning state
@@ -103,18 +107,49 @@ const MissionControl: React.FC<MissionControlProps> = ({
     setArchivedLoading(true);
     setArchivedSessions([]);
 
-    const { data } = await supabase
+    // Get archived sessions
+    const { data: archivedSessions } = await supabase
       .from("chat_sessions")
       .select("*")
       .not("archived_at", "is", null)
+      .order("archived_at", { ascending: false })
       .limit(100);
 
-    data?.sort((a, b) => {
-      const dateA = new Date(a.archived_at).getTime();
-      const dateB = new Date(b.archived_at).getTime();
-      return dateB - dateA;
+    if (!archivedSessions?.length) {
+      setArchivedSessions([]);
+      setArchivedLoading(false);
+      return;
+    }
+
+    // Get latest messages for archived sessions
+    const sessionIds = archivedSessions.map((s) => s.id);
+    const { data: latestMessages } = await supabase
+      .from("chat_messages")
+      .select("id, session_id, role, content, timestamp")
+      .in("session_id", sessionIds)
+      .order("timestamp", { ascending: false });
+
+    // Create a map of session_id -> latest message
+    const latestMessageMap = new Map();
+    latestMessages?.forEach((msg) => {
+      if (!latestMessageMap.has(msg.session_id)) {
+        latestMessageMap.set(msg.session_id, msg);
+      }
     });
-    setArchivedSessions(data ?? []);
+
+    // Merge archived sessions with their latest messages
+    const enrichedArchivedSessions = archivedSessions.map((session) => {
+      const latestMessage = latestMessageMap.get(session.id);
+      return {
+        ...session,
+        latest_message_id: latestMessage?.id || null,
+        latest_message_role: latestMessage?.role || null,
+        latest_message_content: latestMessage?.content || null,
+        latest_message_timestamp: latestMessage?.timestamp || null,
+      };
+    });
+
+    setArchivedSessions(enrichedArchivedSessions);
     setArchivedLoading(false);
   }, [setArchivedSessions, archivedLoaded]);
 
@@ -136,14 +171,71 @@ const MissionControl: React.FC<MissionControlProps> = ({
     setIsLoading(true);
 
     try {
-      const { data } = await supabase
+      // Get current workspace filter to determine if we need to filter by repository
+      const { workspaceFilter } = useMissionControlStore.getState();
+      let query = supabase
         .from("chat_sessions")
         .select("*")
         .is("archived_at", null)
+        .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(100);
-      console.log("[data]", data);
+
+      // If workspace filter is active, filter sessions by repository
+      if (workspaceFilter) {
+        const workspace = useWorkspaceStore.getState().getWorkspace(workspaceFilter);
+        if (workspace) {
+          console.log(`[MissionControl] Filtering sessions by workspace: ${workspace.repoFullName}`);
+          
+          // Filter sessions that belong to this repository
+          // Check multiple fields to identify repository association
+          const repoName = workspace.repoFullName;
+          const repoNameParts = repoName.split('/');
+          const repoShortName = repoNameParts[repoNameParts.length - 1]; // Get just the repo name without org
+          
+          // Since Supabase .or() has limitations, we'll use a simpler approach
+          // Filter by the most common field first (base_dir or agent_cwd)
+          query = query.or(`base_dir.ilike.%${repoName}%,agent_cwd.ilike.%${repoName}%`);
+        }
+      }
+
+      const { data: sessions } = await query;
+
+      if (!sessions?.length) {
+        setIsLoading(false);
+        return [];
+      }
+
+      // Get latest message for each session
+      const sessionIds = sessions.map((s) => s.id);
+      const { data: latestMessages } = await supabase
+        .from("chat_messages")
+        .select("id, session_id, role, content, timestamp")
+        .in("session_id", sessionIds)
+        .order("timestamp", { ascending: false });
+
+      // Create a map of session_id -> latest message
+      const latestMessageMap = new Map();
+      latestMessages?.forEach((msg) => {
+        if (!latestMessageMap.has(msg.session_id)) {
+          latestMessageMap.set(msg.session_id, msg);
+        }
+      });
+
+      // Merge sessions with their latest messages
+      const enrichedSessions = sessions.map((session) => {
+        const latestMessage = latestMessageMap.get(session.id);
+        return {
+          ...session,
+          latest_message_id: latestMessage?.id || null,
+          latest_message_role: latestMessage?.role || null,
+          latest_message_content: latestMessage?.content || null,
+          latest_message_timestamp: latestMessage?.timestamp || null,
+        };
+      });
+
+      console.log(`[MissionControl] Fetched ${enrichedSessions.length} sessions${workspaceFilter ? ' (filtered by workspace)' : ''}`, enrichedSessions);
       setIsLoading(false);
-      return data ?? [];
+      return enrichedSessions;
     } catch (error: any) {
       console.error(
         "[MissionControl][fetchAcsSessions] Failed to fetch sessions from Supabase:",
@@ -155,11 +247,7 @@ const MissionControl: React.FC<MissionControlProps> = ({
     }
 
     return [];
-  }, [setArchivedSessions, archiveLoading, archivedLoaded]);
-
-  useEffect(() => {
-    if (booted && user?.id) refetchSessions();
-  }, [booted, user?.id]);
+  }, [isLoading]);
 
   const refetchSessions = useCallback(async () => {
     try {
@@ -184,6 +272,20 @@ const MissionControl: React.FC<MissionControlProps> = ({
     }
   }, []);
 
+  // Initial fetch and refetch when workspace filter changes
+  useEffect(() => {
+    if (booted && user?.id) refetchSessions();
+  }, [booted, user?.id, refetchSessions]);
+
+  // Refetch sessions when workspace filter changes
+  const { workspaceFilter } = useMissionControlStore();
+  useEffect(() => {
+    if (booted && user?.id && workspaceFilter) {
+      console.log(`[MissionControl] Workspace filter changed to: ${workspaceFilter}, refetching sessions`);
+      refetchSessions();
+    }
+  }, [booted, user?.id, workspaceFilter, refetchSessions]);
+
   // Registration
   useEffect(() => {
     if (import.meta.env.MODE === "test") return;
@@ -196,6 +298,65 @@ const MissionControl: React.FC<MissionControlProps> = ({
   useEffect(() => {
     refetchSessions();
   }, [refetchSessions]);
+
+  // Inject navigate into store
+  useEffect(() => {
+    setRouterNavigate(navigate);
+    return () => setRouterNavigate(null);
+  }, [navigate, setRouterNavigate]);
+
+  // Initialize workspace_key (use user_infrastructure.workspace_path)
+  useEffect(() => {
+    async function fetchWorkspaceKey() {
+      if (!user?.id) return;
+      try {
+        const { data, error } = await supabase
+          .from("user_infrastructure")
+          .select("workspace_path")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (error) {
+          console.warn(
+            "[MissionControl] workspace fetch error:",
+            error.message
+          );
+          return;
+        }
+        const wk = (data?.workspace_path as string) || "/workspace";
+        await setWorkspaceKey(wk, user.id);
+      } catch (e) {
+        console.warn("[MissionControl] workspace fetch exception:", e);
+      }
+    }
+    fetchWorkspaceKey();
+  }, [user?.id, setWorkspaceKey]);
+
+  // Read sessionId from /project/:hashed_workspace_id/:sessionId path and set selection
+  const params = useParams() as {
+    hashed_workspace_id?: string;
+    sessionId?: string;
+    workspace_id?: string;
+  };
+
+  // Handle workspace_id parameter for filtering sessions by workspace
+  const workspaceId = params?.workspace_id;
+
+  useEffect(() => {
+    if (workspaceId) {
+      // Set the workspace filter in the store
+      useMissionControlStore.getState().setWorkspaceFilter(workspaceId);
+    } else {
+      // Clear the workspace filter when no workspace is selected
+      useMissionControlStore.getState().setWorkspaceFilter(null);
+    }
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (params?.sessionId) {
+      // only set selection; navigateToSession would push URL again unnecessarily
+      setSelectedSession(params.sessionId);
+    }
+  }, [params?.sessionId, setSelectedSession]);
 
   // Set up real-time updates and hotkeys
   useMissionControlFirehose();

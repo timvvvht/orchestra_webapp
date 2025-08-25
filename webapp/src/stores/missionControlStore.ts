@@ -1,11 +1,15 @@
-import { create } from 'zustand';
-import { sortSessionsByActivity, getSessionTimestamp } from '@/utils/time';
-import { type Plan, type PlanProgress } from '@/types/plans';
-import { analyzePlanProgressDetailed } from '@/utils/planProgress';
-import { type ParsedPlanResult } from '@/utils/plan';
-import { baseDirFromCwd } from '@/utils/pathHelpers';
-import { type GitStatusCounts } from '@/utils/gitHelpers';
-import { supabase } from '@/lib/supabaseClient';
+
+import { create } from "zustand";
+import { sortSessionsByActivity, getSessionTimestamp } from "@/utils/time";
+import { type Plan, type PlanProgress } from "@/types/plans";
+import { analyzePlanProgressDetailed } from "@/utils/planProgress";
+import { type ParsedPlanResult } from "@/utils/plan";
+import { baseDirFromCwd } from "@/utils/pathHelpers";
+import { type GitStatusCounts } from "@/utils/gitHelpers";
+import { supabase } from "@/lib/supabaseClient";
+import { arch } from "os";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
+
 // import { supabase } from "@/auth/SupabaseClient";
 
 // LocalStorage key for read state persistence
@@ -88,6 +92,7 @@ export interface CollapsedGroups {
 }
 
 interface MissionControlState {
+
     // Data
     activeSessions: MissionControlAgent[];
     archivedSessions: MissionControlAgent[];
@@ -245,6 +250,7 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
                 }
             } catch (error) {
                 // Failed to migrate collapsed groups state
+
             }
         }
 
@@ -484,6 +490,17 @@ async function sha256Base64Url(input: string): Promise<string> {
 
       setWorkspaceFilter: (workspaceId) => {
         set({ workspaceFilter: workspaceId });
+
+      },
+
+      toggleGroupCollapsed: (group) => {
+        set((state) => ({
+          collapsedGroups: {
+            ...state.collapsedGroups,
+            [group]: !state.collapsedGroups[group],
+          },
+        }));
+
       },
 
         toggleGroupCollapsed: group => {
@@ -571,9 +588,45 @@ async function sha256Base64Url(input: string): Promise<string> {
             set({ archivedSessions: [], archivedLoaded: false });
         },
 
+
+      // Computed getters
+      getFilteredSessions: () => {
+        const { activeSessions: sessions, cwdFilter, workspaceFilter } = get();
+
+        // First filter by workspace if specified
+        let filteredSessions = sessions;
+        if (workspaceFilter) {
+          // Get workspace info from the store
+          const workspace = useWorkspaceStore.getState().getWorkspace(workspaceFilter);
+          if (workspace) {
+            filteredSessions = sessions.filter((session) => {
+              // Filter by base directory or agent_cwd that contains the repository name
+              // Also check if the session was created with this repository context
+              const sessionRepoName = session.base_dir?.split('/').pop() || 
+                                    session.agent_cwd?.split('/').pop() || '';
+              
+              return (
+                session.base_dir?.includes(workspace.repoFullName) ||
+                session.agent_cwd?.includes(workspace.repoFullName) ||
+                sessionRepoName === workspace.repoFullName.split('/').pop() ||
+                // Check if session has repository metadata that matches
+                (session as any).repoContextWeb?.repo_full_name === workspace.repoFullName
+              );
+            });
+          }
+        }
+
+        // Then filter by cwd if specified
+        return filteredSessions.filter(
+          (session) =>
+            !cwdFilter ||
+            (session.base_dir ?? baseDirFromCwd(session.agent_cwd)) ===
+              cwdFilter
+        );
+      },
+
         getArchivedSessions: () => {
             const { archivedSessions, cwdFilter } = get();
-
             return archivedSessions
                 .filter(s => !cwdFilter || (s.base_dir ?? baseDirFromCwd(s.agent_cwd)) === cwdFilter)
                 .sort((a, b) => getSessionTimestamp(b).getTime() - getSessionTimestamp(a).getTime());
@@ -677,6 +730,28 @@ async function sha256Base64Url(input: string): Promise<string> {
         set({ workspaceKey, hashedWorkspaceId: hashed });
       },
 
+
+      // Workspace + routing actions
+      computeHashedWorkspaceId: async (
+        workspaceKey: string,
+        userId: string
+      ) => {
+        return await sha256Base64Url(`${workspaceKey}:${userId}`);
+      },
+
+      setWorkspaceKey: async (workspaceKey, userId) => {
+        if (!workspaceKey || !userId) {
+          set({ workspaceKey: workspaceKey ?? null, hashedWorkspaceId: null });
+          return;
+        }
+        const hashed = await get().computeHashedWorkspaceId(
+          workspaceKey,
+          userId
+        );
+        set({ workspaceKey, hashedWorkspaceId: hashed });
+      },
+
+
       setRouterNavigate: (nav) => {
         set({ routerNavigate: nav ?? null });
       },
@@ -687,14 +762,17 @@ async function sha256Base64Url(input: string): Promise<string> {
         // Update selection in store for split-pane to open
         set({ selectedSession: sessionId });
 
-        const hwid = hashedWorkspaceId ?? 'unknown';
+
+        const hwid = hashedWorkspaceId ?? "unknown";
+
         const path = `/project/${hwid}/${sessionId}`;
         if (routerNavigate) {
           routerNavigate(path);
         } else {
           // Fallback if not injected
-          window.history.pushState({}, '', path);
+
+          window.history.pushState({}, "", path);
         }
-      }
+      },
     };
 });

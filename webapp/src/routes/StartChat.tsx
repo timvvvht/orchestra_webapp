@@ -139,6 +139,30 @@ export default function StartChat() {
     }
   }, [api]);
 
+  const [images, setImages] = useState<string[]>([]);
+
+  const handleImageUpload = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setImages(prev => [...prev, base64String]);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const removeImage = useCallback((index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        handleImageUpload(file);
+      }
+    });
+  };
+
   // new on submit - uses startSessioNFast
   const onSubmit = useCallback(async () => {
     if (!selectedRepoId || !selectedRepoId || !branch.trim()) {
@@ -153,6 +177,7 @@ export default function StartChat() {
 
     try {
       setInfo("Creating session...");
+      setBusy(true);
       setSending(true);
       const cs = await createSessionFast({
         sessionName: `Task: ${trimmedPrompt.slice(0, 60)}`,
@@ -209,6 +234,7 @@ export default function StartChat() {
           repo_full_name: selectedRepoFullName,
           branch: branch.trim(),
         },
+        images,
       });
 
       // optimistic UI
@@ -231,13 +257,18 @@ export default function StartChat() {
           repo_full_name: selectedRepoFullName,
           branch: branch.trim(),
         },
+        images,
       });
+
+      // Clear images after successful send
+      setImages([]);
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
       setSending(false);
+      setBusy(false);
     }
-  }, [selectedRepoId, selectedRepoFullName, branch, prompt]);
+  }, [selectedRepoId, selectedRepoFullName, branch, prompt, images]);
 
   // Submit: Create session immediately and navigate to Mission Control (aligned with NewTaskModal)
   /*
@@ -570,15 +601,52 @@ export default function StartChat() {
                   />
                 </div>
 
+                {/* Images */}
+                <div>
+                  <label className="text-white/50 text-xs">Images (optional)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/10 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20"
+                  />
+                  {images.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {images.map((image, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={image}
+                            alt={`Upload ${index + 1}`}
+                            className="w-16 h-16 object-cover rounded-lg bg-white/5 border border-white/20"
+                          />
+                          <button
+                            onClick={() => removeImage(index)}
+                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <span className="text-white text-xs leading-none">×</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {error && <div className="text-sm text-red-400">{error}</div>}
 
                 <div className="flex items-center justify-center">
                   <button
                     onClick={onSubmit}
                     disabled={busy || !selectedRepoId || !prompt.trim()}
-                    className="group relative px-6 py-3 bg-white text-black rounded-xl font-medium transition-all duration-300 hover:scale-105 active:scale-100 disabled:opacity-50 cursor-pointer"
+                    className={`group relative px-6 py-3 bg-white text-black rounded-xl font-medium transition-all duration-300 active:scale-100 disabled:opacity-50 cursor-pointer ${
+                      busy ? "" : "hover:scale-105"
+                    }`}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-xl opacity-0 transition-opacity ${
+                        busy ? "" : "group-hover:opacity-100"
+                      }`}
+                    />
                     <span className="relative z-10">
                       {busy ? "Starting Mission…" : "Start Mission"}
                     </span>
