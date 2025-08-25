@@ -6,7 +6,6 @@ import { type ParsedPlanResult } from '@/utils/plan';
 import { baseDirFromCwd } from '@/utils/pathHelpers';
 import { type GitStatusCounts } from '@/utils/gitHelpers';
 import { supabase } from '@/lib/supabaseClient';
-import { arch } from 'os';
 // import { supabase } from "@/auth/SupabaseClient";
 
 // LocalStorage key for read state persistence
@@ -143,6 +142,7 @@ interface MissionControlState {
     setViewMode: (mode: ViewMode) => void;
     setSelectedSession: (sessionId: string | null) => void;
     setCwdFilter: (cwd: string | null) => void;
+    setWorkspaceFilter: (workspaceId: string | null) => void;
     toggleGroupCollapsed: (group: keyof CollapsedGroups) => void;
     setShowNewDraftModal: (show: boolean) => void;
     setInitialDraftCodePath: (path: string | null) => void;
@@ -167,6 +167,20 @@ interface MissionControlState {
 
     moveSessionToArchive: (sessionId: string) => boolean;
     moveSessionToActive: (sessionId: string) => boolean;
+
+    // Workspace + routing actions
+    computeHashedWorkspaceId: (
+        workspaceKey: string,
+        userId: string
+    ) => Promise<string>;
+    setWorkspaceKey: (
+        workspaceKey: string | null,
+        userId: string | null
+    ) => Promise<void>;
+    setRouterNavigate: (
+        nav: ((path: string, opts?: { replace?: boolean }) => void) | null
+    ) => void;
+    navigateToSession: (sessionId: string) => Promise<void>;
 
     // Computed getters
     getFilteredSessions: () => MissionControlAgent[];
@@ -208,6 +222,11 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
             sessionRefetchCallback: null as (() => Promise<void>) | null,
             lastCheckpointSaved: null as string | null,
             isAutoSaving: false
+        ,
+            workspaceKey: null,
+            hashedWorkspaceId: null,
+            workspaceFilter: null,
+            routerNavigate: null,
         };
 
         // Backwards compatibility: if old 'idle' state exists in localStorage, migrate it
@@ -231,6 +250,18 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
 
         return baseState;
     };
+
+// Browser-safe SHA-256 base64url helper
+async function sha256Base64Url(input: string): Promise<string> {
+    const enc = new TextEncoder().encode(input);
+    const digest = await crypto.subtle.digest('SHA-256', enc);
+    const bytes = new Uint8Array(digest);
+    // Convert bytes to binary string for btoa
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
     return {
         // Initial state
@@ -447,9 +478,13 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
             set({ selectedSession: sessionId });
         },
 
-        setCwdFilter: cwd => {
-            set({ cwdFilter: cwd });
-        },
+      setCwdFilter: (cwd) => {
+        set({ cwdFilter: cwd });
+      },
+
+      setWorkspaceFilter: (workspaceId) => {
+        set({ workspaceFilter: workspaceId });
+      },
 
         toggleGroupCollapsed: group => {
             set(state => ({
@@ -627,5 +662,39 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
             const pool = viewMode === 'archived' ? archivedSessions : sessions;
             return pool.find(s => s.id === selectedSession)?.agent_cwd || null;
         }
+        ,
+      // Workspace + routing actions
+      computeHashedWorkspaceId: async (workspaceKey: string, userId: string) => {
+        return await sha256Base64Url(`${workspaceKey}:${userId}`);
+      },
+
+      setWorkspaceKey: async (workspaceKey, userId) => {
+        if (!workspaceKey || !userId) {
+          set({ workspaceKey: workspaceKey ?? null, hashedWorkspaceId: null });
+          return;
+        }
+        const hashed = await get().computeHashedWorkspaceId(workspaceKey, userId);
+        set({ workspaceKey, hashedWorkspaceId: hashed });
+      },
+
+      setRouterNavigate: (nav) => {
+        set({ routerNavigate: nav ?? null });
+      },
+
+      navigateToSession: async (sessionId: string) => {
+        if (!sessionId) return;
+        const { hashedWorkspaceId, routerNavigate } = get();
+        // Update selection in store for split-pane to open
+        set({ selectedSession: sessionId });
+
+        const hwid = hashedWorkspaceId ?? 'unknown';
+        const path = `/project/${hwid}/${sessionId}`;
+        if (routerNavigate) {
+          routerNavigate(path);
+        } else {
+          // Fallback if not injected
+          window.history.pushState({}, '', path);
+        }
+      }
     };
 });
